@@ -1,0 +1,61 @@
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the method it implements
+  (preferred-citation) and, where appropriate, this implementation.
+title: "vectorfield_nav2: constructive vector-field navigation for ROS 2 Nav2"
+abstract: >-
+  ROS 2 implementation of the constructive time-varying artificial vector
+  fields of Rezende, Gonçalves and Pimenta (IEEE T-RO 2022): a Nav2
+  controller plugin, a curve-following action server, a ROS-free C++ core
+  and Python tools.
+type: software
+authors:
+  - family-names: Azpúrua
+    given-names: Héctor
+    email: hector@dcc.ufmg.br
+version: 0.0.1
+license: Apache-2.0
+repository-code: "https://github.com/h3ct0r/vectorfield_nav2"
+url: "https://h3ct0r.github.io/vectorfield_nav2/"
+keywords:
+  - ROS 2
+  - Nav2
+  - artificial vector fields
+  - path following
+  - curve following
+  - robot navigation
+preferred-citation:
+  type: article
+  title: "Constructive Time-Varying Vector Fields for Robot Navigation"
+  authors:
+    - family-names: Rezende
+      given-names: Adriano M. C.
+      orcid: "https://orcid.org/0000-0001-7784-6934"
+    - family-names: Gonçalves
+      given-names: Vinicius M.
+      orcid: "https://orcid.org/0000-0002-9730-6190"
+    - family-names: Pimenta
+      given-names: Luciano C. A.
+      orcid: "https://orcid.org/0000-0001-6385-1249"
+  journal: "IEEE Transactions on Robotics"
+  volume: 38
+  issue: 2
+  start: 852
+  end: 867
+  year: 2022
+  month: 4
+  doi: "10.1109/TRO.2021.3093674"
+references:
+  - type: thesis
+    title: "Vector field based guidance and control strategies for robot navigation"
+    authors:
+      - family-names: Rezende
+        given-names: Adriano Martins da Costa
+        orcid: "https://orcid.org/0000-0001-7784-6934"
+    thesis-type: PhD thesis
+    institution:
+      name: Universidade Federal de Minas Gerais
+      city: Belo Horizonte
+      country: BR
+    year: 2022
+    url: "https://hdl.handle.net/1843/73611"

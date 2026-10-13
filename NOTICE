@@ -1,0 +1,78 @@
+vectorfield_nav2
+Copyright 2026 Héctor Azpúrua
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+Source: https://github.com/h3ct0r/vectorfield_nav2
+
+
+Method and references
+=====================
+
+The controllers in this repository implement the artificial vector fields
+described in the following works. The implementation was written from their
+equations; equation numbers in the code and documentation refer to the thesis.
+
+  A. M. C. Rezende, V. M. Gonçalves and L. C. A. Pimenta, "Constructive
+  Time-Varying Vector Fields for Robot Navigation", IEEE Transactions on
+  Robotics, vol. 38, no. 2, pp. 852-867, 2022.
+  doi:10.1109/TRO.2021.3093674
+
+  A. M. C. Rezende, "Vector field based guidance and control strategies for
+  robot navigation", PhD thesis, Programa de Pós-Graduação em Engenharia
+  Elétrica, Universidade Federal de Minas Gerais (UFMG), 2022.
+  https://hdl.handle.net/1843/73611
+
+
+Prior implementation (design inspiration only)
+==============================================
+
+vectorfield_stack (https://github.com/adrianomcr/vectorfield_stack) is the
+ROS 1 implementation that accompanies the thesis. It is published without a
+license and is registered at INPI (Instituto Nacional da Propriedade
+Industrial, Brazil) under process BR512022000695-2, owned by Universidade
+Federal de Minas Gerais (UFMG) and VALE S.A.
+
+vectorfield_stack inspired the design of this project. No code from
+vectorfield_stack is included in this repository, either verbatim or
+translated.
+
+
+Third-party code
+================
+
+The following third-party code is adapted or bundled. Each entry states the
+milestone in which it enters the repository; entries marked "planned" are not
+yet present.
+
+1. Nav2 FeasiblePathHandler (navigation2, nav2_controller)
+   https://github.com/ros-navigation/navigation2
+   Copyright (c) 2022 Samsung Research America, @artofnothingness Alexey Budyakov
+   Copyright (c) 2023 Dexory
+   Copyright (c) 2023 Open Navigation LLC
+   License: Apache-2.0
+   Use: ported as LegacyPathHandler in vectorfield_nav2_controller for the
+   pre-Lyrical controller API (Humble, Jazzy), with attribution in the
+   source files.
+   Status: planned for milestone M2.
+
+2. muParser
+   https://github.com/beltoforion/muparser
+   Copyright 2020 Ingo Berg
+   License: BSD-2-Clause
+   Use: vendored, unmodified, under vectorfield_core/third_party/muparser,
+   with its LICENSE file.
+   Status: planned for milestone M1.
+
+
+Acknowledged ideas (no code copied)
+===================================
+
+The following MIT-licensed projects by the same research group informed the
+design. No code from them is included. If code is adapted in the future, its
+copyright and permission notice will be reproduced here.
+
+- vecfield_lib, https://github.com/adrianomcr/vecfield_lib
+  Copyright (c) 2021 Adriano, MIT License
+
+- UAIbotPy, https://github.com/UAIbot/UAIbotPy
+  Copyright (c) 2023 UAIbot, MIT License

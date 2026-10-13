@@ -1,0 +1,298 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Gating CI: Humble, Jazzy (amd64 + arm64) and Lyrical in the official ROS
+# containers, plus pre-commit, the standalone core under ASan/UBSan and TSan
+# (with libFuzzer), and a native macOS build. Rolling runs separately
+# (rolling.yml, nightly, non-gating); Gazebo and injection tests run in
+# nightly.yml; docs build in docs.yml.
+#
+# Benchmarks (non-gating, `bench` preset) are planned for M1, once
+# vectorfield_core has benchmark targets.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build_test:
+    name: ${{ matrix.ros_distro }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      checks: write # mikepenz/action-junit-report check run
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ros_distro: humble
+            arch: amd64
+            runner: ubuntu-24.04
+            image: ros:humble-ros-base-jammy
+          - ros_distro: jazzy
+            arch: amd64
+            runner: ubuntu-24.04
+            image: ros:jazzy-ros-base-noble
+            coverage: true
+          - ros_distro: jazzy
+            arch: arm64
+            runner: ubuntu-24.04-arm
+            image: ros:jazzy-ros-base-noble
+            clang_tidy: true
+          - ros_distro: lyrical
+            arch: amd64
+            runner: ubuntu-24.04
+            image: ros:lyrical-ros-base-resolute
+    steps:
+      # Needed for codecov.yml and the git metadata Codecov reports; the
+      # packages themselves are cloned into ros_ws/ by action-ros-ci.
+      - uses: actions/checkout@v7
+
+      # Inside the container: adds sudo, lcov, clang, colcon-lcov-result,
+      # colcon-coveragepy-result, colcon-mixin and pytest-cov, and runs rosdep init.
+      - uses: ros-tooling/setup-ros@v0.7
+
+      - id: ros_ci
+        uses: ros-tooling/action-ros-ci@v0.4
+        with:
+          target-ros2-distro: ${{ matrix.ros_distro }}
+          package-name: >-
+            vectorfield_core
+            vectorfield_msgs
+            vectorfield_ros
+            vectorfield_nav2_controller
+            vectorfield_curve_follower
+            vectorfield_py
+            vectorfield_sim
+            vectorfield_bringup
+            vectorfield_system_tests
+            vectorfield_nav2
+          rosdep-check: true
+          coverage-result: ${{ matrix.coverage == true }}
+          # Coverage gate (M1) is measured on vectorfield_core/src and include only.
+          coverage-ignore-pattern: >-
+            '*/third_party/*' '*/test/*' '*/bench/*' '*/rosidl_*' '/opt/ros/*' '/usr/*'
+          # Debug for the coverage build (optimised line coverage is misleading);
+          # RelWithDebInfo everywhere else. compile_commands.json feeds clang-tidy.
+          colcon-defaults: |
+            {
+              "build": {
+                "cmake-args": [
+                  "-DCMAKE_BUILD_TYPE=${{ matrix.coverage && 'Debug' || 'RelWithDebInfo' }}",
+                  "-DVF_WERROR=ON",
+                  "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+                  "--no-warn-unused-cli"
+                ],
+                "mixin": ${{ matrix.coverage && '["coverage-gcc", "coverage-pytest"]' || '[]' }}
+              },
+              "test": {
+                "mixin": ${{ matrix.coverage && '["coverage-pytest"]' || '[]' }}
+              }
+            }
+          colcon-mixin-repository: https://raw.githubusercontent.com/colcon/colcon-mixin-repository/7558e35befbff0d88d9b8f701b3ab1b073cbcaba/index.yaml
+
+      - name: clang-tidy
+        if: matrix.clang_tidy
+        env:
+          WS_NAME: ${{ steps.ros_ci.outputs.ros-workspace-directory-name }}
+        run: |
+          set -euo pipefail
+          # GITHUB_WORKSPACE is the container path; github.workspace is the host's.
+          WS="${GITHUB_WORKSPACE}/${WS_NAME}"
+          apt-get update
+          apt-get install -y --no-install-recommends clang-tidy
+          shopt -s nullglob
+          dbs=("${WS}"/build/vectorfield_*/compile_commands.json)
+          if [ "${#dbs[@]}" -eq 0 ]; then
+            echo "::notice::No compile_commands.json from vectorfield packages; nothing to analyse."
+            exit 0
+          fi
+          # Checks and the header filter come from .clang-tidy (findings are
+          # advisory there). Only checked-out sources are analysed: generated
+          # code under build/ and vendored third_party/ are excluded.
+          status=0
+          for db in "${dbs[@]}"; do
+            run-clang-tidy -quiet -p "$(dirname "${db}")" \
+              -extra-arg=-Wno-unknown-warning-option \
+              "^(?!.*/third_party/)${WS}/src/.*\.(cpp|cc)$" || status=1
+          done
+          exit "${status}"
+
+      - name: Test report
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: |
+            ros_ws/build/*/test_results/**/*.xml
+            ros_ws/build/*/pytest.xml
+          check_name: tests (${{ matrix.ros_distro }}-${{ matrix.arch }})
+          # Pull requests from forks get a read-only token: annotate only.
+          annotate_only: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+
+      - name: Upload colcon logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: colcon-logs-${{ matrix.ros_distro }}-${{ matrix.arch }}
+          path: ${{ steps.ros_ci.outputs.ros-workspace-directory-name }}/log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Install Codecov uploader dependencies
+        if: matrix.coverage
+        run: apt-get update && apt-get install -y --no-install-recommends curl git gnupg
+
+      - name: Upload coverage
+        if: matrix.coverage
+        uses: codecov/codecov-action@v7
+        with:
+          files: ros_ws/lcov/total_coverage.info
+          disable_search: true
+          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # The local ament_* hooks need a sourced ROS environment; colcon test
+      # runs the same linters through ament_lint_auto.
+      - uses: pre-commit/action@v3.0.1
+        env:
+          SKIP: ament_copyright,ament_xmllint,ament_lint_cmake
+
+  core_sanitizers:
+    name: core ${{ matrix.preset }} (clang)
+    runs-on: ubuntu-24.04 # on the host: sanitizers need vm.mmap_rnd_bits <= 28
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [asan, tsan]
+    env:
+      CC: clang
+      CXX: clang++
+      PRESET: ${{ matrix.preset }}
+      UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install clang toolchain and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            clang llvm libclang-rt-dev libeigen3-dev libgtest-dev ninja-build
+          sudo sysctl -w vm.mmap_rnd_bits=28
+
+      - name: Configure, build and test (${{ matrix.preset }})
+        run: |
+          set -euo pipefail
+          cd vectorfield_core
+          cmake --preset "${PRESET}"
+          cmake --build --preset "${PRESET}"
+          ctest --preset "${PRESET}"
+
+      # A separate asan build with VF_BUILD_FUZZERS=ON (LLVM clang only) and no
+      # tests, so every executable it produces is a libFuzzer target; each runs
+      # for 60 s. Seeds, if present, are read from vectorfield_core/test/fuzz/corpus.
+      - name: libFuzzer (60 s per target)
+        if: matrix.preset == 'asan'
+        run: |
+          set -euo pipefail
+          cd vectorfield_core
+          cmake --preset asan -B build/fuzz -DVF_BUILD_FUZZERS=ON -DBUILD_TESTING=OFF
+          cmake --build build/fuzz
+          mapfile -t fuzzers < <(find build/fuzz -type f -perm -u+x ! -path '*/CMakeFiles/*' \
+            ! -name '*.so' ! -name '*.so.*' | sort)
+          if [ "${#fuzzers[@]}" -eq 0 ]; then
+            echo "::notice::No libFuzzer target is defined yet (the ExpressionCurve fuzzer lands in M1); skipping."
+            exit 0
+          fi
+          mkdir -p "${RUNNER_TEMP}/fuzz-artifacts"
+          for f in "${fuzzers[@]}"; do
+            corpus="${RUNNER_TEMP}/corpus/$(basename "${f}")"
+            mkdir -p "${corpus}"
+            seeds=()
+            if [ -d test/fuzz/corpus ]; then seeds+=(test/fuzz/corpus); fi
+            "${f}" -max_total_time=60 -timeout=10 -rss_limit_mb=2048 -print_final_stats=1 \
+              -artifact_prefix="${RUNNER_TEMP}/fuzz-artifacts/" "${corpus}" "${seeds[@]}"
+          done
+
+      - name: Upload fuzzer crash inputs
+        if: failure() && matrix.preset == 'asan'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-artifacts
+          path: ${{ runner.temp }}/fuzz-artifacts
+          if-no-files-found: ignore
+
+  macos:
+    name: macOS (core + Python)
+    runs-on: macos-26 # Apple Silicon
+    timeout-minutes: 60
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Homebrew dependencies
+        run: |
+          brew install eigen googletest pybind11 ninja
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix)" >> "${GITHUB_ENV}"
+
+      - name: Core (dev preset)
+        run: |
+          set -euo pipefail
+          cd vectorfield_core
+          cmake --preset dev
+          cmake --build --preset dev
+          ctest --preset dev
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: vectorfield_py (pip + pytest)
+        run: |
+          set -euo pipefail
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install --upgrade pip
+          python -m pip install './vectorfield_py[test]'
+          python -m pytest vectorfield_py/test

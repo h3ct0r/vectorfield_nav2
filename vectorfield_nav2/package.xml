@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vectorfield_nav2</name>
+  <version>0.0.1</version>
+  <description>Metapackage for vectorfield_nav2, artificial vector-field navigation for Nav2: the controller plugin, the curve follower, the core library, the ROS layer, the interfaces, the Python tools and the kinematic simulator. Launch files and system tests are not included.</description>
+  <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
+  <license>Apache-2.0</license>
+  <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
+  <url type="repository">https://github.com/h3ct0r/vectorfield_nav2</url>
+  <url type="bugtracker">https://github.com/h3ct0r/vectorfield_nav2/issues</url>
+  <author email="hector@dcc.ufmg.br">Héctor Azpúrua</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>vectorfield_core</exec_depend>
+  <exec_depend>vectorfield_curve_follower</exec_depend>
+  <exec_depend>vectorfield_msgs</exec_depend>
+  <exec_depend>vectorfield_nav2_controller</exec_depend>
+  <exec_depend>vectorfield_py</exec_depend>
+  <exec_depend>vectorfield_ros</exec_depend>
+  <exec_depend>vectorfield_sim</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

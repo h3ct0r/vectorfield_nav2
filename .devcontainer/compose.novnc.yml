@@ -1,0 +1,68 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Optional browser desktop for RViz (and other X11 GUIs) from the humble, jazzy
+# and lyrical devcontainers on macOS.
+#
+# This service runs only an X server (Xvfb, display :1), a window manager,
+# x11vnc and noVNC. It shares the X11 socket through the `vf-x11` volume, which
+# the devcontainers mount at /tmp/.X11-unix. GUI programs therefore run inside
+# the dev container, on its ROS graph, and draw here with software OpenGL.
+#
+#   docker compose -f .devcontainer/compose.novnc.yml up -d --build
+#   open http://localhost:6080/vnc.html?autoconnect=1&resize=remote
+#   # in the dev container:  export DISPLAY=:1 && rviz2
+#   docker compose -f .devcontainer/compose.novnc.yml down
+#
+# VNC has no password, so noVNC is published on 127.0.0.1 only.
+
+name: vectorfield-novnc
+
+services:
+  novnc:
+    image: vectorfield-novnc:local
+    build:
+      context: .
+      dockerfile_inline: |
+        FROM ubuntu:24.04
+        RUN apt-get update \
+            && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+                 xvfb x11vnc novnc websockify fluxbox libgl1-mesa-dri x11-utils \
+            && rm -rf /var/lib/apt/lists/*
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6080:6080"
+    environment:
+      DISPLAY: ":1"
+      GEOMETRY: 1920x1080x24
+    volumes:
+      - vf-x11:/tmp/.X11-unix
+    command:
+      - bash
+      - -c
+      - |
+        set -e
+        chmod 1777 /tmp/.X11-unix
+        rm -f /tmp/.X1-lock /tmp/.X11-unix/X1
+        # MIT-SHM is off: clients in other containers do not share its IPC namespace.
+        Xvfb :1 -screen 0 "$${GEOMETRY}" -ac +extension GLX +render -extension MIT-SHM -noreset &
+        for _ in $$(seq 50); do [ -S /tmp/.X11-unix/X1 ] && break; sleep 0.1; done
+        fluxbox >/dev/null 2>&1 &
+        x11vnc -display :1 -forever -shared -nopw -noshm -localhost -rfbport 5900 -quiet &
+        exec websockify --web /usr/share/novnc 6080 localhost:5900
+
+volumes:
+  vf-x11:
+    name: vf-x11

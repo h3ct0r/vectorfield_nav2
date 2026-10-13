@@ -1,0 +1,105 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Nightly, non-gating test layer 5: Gazebo TB3 (label `gazebo`) and
+# noise/latency/slip injection (label `nightly`). These tests are registered only
+# with -DVF_NIGHTLY_TESTS=ON, so per-PR jobs, devcontainer `colcon test` and
+# buildfarm devel jobs never see them. Plain bash steps, because action-ros-ci
+# cannot run its tests under xvfb-run; the TB3 world loads the ogre2 sensors
+# system, which needs a display even in headless mode.
+
+name: Nightly (Gazebo + injection)
+
+on:
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  nightly:
+    name: jazzy (amd64) nightly tests
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base-noble
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      checks: write # mikepenz/action-junit-report check run
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ws/src/vectorfield_nav2
+
+      - name: Install virtual display and dependencies
+        run: |
+          set -eo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri
+          rosdep update --rosdistro jazzy
+          rosdep install --from-paths ws/src --ignore-src -y -r --rosdistro jazzy
+
+      - name: Build
+        working-directory: ws
+        run: |
+          set -eo pipefail
+          source /opt/ros/jazzy/setup.bash
+          colcon build --event-handlers console_cohesion+ \
+            --packages-up-to vectorfield_system_tests \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DVF_NIGHTLY_TESTS=ON --no-warn-unused-cli
+
+      - name: Test (gazebo|nightly) under Xvfb
+        working-directory: ws
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -eo pipefail
+          source /opt/ros/jazzy/setup.bash
+          xvfb-run -a -s "-screen 0 1280x1024x24" \
+            colcon test --event-handlers console_direct+ \
+              --packages-select vectorfield_system_tests --ctest-args -L 'gazebo|nightly'
+
+      # colcon test exits 0 when tests fail; test-result sets the job status.
+      - name: Test results
+        working-directory: ws
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon test-result --verbose
+
+      - name: Test report
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: ws/build/vectorfield_system_tests/test_results/**/*.xml
+          check_name: nightly tests (jazzy-amd64)
+
+      - name: Upload colcon logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: colcon-logs-nightly
+          path: ws/log
+          if-no-files-found: ignore
+          retention-days: 14

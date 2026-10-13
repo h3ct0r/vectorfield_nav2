@@ -1,0 +1,108 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Rolling: nightly and non-gating. Nav2 is not released into Rolling, so this
+# builds against the Nav2 nightly image (Nav2 main in /root/nav2_ws/install).
+#
+# - One bash step, not action-ros-ci: that action sources only
+#   /opt/ros/<distro>/setup.sh, and Actions never runs /ros_entrypoint.sh, so it
+#   would not see the Nav2 workspace.
+# - Launch tests are excluded (-LE launch_test): the image copies /opt/ros and
+#   the Nav2 install tree but not the system libraries in /usr (for example
+#   GraphicsMagick for map_server). Lyrical has the same Nav2 API and runs them.
+# - No apt upgrade (it would drift the ABI under the prebuilt Nav2) and no
+#   rosdep check (Nav2 keys do not resolve in Rolling's rosdistro by design).
+# - A failure opens, or comments on, a tracking issue.
+
+name: Rolling (nightly)
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  rolling:
+    name: rolling (Nav2 main nightly)
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/ros-navigation/nav2_docker:rolling-nightly-standard
+    continue-on-error: true
+    timeout-minutes: 120
+    outputs:
+      outcome: ${{ steps.build_test.outcome }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: ws/src/vectorfield_nav2
+
+      - id: build_test
+        name: rosdep, build and test
+        shell: bash
+        run: |
+          set -eo pipefail
+          source /opt/ros/rolling/setup.bash
+          source /root/nav2_ws/install/setup.bash
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          rosdep update --rosdistro rolling
+          rosdep install --from-paths ws/src --ignore-src -y -r --rosdistro rolling
+          cd ws
+          colcon build --event-handlers console_cohesion+ \
+            --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo --no-warn-unused-cli
+          colcon test --event-handlers console_direct+ --ctest-args -LE launch_test
+          colcon test-result --verbose
+
+      - name: Upload colcon logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: colcon-logs-rolling
+          path: ws/log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  report:
+    name: Report failure
+    needs: rolling
+    if: ${{ !cancelled() && needs.rolling.outputs.outcome != 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update the tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title='Rolling nightly build is failing'
+          number=$(gh issue list --state open --search "\"${title}\" in:title" \
+            --json number,title --jq "map(select(.title == \"${title}\")) | .[0].number // empty")
+          if [ -n "${number}" ]; then
+            gh issue comment "${number}" --body "Still failing: ${RUN_URL}"
+          else
+            gh issue create --title "${title}" --body "$(printf '%s\n\n%s\n' \
+              "The non-gating Rolling job (Nav2 main nightly image) failed: ${RUN_URL}" \
+              'Close this issue once a nightly run passes again.')"
+          fi

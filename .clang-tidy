@@ -1,0 +1,77 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# clang-tidy runs in the Jazzy CI job (clang-tidy 18) on compile_commands.json.
+# Findings are advisory: WarningsAsErrors is empty.
+#
+# HeaderFilterRegex: clang-tidy uses POSIX extended regexes (no look-ahead), so
+# the filter is anchored on the repository directory instead. It matches
+# headers under <repo>/vectorfield_*/{include,src,test,bench}/ and therefore
+# excludes:
+#   - vectorfield_core/third_party/ (vendored muParser);
+#   - generated headers in colcon build/ and install/ trees
+#     (generate_parameter_library, version.hpp);
+#   - preset build trees (vectorfield_core/build/<preset>/).
+# The checkout directory must be named vectorfield_nav2 (as in CI and the
+# devcontainers); otherwise only diagnostics in .cpp files are reported.
+---
+Checks: >-
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  cppcoreguidelines-slicing,
+  misc-*,
+  -misc-include-cleaner,
+  -misc-no-recursion,
+  -misc-non-private-member-variables-in-classes,
+  modernize-*,
+  -modernize-avoid-c-arrays,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  readability-avoid-const-params-in-decls,
+  readability-braces-around-statements,
+  readability-const-return-type,
+  readability-container-contains,
+  readability-container-size-empty,
+  readability-delete-null-pointer,
+  readability-duplicate-include,
+  readability-else-after-return,
+  readability-inconsistent-declaration-parameter-name,
+  readability-isolate-declaration,
+  readability-make-member-function-const,
+  readability-misleading-indentation,
+  readability-misplaced-array-index,
+  readability-non-const-parameter,
+  readability-redundant-control-flow,
+  readability-redundant-declaration,
+  readability-redundant-member-init,
+  readability-redundant-smartptr-get,
+  readability-redundant-string-cstr,
+  readability-simplify-boolean-expr,
+  readability-static-accessed-through-instance,
+  readability-static-definition-in-anonymous-namespace,
+  readability-string-compare,
+  readability-uniqueptr-delete-release,
+  readability-use-anyofallof
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*/vectorfield_nav2/vectorfield_[a-z0-9_]+/(include|src|test|bench)/.*'
+FormatStyle: file
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: '1'
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: 'SharedPtr;shared_ptr;WeakPtr;weak_ptr'
+  - key: misc-unused-parameters.StrictMode
+    value: 'false'
+...

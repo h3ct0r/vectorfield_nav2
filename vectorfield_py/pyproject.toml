@@ -1,0 +1,67 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# pip build of the `vectorfield` wheel (scikit-build-core). Supported only as an in-tree build
+# from a git checkout: `pip install ./vectorfield_py`. CMakeLists.txt compiles the sibling
+# ../vectorfield_core, which an sdist would not contain. Under ROS, colcon builds this package
+# with ament_cmake instead and ignores this file.
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.9.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "vectorfield"
+dynamic = ["version"]
+description = "Python bindings and tools for the ROS-free vectorfield_nav2 core (artificial vector fields for robot navigation)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Héctor Azpúrua", email = "hector@dcc.ufmg.br" }]
+maintainers = [{ name = "Héctor Azpúrua", email = "hector@dcc.ufmg.br" }]
+keywords = ["robotics", "navigation", "vector field", "path following", "ros2", "nav2"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: C++",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = ["numpy>=1.21"]
+
+[project.optional-dependencies]
+# The vf-* CLIs (M4) import matplotlib lazily; the GIF writer uses Pillow.
+tools = ["matplotlib", "pillow"]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://h3ct0r.github.io/vectorfield_nav2/"
+Documentation = "https://h3ct0r.github.io/vectorfield_nav2/"
+Repository = "https://github.com/h3ct0r/vectorfield_nav2"
+Issues = "https://github.com/h3ct0r/vectorfield_nav2/issues"
+
+# M4 adds [project.scripts]: vf-plot, vf-sim, vf-tune and vf-curve (vectorfield_tools).
+
+[tool.scikit-build]
+minimum-version = "0.10"
+cmake.version = ">=3.22"
+wheel.packages = ["python/vectorfield", "python/vectorfield_tools"]
+
+# package.xml is the single source of the version.
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "package.xml"
+regex = '<version>\s*(?P<value>\d+\.\d+\.\d+)\s*</version>'

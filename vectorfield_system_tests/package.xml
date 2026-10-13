@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vectorfield_system_tests</name>
+  <version>0.0.1</version>
+  <description>Cross-package integration and launch tests for vectorfield_nav2: navigation per distro and motion model in simulation, obstacle scenarios, shipped-configuration validation and controller comparison. Not released.</description>
+  <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
+  <license>Apache-2.0</license>
+  <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
+  <url type="repository">https://github.com/h3ct0r/vectorfield_nav2</url>
+  <url type="bugtracker">https://github.com/h3ct0r/vectorfield_nav2/issues</url>
+  <author email="hector@dcc.ufmg.br">Héctor Azpúrua</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>launch_testing</test_depend>
+  <test_depend>launch_testing_ament_cmake</test_depend>
+  <test_depend>launch_testing_ros</test_depend>
+  <test_depend condition="$ROS_DISTRO != humble">nav2_loopback_sim</test_depend>
+  <test_depend>nav2_simple_commander</test_depend>
+  <test_depend>vectorfield_bringup</test_depend>
+  <test_depend>vectorfield_curve_follower</test_depend>
+  <test_depend>vectorfield_nav2_controller</test_depend>
+  <test_depend>vectorfield_sim</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

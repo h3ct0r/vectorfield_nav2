@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vectorfield_nav2_controller</name>
+  <version>0.0.1</version>
+  <description>Nav2 controller plugin (nav2_core::Controller) that tracks the global plan with the artificial vector field of Rezende, Gonçalves and Pimenta (IEEE T-RO 2022), with costmap obstacle contouring, collision prediction and differential, skid-steer, omnidirectional and Ackermann motion models.</description>
+  <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
+  <license>Apache-2.0</license>
+  <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
+  <url type="repository">https://github.com/h3ct0r/vectorfield_nav2</url>
+  <url type="bugtracker">https://github.com/h3ct0r/vectorfield_nav2/issues</url>
+  <author email="hector@dcc.ufmg.br">Héctor Azpúrua</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>generate_parameter_library</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_core</depend>
+  <depend>nav2_costmap_2d</depend>
+  <depend>nav2_msgs</depend>
+  <depend condition="$ROS_DISTRO != humble and $ROS_DISTRO != jazzy and $ROS_DISTRO != kilted">nav2_ros_common</depend>
+  <depend>nav2_util</depend>
+  <depend>nav_msgs</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_ros</depend>
+  <depend>vectorfield_core</depend>
+  <depend>vectorfield_msgs</depend>
+  <depend>vectorfield_ros</depend>
+  <depend>visualization_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>nav2_controller</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

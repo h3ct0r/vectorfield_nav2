@@ -1,0 +1,61 @@
+{
+  "name": "vectorfield_nav2 (humble)",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "args": {
+      "BASE": "ros:humble-ros-base-jammy",
+      "ROS_DISTRO": "humble",
+      "EXTRA_APT": ""
+    }
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/ws/src/vectorfield_nav2,type=bind",
+  "workspaceFolder": "/ws/src/vectorfield_nav2",
+  "mounts": [
+    "source=vf-humble-build,target=/ws/build,type=volume",
+    "source=vf-humble-install,target=/ws/install,type=volume",
+    "source=vf-humble-log,target=/ws/log,type=volume",
+    "source=vf-humble-ccache,target=/ccache,type=volume",
+    "source=vf-x11,target=/tmp/.X11-unix,type=volume"
+  ],
+  "runArgs": ["--shm-size=1g"],
+  "init": true,
+  "capAdd": ["SYS_PTRACE"],
+  "securityOpt": ["seccomp=unconfined"],
+  "forwardPorts": [8765],
+  "portsAttributes": {
+    "8765": {
+      "label": "foxglove_bridge",
+      "onAutoForward": "silent"
+    }
+  },
+  "containerEnv": {
+    "CCACHE_DIR": "/ccache",
+    "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+    "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
+    "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+    "ROS_LOCALHOST_ONLY": "1"
+  },
+  "postCreateCommand": "apt-get update && rosdep update --rosdistro humble && rosdep install --from-paths /ws/src --ignore-src -y -r --rosdistro humble",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Ranch-Hand-Robotics.rde-pack",
+        "llvm-vs-code-extensions.vscode-clangd",
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "C_Cpp.intelliSenseEngine": "disabled",
+        "clangd.arguments": [
+          "--compile-commands-dir=/ws/build",
+          "--background-index",
+          "--header-insertion=never"
+        ],
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

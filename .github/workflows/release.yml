@@ -1,0 +1,113 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# On a release tag (catkin_prepare_release creates bare X.Y.Z tags; vX.Y.Z is
+# also accepted): check that the tag, CITATION.cff and every package.xml carry
+# the same version, then publish a GitHub Release whose notes are that version's
+# section of vectorfield_nav2/CHANGELOG.rst. Packaging into ROS distributions is
+# done separately with bloom.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: GitHub Release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # create the release
+    steps:
+      - uses: actions/checkout@v7
+
+      - id: check
+        name: Check versions and extract release notes
+        shell: python
+        env:
+          NOTES_FILE: ${{ runner.temp }}/release-notes.md
+        run: |
+          import os
+          import pathlib
+          import re
+          import sys
+          import xml.etree.ElementTree as ET
+
+          tag = os.environ['GITHUB_REF_NAME']
+          version = tag[1:] if tag.startswith('v') else tag
+          errors = []
+          if not re.fullmatch(r'\d+\.\d+\.\d+', version):
+              errors.append(f'tag {tag!r} is not X.Y.Z or vX.Y.Z')
+
+          manifests = sorted(pathlib.Path('.').glob('*/package.xml'))
+          if not manifests:
+              errors.append('no package.xml found')
+          for manifest in manifests:
+              found = (ET.parse(manifest).getroot().findtext('version') or '').strip()
+              if found != version:
+                  errors.append(f'{manifest}: version {found!r} != {version!r}')
+
+          cff = pathlib.Path('CITATION.cff').read_text(encoding='utf-8')
+          match = re.search(r'^version:\s*["\']?([^"\'\s#]+)', cff, re.MULTILINE)
+          found = match.group(1) if match else None
+          if found != version:
+              errors.append(f'CITATION.cff: version {found!r} != {version!r}')
+
+          # catkin changelog: a 'X.Y.Z (YYYY-MM-DD)' title underlined with '-'.
+          lines = pathlib.Path('vectorfield_nav2/CHANGELOG.rst').read_text(
+              encoding='utf-8').splitlines()
+          underline = re.compile(r'-{3,}\s*')
+          title = re.compile(re.escape(version) + r'\s+\(')
+          start = next((i + 2 for i in range(len(lines) - 1)
+                        if title.match(lines[i]) and underline.fullmatch(lines[i + 1])), None)
+          notes = ''
+          if start is None:
+              errors.append(f'vectorfield_nav2/CHANGELOG.rst has no section for {version}')
+          else:
+              end = next((j for j in range(start, len(lines) - 1)
+                          if lines[j].strip() and underline.fullmatch(lines[j + 1])),
+                         len(lines))
+              notes = '\n'.join(lines[start:end]).strip()
+
+          for error in errors:
+              print(f'::error::{error}')
+          if errors:
+              sys.exit(1)
+
+          pathlib.Path(os.environ['NOTES_FILE']).write_text(
+              (notes or 'No changelog entries.') + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as out:
+              out.write(f'version={version}\n')
+          print(f'{len(manifests)} package.xml files and CITATION.cff match {version}')
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NOTES_FILE: ${{ runner.temp }}/release-notes.md
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" --verify-tag \
+            --title "vectorfield_nav2 ${VERSION}" --notes-file "${NOTES_FILE}"
