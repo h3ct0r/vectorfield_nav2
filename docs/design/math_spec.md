@@ -1286,7 +1286,7 @@ field instead would turn the robot back into the obstacle during every contour e
 **Goal hold.** Once settled with no rotate phase (`use_rotate_to_heading` false, yaw unchecked, or
 Ackermann), the target is zero and the phase is kept until XY is no longer reached. This needs a
 latch, $\mathrm{hold}_k = \text{settled}_k \vee (\mathrm{hold}_{k-1} \wedge \text{XY reached}_k)$,
-which `TrackerState` does not yet have ({ref}`sec-math-spec-choices`).
+stored in `TrackerState::holding` ({ref}`sec-math-spec-choices`, item 13).
 
 **kBlocked** is a per-cycle status, not a phase ({ref}`sec-collision-blocked`). While it is set, the
 phase's target becomes 0 and the limiter decelerates; the next rollout re-runs the same phase, so
@@ -1761,8 +1761,9 @@ Computed with `python3 -I` (pure Python, double precision) while writing this do
 
 ## Appendix C Details fixed by this document
 
-The plan leaves these open; they are [Spec] above and should be confirmed or changed before M1 code
-depends on them.
+The plan leaves these open; they are [Spec] above. All seventeen were reviewed and **confirmed on
+2026-10-13** before M1; item 13 is implemented as `TrackerState::holding`. Change them only together
+with the code and tests that depend on them.
 
 1. Closest-point tie tolerance $10^{-9}$ m, tie-breaking toward the hint, and toward the smallest
    $\mathrm{dir}\cdot s$ at initialisation (answers `upstream_audit.md` item O2).
@@ -1783,7 +1784,7 @@ depends on them.
 11. Acceleration bound selection by the sign of $u_{\mathrm{prev},i}\Delta_i$.
 12. ROTATE_TO_FIELD needs $\lVert F_{\mathrm{trk}}\rVert \ge 0.05 v_r$; the transition order of
     {ref}`sec-phases-table`.
-13. Goal hold needs a latch bit that `TrackerState` lacks (for example `bool holding`).
+13. Goal hold uses the latch bit `TrackerState::holding`.
 14. FootprintChecker's $D_{\mathrm{lo}}$/$D_{\mathrm{hi}}$ form and the ground-truth collision predicate.
 15. Reject FL with $d \le 0$.
 16. At configure, the curvature advisor rules use $\kappa_{\mathrm{path}} = 0$.
