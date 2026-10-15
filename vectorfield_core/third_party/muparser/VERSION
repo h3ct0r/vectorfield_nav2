@@ -1,0 +1,6 @@
+muParser 2.3.6 (Development), vendored unmodified
+repository: https://github.com/beltoforion/muparser
+branch: master
+commit: 508cce97d983c4c61099ceacc11c984a60053967
+commit date: 2026-07-03
+files: LICENSE, CHANGELOG, include/*.h, src/{muParser,muParserBase,muParserBytecode,muParserCallback,muParserError,muParserTokenReader}.cpp

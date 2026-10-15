@@ -1,11 +1,12 @@
 # third_party
 
-Vendored upstream code used by `vectorfield_core`. Nothing is vendored yet.
+Vendored upstream code used by `vectorfield_core`.
 
-## muParser (planned for M1)
+## muParser
 
-M1 vendors [muParser](https://github.com/beltoforion/muparser) (BSD-2-Clause) into
-`third_party/muparser/` for `ExpressionCurve`, which evaluates curve expressions r(s, t).
+[muParser](https://github.com/beltoforion/muparser) (BSD-2-Clause) is vendored in
+`third_party/muparser/` for `ExpressionCurve`, which evaluates curve expressions r(s, t). The pinned
+upstream commit is recorded in `muparser/VERSION`.
 
 - **What is copied:** `LICENSE`, `CHANGELOG`, `include/*.h` and the six library sources in
   `src/*.cpp`, plus a `VERSION` file that records the pinned upstream commit (one that includes

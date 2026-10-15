@@ -61,7 +61,8 @@ yet present.
    License: BSD-2-Clause
    Use: vendored, unmodified, under vectorfield_core/third_party/muparser,
    with its LICENSE file.
-   Status: planned for milestone M1.
+   Version: master commit 508cce97d983c4c61099ceacc11c984a60053967
+   (2026-07-03, "2.3.6 (Development)"; recorded in third_party/muparser/VERSION).
 
 
 Acknowledged ideas (no code copied)

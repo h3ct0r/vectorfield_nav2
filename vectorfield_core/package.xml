@@ -11,6 +11,7 @@
   </description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>
+  <license file="third_party/muparser/LICENSE">BSD-2-Clause</license>
   <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
   <url type="repository">https://github.com/h3ct0r/vectorfield_nav2</url>
   <url type="bugtracker">https://github.com/h3ct0r/vectorfield_nav2/issues</url>

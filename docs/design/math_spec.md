@@ -329,10 +329,21 @@ $[0, 2\pi)$). The parameter is not arc length.
   re-orthogonalisation keeps $n^\top T = 0$ to rounding, so $\lVert \Phi_S \rVert = 1$ and the
   $\eta$ formula stay exact.
 - **Golden section** [Spec]: stop when the bracket width is at most
-  $10^{-10} \max(1, u_f - u_i)$, or after 100 iterations.
+  $10^{-10} \max(1, u_f - u_i)$, or after 100 iterations; then polish with at most 8 secant steps on
+  $(r - x)^\top r' = 0$ within $\pm 10^{-5}(u_f - u_i)$ [Spec, M1]: golden section alone locates the
+  foot only to about $10^{-8}$ m at $D = 1$ m, short of O7's $10^{-9}$.
 - **Global stage** (thesis §5.1): $M$ samples equally spaced in $u$ (closed: $[u_i, u_f)$; open:
-  inclusive) plus the two rays; $k^\star = \arg\min$; golden section on
-  $[u_{k^\star - 1}, u_{k^\star + 1}]$ (clamped to the domain when open).
+  inclusive) plus the two rays; every local minimum of the sampled distance within about half a
+  sample spacing of the best (at most 4) is refined by golden section on
+  $[u_{k - 1}, u_{k + 1}]$ (clamped to the domain when open), and the tie rule picks among the refined
+  feet [Spec, M1]. Refining only $\arg\min$ fails at self-intersections, where samples on both
+  branches sit on the crossing and tie. Static curves cache the sample positions at $t_0$.
+- **Adoption ties** [Spec, M1]: a global candidate within $10^{-9}$ m of the local one is not adopted
+  (the tie goes to the hint).
+- **Regularity slack** [Spec, M1]: adjacent tangents exactly $90°$ apart pass (with $10^{-9}$ rad
+  slack), so a circle sampled at the minimum $M = 4$ is accepted.
+- **Expression time** [Spec, M1]: an expression's `t` is curve time minus `CurveSpec::t0`; regularity is
+  checked at expression time 0 and $\partial_t r$ is differenced around $t - t_0$.
 - **Arc length, static curves**: a $u \leftrightarrow s$ table is built once at construction, with
   $s_k$ at the $M + 1$ samples by 5-point Gauss–Legendre per interval, and
   $s(u) = s_k + \int_{u_k}^{u} \lVert \partial r / \partial u \rVert\, du$ by the same rule [Spec].
@@ -425,8 +436,9 @@ Notes:
    The arc is tangent at $P_v - R\tan(\theta/2)\, t_{v-1}$ and $P_v + R\tan(\theta/2)\, t_v$, centred
    at $P_v + \frac{R}{\cos(\theta/2)} \operatorname{unit}(t_v - t_{v-1})$. Its deviation from the
    vertex is $R(1/\cos(\theta/2) - 1) \le \delta$. Endpoints are preserved.
-3. Resample by arc length at `sample_spacing` (or `default_sample_spacing` 0.05 m), keeping the
-   endpoints; then require $N \le$ `max_curve_points`.
+3. Densify to `sample_spacing` (or `default_sample_spacing` 0.05 m): every vertex is kept and each
+   segment of length $\ell$ is split into $\lceil \ell / \mathrm{spacing} \rceil$ equal pieces, so
+   endpoints and corners never move [Spec, confirmed M1]; then require $N \le$ `max_curve_points`.
 
 **Plugin window** (per cycle, plan §5.2). Dedupe at 1 mm; no resampling or smoothing, because
 neither is shift-invariant on a re-pruned window; semi-infinite backward and forward rays.
@@ -466,6 +478,12 @@ neither is shift-invariant on a re-pruned window; semi-infinite backward and for
 Reversals shorter than $\ell_c$ are ignored, including NavFn's `smoothApproachToGoal` hook at the
 goal and its start-cell hook at the robot. Without step 2 the final chord can be the sub-cell hook
 itself; a Monte Carlo of NavFn tails flagged about 6% of goals that way.
+
+**Detection guarantee** [Derived, M1]. A reversal longer than $2\ell_c$ is always flagged. One
+between $\ell_c$ and $2\ell_c$ is flagged or not depending on where the chord grid falls (measured:
+a 0.3 m reversal is flagged in 64/64 alignments at res 0.05, $\ell_c = 0.10$, but in 8/64 at res
+0.10, $\ell_c = 0.20$). An unflagged short reversal is followed forward with a deviation below
+$2\ell_c$; planner cusps (Smac Reeds–Shepp, Lattice reverse primitives) are far longer.
 
 (sec-gains)=
 
@@ -1025,8 +1043,9 @@ $$
 
 with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
 
-- **Desired heading.** $\psi_d$ is held at `last_psi_d` while $\lVert F \rVert < 0.05 v_r$; while held,
-  $\dot\psi_d = 0$ [Spec].
+- **Desired heading.** $\psi_d$ is held at `last_psi_d` while $\lVert F \rVert < 0.05\, v_r\, \gamma_{\mathrm{lim}}$
+  (the external speed-limit scale only, so a low Nav2 speed limit never freezes $\psi_d$); while held,
+  $\dot\psi_d = 0$ [Spec, threshold confirmed M1].
 - **Feedforward along the actual motion** [Design]:
 
   $$
@@ -1532,8 +1551,8 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   and have the stated $L$ ($10^{-9}$). Superellipse $n \in \{2, 4, 8\}$: speed $\ge \rho$ ($10^{-9}$).
 - **O14 Cusp decimation (M2).** NavFn-style tails (half-cell spacing toward the rounded goal cell, then
   `smoothApproachToGoal`'s replace-or-append rule; 8 goal offsets of ±0.5 cell × 16 headings ×
-  approach lengths 1.0, 1.0125, 1.025, 1.0375 m; res 0.05 and 0.10): no cusp. A real 0.3 m reversal is
-  flagged.
+  approach lengths 1.0, 1.0125, 1.025, 1.0375 m; res 0.05 and 0.10): no cusp. A real reversal longer
+  than $2\ell_c$ is flagged in every alignment (0.3 m at res 0.05; 0.45 m at res 0.10).
 
 ### 12.2 Gains
 

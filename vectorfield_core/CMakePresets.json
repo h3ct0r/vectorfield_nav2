@@ -108,7 +108,8 @@
       "configurePreset": "asan",
       "inherits": "base",
       "environment": {
-        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1",
+        "ASAN_OPTIONS": "detect_container_overflow=0:strict_string_checks=1:detect_stack_use_after_return=1"
       }
     },
     {

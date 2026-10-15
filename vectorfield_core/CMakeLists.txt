@@ -65,10 +65,16 @@ endif()
 
 # Warning flags and -Werror apply to our own targets only. Vendored muParser is compiled with -w;
 # Eigen, GTest and benchmark headers arrive through imported targets, hence as SYSTEM includes.
+#
+# -ffp-contract=off: clang (and GCC in GNU mode) may fuse a*b - c*d into an FMA, which changes
+# rounding per compiler and architecture. The controller's tests use tolerances down to 1e-12 and
+# must give the same answers on macOS (Apple clang, arm64) and on every ROS distro (GCC 11-15,
+# amd64 and arm64), so contraction is disabled on our targets.
 function(vf_core_set_warnings target)
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(${target} PRIVATE
-      -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor -Woverloaded-virtual -Wformat=2)
+      -Wall -Wextra -Wpedantic -Wshadow -Wnon-virtual-dtor -Woverloaded-virtual -Wformat=2
+      -ffp-contract=off)
     if(VF_WERROR)
       target_compile_options(${target} PRIVATE -Werror)
     endif()
@@ -87,7 +93,27 @@ configure_file(
   @ONLY
 )
 
+# Every planned M1 source is listed explicitly (no glob), so a missing file fails the configure
+# step. Modules of later waves start as stubs that name their owner.
 add_library(vectorfield_core
+  src/builtin_curves.cpp
+  src/collision_predictor.cpp
+  src/conditioning.cpp
+  src/config.cpp
+  src/contour.cpp
+  src/curve_spec.cpp
+  src/expression_curve.cpp
+  src/field.cpp
+  src/footprint.cpp
+  src/gains.cpp
+  src/kinematics.cpp
+  src/limiter.cpp
+  src/occupancy.cpp
+  src/parametric_curve.cpp
+  src/polyline_curve.cpp
+  src/simulator.cpp
+  src/tracker.cpp
+  src/tracking_law.cpp
   src/version.cpp
 )
 add_library(vectorfield_core::vectorfield_core ALIAS vectorfield_core)
@@ -104,7 +130,14 @@ vf_core_set_warnings(vectorfield_core)
 # $<TARGET_OBJECTS>. That adds no link edge, so there is nothing extra to export, and hidden
 # visibility keeps mu:: symbols from clashing with a system libmuparser in the same process.
 # M1 vendors third_party/muparser and lists its six src/*.cpp files here.
-set(VF_MUPARSER_SOURCES)
+set(VF_MUPARSER_SOURCES
+  third_party/muparser/src/muParser.cpp
+  third_party/muparser/src/muParserBase.cpp
+  third_party/muparser/src/muParserBytecode.cpp
+  third_party/muparser/src/muParserCallback.cpp
+  third_party/muparser/src/muParserError.cpp
+  third_party/muparser/src/muParserTokenReader.cpp
+)
 if(VF_MUPARSER_SOURCES)
   set(_vf_muparser_include "${PROJECT_SOURCE_DIR}/third_party/muparser/include")
   add_library(vf_muparser OBJECT ${VF_MUPARSER_SOURCES})
@@ -126,19 +159,57 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
   include(GoogleTest)
 
   # One gtest executable per call. Every TEST becomes a ctest entry with a JUnit file under
-  # test_results/, where `colcon test-result` finds it.
+  # test_results/, where `colcon test-result` finds it. Tests may include the library's internal
+  # headers in src/ (namespace vectorfield_core::detail).
+  #
+  # Discovery runs PRE_TEST (serially, when ctest starts). The default POST_BUILD mode races in
+  # parallel builds: CMake 4.4's GoogleTestAddTests names its JSON listing after TEST_TARGET,
+  # which GoogleTest.cmake does not pass, so every test executable of a directory shares one
+  # listing file and one target can register another target's tests.
   function(vf_core_add_gtest name)
     add_executable(${name} ${ARGN})
     target_link_libraries(${name} PRIVATE vectorfield_core::vectorfield_core GTest::gtest_main)
+    target_include_directories(${name} PRIVATE "${PROJECT_SOURCE_DIR}/src")
     vf_core_set_warnings(${name})
     gtest_discover_tests(${name}
+      DISCOVERY_MODE PRE_TEST
       XML_OUTPUT_DIR "${CMAKE_BINARY_DIR}/test_results/${PROJECT_NAME}"
     )
   endfunction()
 
-  vf_core_add_gtest(test_version test/test_version.cpp)
-  target_compile_definitions(test_version PRIVATE
-    "VF_TEST_PACKAGE_XML=\"${PROJECT_SOURCE_DIR}/package.xml\"")
+  # Every test/test_<name>.cpp becomes the executable test_<name>, so modules can add test files
+  # without editing this file. Files named test_noalloc*.cpp count allocations with a global
+  # operator new and are skipped under sanitizers (math_spec O55: "not under ASan/TSan").
+  file(GLOB VF_CORE_TEST_SOURCES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/test/test_*.cpp")
+  string(FIND "${CMAKE_CXX_FLAGS}" "-fsanitize" _vf_sanitized)
+  foreach(_vf_test_source IN LISTS VF_CORE_TEST_SOURCES)
+    get_filename_component(_vf_test_name "${_vf_test_source}" NAME_WE)
+    if(_vf_test_name MATCHES "^test_noalloc" AND NOT _vf_sanitized EQUAL -1)
+      continue()
+    endif()
+    vf_core_add_gtest(${_vf_test_name} "${_vf_test_source}")
+  endforeach()
+
+  if(TARGET test_version)
+    target_compile_definitions(test_version PRIVATE
+      "VF_TEST_PACKAGE_XML=\"${PROJECT_SOURCE_DIR}/package.xml\"")
+  endif()
+
+  # Self-containment of the public headers: one translation unit per header, each including only
+  # that header, compiled with the library's warnings.
+  file(GLOB VF_CORE_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/include/vectorfield_core/*.hpp")
+  set(_vf_header_check_sources)
+  foreach(_vf_header IN LISTS VF_CORE_PUBLIC_HEADERS)
+    get_filename_component(_vf_header_name "${_vf_header}" NAME_WE)
+    set(_vf_header_source "${PROJECT_BINARY_DIR}/header_check/${_vf_header_name}.cpp")
+    file(CONFIGURE OUTPUT "${_vf_header_source}"
+      CONTENT "#include \"vectorfield_core/${_vf_header_name}.hpp\"\n")
+    list(APPEND _vf_header_check_sources "${_vf_header_source}")
+  endforeach()
+  add_library(vf_core_header_check OBJECT ${_vf_header_check_sources})
+  target_link_libraries(vf_core_header_check PRIVATE vectorfield_core::vectorfield_core)
+  vf_core_set_warnings(vf_core_header_check)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_BENCHMARKS)
@@ -175,7 +246,9 @@ if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_FUZZERS)
     vf_core_set_warnings(${name})
   endfunction()
 
-  # The ExpressionCurve libFuzzer target and its seed corpus arrive in M1.
+  # ExpressionCurve (muParser behind makeCurve). Run with the seed corpus, e.g.
+  #   ./fuzz_expression_curve -max_total_time=60 <copy of test/fuzz/corpus>
+  vf_core_add_fuzzer(fuzz_expression_curve test/fuzz/fuzz_expression_curve.cpp)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND ament_cmake_FOUND AND NOT SKBUILD)

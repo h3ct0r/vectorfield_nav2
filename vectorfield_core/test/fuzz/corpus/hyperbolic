@@ -1,0 +1,2 @@
+cosh(s) + 0*sinh(1) + 0*tanh(1) + 0*coth(1) + 0*asinh(1) + 0*acosh(2) + 0*atanh(0.5)
+sign(s - 1) + rint(s) + 0*cot(1) + 0*asin(0.5) + 0*acos(0.5) + 0*atan(1)

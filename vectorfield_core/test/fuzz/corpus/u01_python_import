@@ -1,0 +1,2 @@
+__import__('os').system('ls')
+sin(s)

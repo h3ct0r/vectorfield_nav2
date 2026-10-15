@@ -15,13 +15,39 @@
 /// @file
 /// @brief Umbrella header of vectorfield_core, the ROS-free core of vectorfield_nav2.
 ///
-/// At M0 the library exposes only its version. Curves, gain functions, distance and terminal
-/// fields, obstacle contouring, tracking laws, the command limiter, the collision predictor, the
-/// Tracker and the kinematic simulator arrive in M1 (see docs/design/math_spec.md).
+/// Includes every public header: basic types and views (types, span, function_ref, status,
+/// errors), configuration and validation (config), gains, curves (geometry, curve,
+/// polyline_curve, parametric_curve, curve_spec, conditioning), the field, occupancy and
+/// footprint, kinematics, tracking laws, the limiter, the contour, the collision predictor, the
+/// Tracker and the closed-loop simulator. The mathematics is specified in
+/// docs/design/math_spec.md; section references in the API documentation point there.
 
 #ifndef VECTORFIELD_CORE__VECTORFIELD_CORE_HPP_
 #define VECTORFIELD_CORE__VECTORFIELD_CORE_HPP_
 
+#include "vectorfield_core/collision_predictor.hpp"
+#include "vectorfield_core/conditioning.hpp"
+#include "vectorfield_core/config.hpp"
+#include "vectorfield_core/contour.hpp"
+#include "vectorfield_core/curve.hpp"
+#include "vectorfield_core/curve_spec.hpp"
+#include "vectorfield_core/errors.hpp"
+#include "vectorfield_core/field.hpp"
+#include "vectorfield_core/footprint.hpp"
+#include "vectorfield_core/function_ref.hpp"
+#include "vectorfield_core/gains.hpp"
+#include "vectorfield_core/geometry.hpp"
+#include "vectorfield_core/kinematics.hpp"
+#include "vectorfield_core/limiter.hpp"
+#include "vectorfield_core/occupancy.hpp"
+#include "vectorfield_core/parametric_curve.hpp"
+#include "vectorfield_core/polyline_curve.hpp"
+#include "vectorfield_core/simulator.hpp"
+#include "vectorfield_core/span.hpp"
+#include "vectorfield_core/status.hpp"
+#include "vectorfield_core/tracker.hpp"
+#include "vectorfield_core/tracking_law.hpp"
+#include "vectorfield_core/types.hpp"
 #include "vectorfield_core/version.hpp"
 
 /// @brief Everything in the vectorfield_core package.
