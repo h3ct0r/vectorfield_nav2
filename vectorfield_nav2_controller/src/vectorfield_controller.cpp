@@ -607,10 +607,14 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
     throw compat::InvalidPath("vector field: the plan window has no usable segment");
   }
 
-  // Once per goal: the plan advisories of the stability advisor.
+  // Once per goal: the plan advisories of the stability advisor. kappa_path is measured on the
+  // chord-decimated window: raw NavFn vertices half a cell apart turn by up to 45° each, a grid
+  // staircase that reads as tens of 1/m the robot never follows. `decimated` is intake scratch,
+  // refilled on every plan.
   if (s.advised_goal != s.intake.goal_seq) {
     s.advised_goal = s.intake.goal_seq;
-    s.logReport(vf::adviseForPlan(config, vf::kappaPath(s.vertices, false)), "plan");
+    vf::decimateChords(s.vertices, s.chordLength(), &s.decimated);
+    s.logReport(vf::adviseForPlan(config, vf::kappaPath(s.decimated, false)), "plan");
   }
 
   // Goal, tolerances and XY reached as Nav2 sees it.
