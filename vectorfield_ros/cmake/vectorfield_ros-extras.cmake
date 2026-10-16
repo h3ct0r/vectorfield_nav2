@@ -13,5 +13,7 @@
 # limitations under the License.
 
 # Included by vectorfield_rosConfig.cmake: every package that calls
-# find_package(vectorfield_ros) gets vf_link_ament_deps().
+# find_package(vectorfield_ros) gets vf_link_ament_deps() and
+# vf_set_warnings() (with the VF_WERROR option).
 include("${vectorfield_ros_DIR}/vf_link_ament_deps.cmake")
+include("${vectorfield_ros_DIR}/vf_compile_options.cmake")

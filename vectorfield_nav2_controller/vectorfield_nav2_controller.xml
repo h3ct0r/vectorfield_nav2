@@ -1,0 +1,12 @@
+<class_libraries>
+  <library path="vectorfield_nav2_controller">
+    <class type="vectorfield_nav2_controller::VectorFieldController" base_class_type="nav2_core::Controller">
+      <description>
+        Vector-field path follower (Rezende, Gonçalves and Pimenta, IEEE T-RO 2022): converges to and
+        circulates along the global plan, brakes onto the goal with a terminal field, contours
+        obstacles and predicts collisions. Differential, skid-steer, omnidirectional and Ackermann
+        motion models.
+      </description>
+    </class>
+  </library>
+</class_libraries>

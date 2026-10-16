@@ -1,0 +1,346 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Parameters shared by the controller plugin (prefix: the plugin name, e.g. FollowPath.) and the
+# curve follower (no prefix): the Field, Motion, Phases, Obstacles, Safety and Visualization
+# groups of plan section 5.4. generate_parameter_library (0.7.x on Humble to Kilted, 1.3.x on
+# Lyrical and later) generates vectorfield_ros/vectorfield_common_params.hpp from this file, and
+# docs/gen_params.py renders the parameter reference from it.
+#
+# Rules:
+# - The root key is unique repo-wide (it is also the C++ namespace and the target name).
+# - Only built-in validators, so both gpl versions behave the same. They mirror the domain checks
+#   of vectorfield_core::validateConfig, which the cross-validator runs on every change.
+# - Enum parameters list their default first.
+# - Every key except the Visualization group maps 1:1 to a vectorfield_core::CoreConfig field
+#   through kCommonCoreParams (vectorfield_ros/core_params.hpp); keep both in sync.
+# - Auto sentinels: a negative value of final_approach_distance and of the obstacle_* distances
+#   selects the auto value of math_spec section 11 (-1 is canonical).
+vectorfield_common_params:
+  # --- Field -----------------------------------------------------------------------------------
+  desired_speed:
+    type: double
+    default_value: 0.4
+    description: "Reference speed v_r of the field (m/s). Must not exceed max_linear_vel."
+    validation:
+      gt<>: [0.0]
+  convergence_gain:
+    type: double
+    default_value: 2.0
+    description: "Convergence gain k_f of the gain function G (1/m). Larger values converge
+      faster and turn harder near the path."
+    validation:
+      gt<>: [0.0]
+  gain_function:
+    type: string
+    default_value: "atan"
+    description: "Gain function G(D): atan, G = (2/pi) atan(k_f D) (thesis experiments), or
+      rational, G = k_f D / sqrt(1 + (k_f D)^2)."
+    validation:
+      one_of<>: [["atan", "rational"]]
+
+  # --- Motion ----------------------------------------------------------------------------------
+  motion_model:
+    type: string
+    default_value: "differential"
+    read_only: true
+    description: "Kinematic model of the base: differential, skid_steer, omnidirectional or
+      ackermann. Read-only."
+    validation:
+      one_of<>: [["differential", "skid_steer", "omnidirectional", "ackermann"]]
+  tracking_law:
+    type: string
+    default_value: "auto"
+    description: "Tracking law: auto (feedback_linearization for differential and skid_steer,
+      holonomic for omnidirectional, heading_tracking for ackermann), feedback_linearization,
+      heading_tracking or holonomic. Invalid model/law pairs are rejected."
+    validation:
+      one_of<>: [["auto", "feedback_linearization", "heading_tracking", "holonomic"]]
+  control_point_offset:
+    type: double
+    default_value: 0.2
+    description: "Feedback-linearization control point d, ahead of base_link along body x (m).
+      Must be > 0 with feedback_linearization."
+  drive_backward:
+    type: bool
+    default_value: false
+    description: "Drive the path backward (the drive direction is -x)."
+  allow_reversing:
+    type: bool
+    default_value: false
+    description: "Allow a speed against the drive direction. When false, the command is clamped
+      to the drive direction."
+  heading_gain:
+    type: double
+    default_value: 2.0
+    description: "Heading feedback gain k_psi (1/s) of heading_tracking and of the holonomic
+      heading policy."
+    validation:
+      gt_eq<>: [0.0]
+  omni_heading_policy:
+    type: string
+    default_value: "path_tangent"
+    description: "Heading of the holonomic law: path_tangent (face the path tangent), field (face
+      the field) or fixed (no rotation)."
+    validation:
+      one_of<>: [["path_tangent", "field", "fixed"]]
+  max_linear_vel:
+    type: double
+    default_value: 0.5
+    description: "Maximum forward speed (m/s)."
+    validation:
+      gt<>: [0.0]
+  max_lateral_vel:
+    type: double
+    default_value: 0.5
+    description: "Maximum lateral speed (m/s); omnidirectional only."
+    validation:
+      gt_eq<>: [0.0]
+  max_angular_vel:
+    type: double
+    default_value: 1.5
+    description: "Maximum yaw rate (rad/s)."
+    validation:
+      gt<>: [0.0]
+  max_linear_accel:
+    type: double
+    default_value: 1.0
+    description: "Maximum linear acceleration (m/s^2)."
+    validation:
+      gt<>: [0.0]
+  max_linear_decel:
+    type: double
+    default_value: 1.0
+    description: "Maximum linear deceleration (m/s^2, positive). Also sets the braking cap and
+      the stop distance of the collision prediction."
+    validation:
+      gt<>: [0.0]
+  max_angular_accel:
+    type: double
+    default_value: 3.2
+    description: "Maximum angular acceleration (rad/s^2)."
+    validation:
+      gt<>: [0.0]
+  min_in_place_angular_vel:
+    type: double
+    default_value: 0.0
+    description: "Minimum yaw rate of in-place rotations (rad/s), to overcome static friction
+      (skid_steer: 0.25 to 0.3). Must not exceed rotate_to_heading_angular_vel."
+    validation:
+      gt_eq<>: [0.0]
+  min_turning_radius:
+    type: double
+    default_value: 0.0
+    description: "Minimum turning radius R_min (m). Required (> 0) for ackermann."
+  ackermann_min_speed:
+    type: double
+    default_value: 0.05
+    description: "Minimum forward speed v_ack of an ackermann base while following (m/s)."
+    validation:
+      gt_eq<>: [0.0]
+  reference_point_offset:
+    type: double
+    default_value: 0.0
+    description: "Ackermann: body-x position of the rear-axle centre relative to base_link (m);
+      negative is behind base_link."
+
+  # --- Phases ----------------------------------------------------------------------------------
+  use_rotate_to_field:
+    type: bool
+    default_value: true
+    description: "Rotate in place when the heading error to the field exceeds
+      rotate_to_field_angle (differential and skid_steer). Set false under the
+      RotationShimController."
+  rotate_to_field_angle:
+    type: double
+    default_value: 1.57
+    description: "Heading error that starts an in-place rotation toward the field (rad)."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [3.141592653589793]
+  rotate_to_field_release_angle:
+    type: double
+    default_value: 0.785
+    description: "Heading error that ends the in-place rotation toward the field (rad). Must not
+      exceed rotate_to_field_angle."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [3.141592653589793]
+  use_rotate_to_heading:
+    type: bool
+    default_value: true
+    description: "Rotate in place to the goal yaw once settled inside the goal tolerance
+      (differential, skid_steer and omnidirectional)."
+  rotate_to_heading_angular_vel:
+    type: double
+    default_value: 1.5
+    description: "Yaw rate of in-place rotations (rad/s). The effective rate is at most
+      max_angular_vel."
+    validation:
+      gt<>: [0.0]
+  final_approach_distance:
+    type: double
+    default_value: -1.0
+    description: "Remaining path length that starts the final approach (m). Negative selects the
+      auto value: max(2 d, xy_tol + d) for feedback_linearization, xy_tol otherwise."
+  terminal_braking_distance:
+    type: double
+    default_value: 0.5
+    description: "Path length over which the terminal field brakes to the goal (sigma_b, m)."
+    validation:
+      gt<>: [0.0]
+  min_approach_speed:
+    type: double
+    default_value: 0.05
+    description: "Minimum speed v_min of the terminal approach (m/s)."
+    validation:
+      gt_eq<>: [0.0]
+  cancel_deceleration:
+    type: double
+    default_value: 1.0
+    description: "Linear deceleration of a cancel (m/s^2)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Obstacles -------------------------------------------------------------------------------
+  obstacle_mode:
+    type: string
+    default_value: "none"
+    description: "none: obstacles only stop the robot (collision prediction); contour: circulate
+      around obstacles that block the path. Ackermann does not support contour."
+    validation:
+      one_of<>: [["none", "contour"]]
+  obstacle_activation:
+    type: string
+    default_value: "path_blocked"
+    description: "When the contour may engage: path_blocked (only while the path ahead is
+      blocked) or always (the thesis behaviour)."
+    validation:
+      one_of<>: [["path_blocked", "always"]]
+  obstacle_contour_distance:
+    type: double
+    default_value: -1.0
+    description: "Contour distance lambda from the obstacle (m). Negative selects the auto value
+      max(sqrt((w_lat + 0.10)^2 + d^2), r_circ + d + 0.05)."
+  obstacle_full_switch_distance:
+    type: double
+    default_value: -1.0
+    description: "Obstacle distance D_in below which only the contour field acts (m). Negative
+      selects lambda + 0.15."
+  obstacle_blend_start_distance:
+    type: double
+    default_value: -1.0
+    description: "Obstacle distance D'_in at which the contour starts blending in (m). Negative
+      selects lambda + 0.35."
+  obstacle_lookahead:
+    type: double
+    default_value: -1.0
+    description: "Path length checked ahead of the closest point for blocking obstacles (m).
+      Negative selects max(1.0, desired_speed * collision_check_horizon)."
+  obstacle_gate_tolerance:
+    type: double
+    default_value: 0.05
+    description: "A path sample blocks when its obstacle distance is below w_lat minus this
+      tolerance (m)."
+  obstacle_release_time:
+    type: double
+    default_value: 0.5
+    description: "Time the path must stay clear before the contour gate closes (s)."
+    validation:
+      gt_eq<>: [0.0]
+  obstacle_max_contour_length:
+    type: double
+    default_value: 5.0
+    description: "Watchdog: maximum path length of one contour episode (m)."
+    validation:
+      gt<>: [0.0]
+  obstacle_max_contour_time:
+    type: double
+    default_value: 20.0
+    description: "Watchdog: maximum duration of one contour episode (s)."
+    validation:
+      gt<>: [0.0]
+  unknown_is_obstacle:
+    type: bool
+    default_value: false
+    description: "Treat unknown costmap cells as obstacles."
+  clearance_slowdown_distance:
+    type: double
+    default_value: 0.0
+    description: "Slow down when the clearance to the nearest obstacle is below this distance
+      (m); 0 disables the slowdown."
+    validation:
+      gt_eq<>: [0.0]
+  clearance_slowdown_gain:
+    type: double
+    default_value: 1.0
+    description: "Gain of the clearance slowdown."
+    validation:
+      gt<>: [0.0]
+
+  # --- Safety ----------------------------------------------------------------------------------
+  use_collision_detection:
+    type: bool
+    default_value: true
+    description: "Predict collisions by rolling the controller out on the local costmap, and cap
+      the speed to stop in time."
+  collision_check_horizon:
+    type: double
+    default_value: 1.5
+    description: "Time horizon of the collision prediction (s)."
+    validation:
+      gt<>: [0.0]
+  stop_margin:
+    type: double
+    default_value: 0.10
+    description: "Distance kept from the first predicted collision (m)."
+    validation:
+      gt_eq<>: [0.0]
+
+  # --- Visualization ---------------------------------------------------------------------------
+  visualize:
+    type: bool
+    default_value: true
+    description: "Publish the visualization topics (markers, field_grid, predicted_path, window,
+      field_state, obstacle_distance). Each topic is computed only while it has subscribers."
+  field_grid_size:
+    type: double
+    default_value: 3.0
+    description: "Side of the square field grid centred on the robot (m)."
+    validation:
+      gt<>: [0.0]
+  field_grid_resolution:
+    type: double
+    default_value: 0.25
+    description: "Node spacing of the field grid (m)."
+    validation:
+      gt<>: [0.0]
+  field_grid_rate:
+    type: double
+    default_value: 2.0
+    description: "Maximum publishing rate of the field grid (Hz)."
+    validation:
+      gt<>: [0.0]
+  field_grid_style:
+    type: string
+    default_value: "arrows"
+    description: "Field grid style: arrows (one arrow per node, coloured by distance to the path)
+      or streamlines."
+    validation:
+      one_of<>: [["arrows", "streamlines"]]
+  publish_obstacle_distance:
+    type: bool
+    default_value: false
+    description: "Publish the obstacle distance transform as an occupancy grid (obstacle_distance
+      topic)."

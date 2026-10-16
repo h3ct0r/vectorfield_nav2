@@ -36,13 +36,67 @@ find_package(visualization_msgs REQUIRED)
 # Lyrical and later only (REP 149 condition in package.xml).
 find_package(nav2_ros_common QUIET)
 
-if(NOT COMMAND vf_link_ament_deps)
-  message(FATAL_ERROR "find_package(vectorfield_ros) did not define vf_link_ament_deps()")
+if(NOT COMMAND vf_link_ament_deps OR NOT COMMAND vf_set_warnings)
+  message(FATAL_ERROR
+    "find_package(vectorfield_ros) did not define vf_link_ament_deps() and vf_set_warnings()")
 endif()
 
-# M0 resolves the dependencies only. The VectorFieldController library, its
-# parameters and the pluginlib description file are planned for M2; the
-# description is exported only together with the library it names.
+# Every package whose targets appear in the exported link interface.
+set(VF_CONTROLLER_PUBLIC_DEPS
+  geometry_msgs
+  nav2_core
+  nav2_costmap_2d
+  nav_msgs
+  pluginlib
+  rclcpp
+  rclcpp_lifecycle
+  tf2_ros
+)
+
+# Legacy path-handler parameters (Gen A/B only at run time; the header is
+# generated on every distro). Linked privately: no public header includes it.
+generate_parameter_library(vectorfield_legacy_path_params
+  params/vectorfield_legacy_path_params.yaml)
+
+add_library(${PROJECT_NAME} SHARED
+  src/legacy_path_handler.cpp
+  src/plan_processing.cpp
+  src/vectorfield_controller.cpp
+)
+target_include_directories(${PROJECT_NAME} PUBLIC
+  "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+  "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>"
+)
+target_compile_features(${PROJECT_NAME} PUBLIC cxx_std_17)
+target_link_libraries(${PROJECT_NAME}
+  PUBLIC
+    vectorfield_core::vectorfield_core
+    vectorfield_ros::vectorfield_ros
+  PRIVATE
+    vectorfield_legacy_path_params
+)
+vf_link_ament_deps(${PROJECT_NAME} PUBLIC ${VF_CONTROLLER_PUBLIC_DEPS})
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
+vf_set_warnings(${PROJECT_NAME})
+
+# The description names the library above (plan section 5.3).
+pluginlib_export_plugin_description_file(nav2_core vectorfield_nav2_controller.xml)
+
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
+)
+install(
+  TARGETS ${PROJECT_NAME}
+  EXPORT export_${PROJECT_NAME}
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin
+)
+install(
+  FILES params/vectorfield_legacy_path_params.yaml
+  DESTINATION share/${PROJECT_NAME}/params
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -57,7 +111,55 @@ if(BUILD_TESTING)
 
   find_package(ament_cmake_gtest REQUIRED)
   find_package(ament_cmake_ros REQUIRED)
+  # Loaded at run time through pluginlib by the server harness: the goal
+  # checkers and, on Gen C, FeasiblePathHandler; the rotation shim.
   find_package(nav2_controller REQUIRED)
+
+  # Self-containment of the public headers.
+  file(GLOB VF_CONTROLLER_PUBLIC_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/vectorfield_nav2_controller/*.hpp")
+  set(_vf_header_check_sources)
+  foreach(_vf_header IN LISTS VF_CONTROLLER_PUBLIC_HEADERS)
+    get_filename_component(_vf_header_name "${_vf_header}" NAME_WE)
+    set(_vf_source "${CMAKE_CURRENT_BINARY_DIR}/header_check/${_vf_header_name}.cpp")
+    file(CONFIGURE OUTPUT "${_vf_source}" CONTENT
+      "#include \"vectorfield_nav2_controller/${_vf_header_name}.hpp\"\n")
+    list(APPEND _vf_header_check_sources "${_vf_source}")
+  endforeach()
+  add_library(vf_controller_header_check OBJECT ${_vf_header_check_sources})
+  target_link_libraries(vf_controller_header_check PRIVATE ${PROJECT_NAME})
+  vf_set_warnings(vf_controller_header_check)
+
+  # Test support (plan section 9, layer 2): the per-distro server harness and
+  # the plan generators. Not installed.
+  add_library(vf_controller_test_support STATIC
+    test/support/plan_generators.cpp
+    test/support/server_harness.cpp
+  )
+  target_include_directories(vf_controller_test_support PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/support")
+  target_link_libraries(vf_controller_test_support PUBLIC ${PROJECT_NAME})
+  vf_link_ament_deps(vf_controller_test_support PUBLIC rcl_interfaces)
+  set_target_properties(vf_controller_test_support PROPERTIES
+    CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+  vf_set_warnings(vf_controller_test_support)
+
+  # Every test runs isolated (unique ROS_DOMAIN_ID per test process). Tests
+  # that load plugins see this package's installed plugin description:
+  # colcon installs a package before testing it.
+  function(vf_controller_add_gtest name)
+    ament_add_ros_isolated_gtest(${name} test/${name}.cpp
+      TIMEOUT 120
+      APPEND_ENV AMENT_PREFIX_PATH=${CMAKE_INSTALL_PREFIX})
+    if(TARGET ${name})
+      target_link_libraries(${name} vf_controller_test_support)
+      vf_set_warnings(${name})
+    endif()
+  endfunction()
+
+  vf_controller_add_gtest(test_plugin_discovery)
 endif()
 
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(vectorfield_core vectorfield_ros ${VF_CONTROLLER_PUBLIC_DEPS})
 ament_package()
