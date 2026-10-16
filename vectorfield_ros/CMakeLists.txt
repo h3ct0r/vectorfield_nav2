@@ -190,6 +190,8 @@ if(BUILD_TESTING)
       "VF_TEST_EXPECTED_STAMPED=${VF_TEST_EXPECTED_STAMPED}"
       "VF_TEST_ROS_DISTRO=\"${_vf_distro}\"")
   endif()
+  vf_ros_add_gtest(test_conversions)
+  vf_ros_add_gtest(test_core_params)
   vf_ros_add_gtest(test_field_state_constants)
   vf_ros_add_gtest(test_param_table)
   vf_ros_add_gtest(test_topics_legend)
