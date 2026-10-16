@@ -18,8 +18,15 @@ project(vectorfield_bringup)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 
-# Python helpers for the launch files (vectorfield_bringup.params.merge(), M3).
+# Python helpers for the launch files: vectorfield_bringup.params.merge() and the shared demo
+# pieces in vectorfield_bringup.demo.
 ament_python_install_package(${PROJECT_NAME})
+
+install(
+  PROGRAMS scripts/initial_pose_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+  RENAME initial_pose_publisher
+)
 
 # Install the resource directories that exist. The placeholder README.md files
 # describe content that arrives in later milestones and are not installed.
@@ -34,6 +41,16 @@ foreach(_vf_dir IN ITEMS launch config maps rviz foxglove plotjuggler)
 endforeach()
 
 if(BUILD_TESTING)
+  find_package(ament_cmake_pytest REQUIRED)
+  # colcon test puts only the dependencies' install spaces on PYTHONPATH; the tests import the
+  # package this package has just installed and read the installed overlays.
+  ament_add_pytest_test(test_params test/test_params.py
+    APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
+  )
+  ament_add_pytest_test(test_overlays test/test_overlays.py
+    APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
+  )
+
   find_package(ament_lint_auto REQUIRED)
   list(APPEND AMENT_LINT_AUTO_EXCLUDE
     ament_cmake_uncrustify

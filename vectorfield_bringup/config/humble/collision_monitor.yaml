@@ -1,0 +1,48 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Humble only (plan section 8): Humble's navigation_launch.py has no collision_monitor, and its
+# velocity smoother and behaviour server both publish cmd_vel. The demos therefore include
+# nav2_collision_monitor/launch/collision_monitor_node.launch.py with this file (that launch
+# file brings its own autostart lifecycle manager), and vectorfield_sim listens on cmd_vel_safe.
+# Real Humble robots use the same wiring. The polygon mirrors the stock Jazzy chain: slow down
+# when the footprint would hit a laser point within 1.2 s.
+
+collision_monitor:
+  ros__parameters:
+    use_sim_time: True
+    base_frame_id: "base_footprint"
+    odom_frame_id: "odom"
+    cmd_vel_in_topic: "cmd_vel"
+    cmd_vel_out_topic: "cmd_vel_safe"
+    transform_tolerance: 0.2
+    source_timeout: 1.0
+    base_shift_correction: True
+    stop_pub_timeout: 2.0
+    polygons: ["FootprintApproach"]
+    FootprintApproach:
+      type: "polygon"
+      action_type: "approach"
+      footprint_topic: "/local_costmap/published_footprint"
+      time_before_collision: 1.2
+      simulation_time_step: 0.1
+      # Humble's max_points is Jazzy's min_points - 1 (the stock Jazzy chain uses 6).
+      max_points: 5
+      visualize: False
+      enabled: True
+    observation_sources: ["scan"]
+    scan:
+      type: "scan"
+      topic: "/scan"
+      enabled: True

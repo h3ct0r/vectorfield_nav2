@@ -1,10 +1,11 @@
 # config/scenario
 
-Scenario overlays arrive in later milestones:
+Scenario overlays, merged after the motion-model overlay:
 
-- M3: `loopback.yaml`, `kinematic_sim.yaml` and `demo_obstacles.yaml`;
-- M5: `curve_follower.yaml`, which adds the static layer to the local costmap so the curve
-  follower sees mapped hazards.
+- `kinematic_sim.yaml` and `loopback.yaml`: applied by their demos;
+- `demo_obstacles.yaml`: unmapped circles and boxes for `vectorfield_sim` on `open_10x10`;
+- `curve_follower.yaml`: the static layer and a 10 Hz update rate for the local costmap, for the
+  curve follower (M5).
 
 Scenario overlays never set velocity smoother velocity or acceleration limits; those belong to
 the motion-model overlays in `config/controller/`.

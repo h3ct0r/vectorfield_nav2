@@ -1,0 +1,256 @@
+{
+  "configById": {
+    "3D!vectorfield": {
+      "cameraState": {
+        "distance": 12,
+        "perspective": false,
+        "phi": 0,
+        "thetaOffset": 90,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {
+        "transforms": {
+          "showLabel": false,
+          "axisScale": 0.5
+        }
+      },
+      "transforms": {},
+      "topics": {
+        "/map": {
+          "visible": true
+        },
+        "/global_costmap/costmap": {
+          "visible": true,
+          "colorMode": "costmap",
+          "alpha": 0.3
+        },
+        "/local_costmap/costmap": {
+          "visible": true,
+          "colorMode": "costmap",
+          "alpha": 0.5
+        },
+        "/local_costmap/published_footprint": {
+          "visible": true,
+          "color": "#33cc33"
+        },
+        "/plan": {
+          "visible": true,
+          "lineWidth": 0.02,
+          "gradient": [
+            "#999999ff",
+            "#999999ff"
+          ]
+        },
+        "/scan": {
+          "visible": true,
+          "pointSize": 3,
+          "colorField": "range",
+          "colorMode": "flat",
+          "flatColor": "#ffffffff"
+        },
+        "/FollowPath/markers": {
+          "visible": true
+        },
+        "/FollowPath/field_grid": {
+          "visible": false
+        },
+        "/FollowPath/window": {
+          "visible": true,
+          "lineWidth": 0.015,
+          "gradient": [
+            "#ffffffff",
+            "#ffffffff"
+          ]
+        },
+        "/FollowPath/predicted_path": {
+          "visible": true,
+          "lineWidth": 0.015,
+          "gradient": [
+            "#33cc33ff",
+            "#33cc33ff"
+          ]
+        }
+      },
+      "layers": {
+        "grid": {
+          "layerId": "foxglove.Grid",
+          "visible": true,
+          "frameId": "map",
+          "size": 20,
+          "divisions": 20,
+          "lineWidth": 1,
+          "color": "#a0a0a480",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "order": 1
+        }
+      },
+      "publish": {
+        "type": "pose",
+        "poseTopic": "/goal_pose",
+        "poseEstimateTopic": "/initialpose",
+        "pointTopic": "/clicked_point",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    },
+    "Plot!distance": {
+      "title": "Distance to the curve D and remaining arc sigma (m)",
+      "paths": [
+        {
+          "value": "/FollowPath/field_state.distance",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "D",
+          "color": "#ffd91a"
+        },
+        {
+          "value": "/FollowPath/field_state.distance_to_end",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "sigma",
+          "color": "#ff8c00"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!command": {
+      "title": "Command v (m/s) and omega (rad/s)",
+      "paths": [
+        {
+          "value": "/FollowPath/field_state.cmd.linear.x",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "v",
+          "color": "#00d9e6"
+        },
+        {
+          "value": "/FollowPath/field_state.cmd.linear.y",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "v_y",
+          "color": "#3373ff"
+        },
+        {
+          "value": "/FollowPath/field_state.cmd.angular.z",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "omega",
+          "color": "#e633e6"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "Plot!limiter": {
+      "title": "Limiter scale",
+      "paths": [
+        {
+          "value": "/FollowPath/field_state.limiter_scale",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "limiter_scale",
+          "color": "#33cc33"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "showPlotValuesInLegend": true,
+      "isSynced": true,
+      "xAxisVal": "timestamp",
+      "sidebarDimension": 240
+    },
+    "StateTransitions!phase": {
+      "paths": [
+        {
+          "value": "/FollowPath/field_state.phase",
+          "timestampMethod": "receiveTime",
+          "label": "phase"
+        },
+        {
+          "value": "/FollowPath/field_state.status",
+          "timestampMethod": "receiveTime",
+          "label": "status"
+        },
+        {
+          "value": "/FollowPath/field_state.contour_direction",
+          "timestampMethod": "receiveTime",
+          "label": "contour"
+        }
+      ],
+      "isSynced": true,
+      "showPoints": true
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "first": "3D!vectorfield",
+    "second": {
+      "direction": "column",
+      "first": {
+        "direction": "column",
+        "first": "Plot!distance",
+        "second": "Plot!command",
+        "splitPercentage": 50
+      },
+      "second": {
+        "direction": "column",
+        "first": "Plot!limiter",
+        "second": "StateTransitions!phase",
+        "splitPercentage": 45
+      },
+      "splitPercentage": 62
+    },
+    "splitPercentage": 58
+  }
+}

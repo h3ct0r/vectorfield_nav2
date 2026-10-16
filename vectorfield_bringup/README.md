@@ -4,34 +4,80 @@ Launch files, Nav2 parameter overlays, maps and viewer configurations for runnin
 vectorfield_nav2 controller and curve follower in simulation, and for seeing in RViz what the
 robot is doing.
 
-**Status:** skeleton — the controller demos, overlays, maps and viewer configurations are
-implemented in M3; the curve follower demo and scripts in M5.
+**Status:** the controller demos, overlays, maps and viewer configurations are implemented
+(M3); the curve follower demo and its scripts arrive in M5.
 
-## Planned contents
+## Demos
 
-| Path | Contents | Milestone |
+| Launch file | Distros | Simulation |
 |---|---|---|
-| `launch/` | `loopback_demo` (Jazzy+), `kinematic_sim_demo` (all distros), `tb3_gazebo_demo` and `tb4_gazebo_demo` (Jazzy+) | M3 |
-| `launch/` | `curve_follower_demo`: the follower and its lifecycle manager | M5 |
-| `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` | M3 |
-| `config/scenario/` | Scenario overlays: `loopback`, `kinematic_sim`, `demo_obstacles`; `curve_follower` in M5 | M3 |
-| `config/humble/` | `collision_monitor.yaml`, the only distro-specific file | M3 |
-| `maps/` | `open_10x10` and `corridor_door` | M3 |
-| `rviz/` | `vectorfield.rviz`, opened by every demo launch | M3 |
-| `foxglove/` | `vectorfield.json`: 3D panel, plots and a phase/status panel | M3 |
-| `plotjuggler/` | `vectorfield.xml`: the same plots | M3 |
-| `vectorfield_bringup/` | Python module; `params.merge()` deep-merges the overlays onto nav2_bringup's `nav2_params.yaml` | M3 |
-| scripts | `initial_pose_publisher` (M3); `send_curve.py` and `moving_frame_publisher.py` (M5) | M3, M5 |
+| `kinematic_sim_demo.launch.py` | all | `vectorfield_sim`, with map_server and Nav2's `navigation_launch.py` |
+| `loopback_demo.launch.py` | Jazzy and later | nav2_bringup's TB3 loopback wrapper |
+| `tb3_gazebo_demo.launch.py`, `tb4_gazebo_demo.launch.py` | Jazzy and later | nav2_bringup's Gazebo TurtleBot simulations, with AMCL |
+
+```bash
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py motion_model:=omnidirectional
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py scenarios:=demo_obstacles
+ros2 launch vectorfield_bringup loopback_demo.launch.py map:=corridor_door
+```
+
+Arguments:
+
+| Argument | Default | Meaning |
+|---|---|---|
+| `motion_model` | `differential` | `config/controller/<motion_model>.yaml`: `differential`, `skid_steer`, `omnidirectional` or `ackermann` (Gazebo: the first two) |
+| `map` | `open_10x10` | a name in `maps/` (`open_10x10`, `corridor_door`) or a map YAML path; Gazebo: empty keeps the world's map |
+| `scenarios` | empty | extra overlays, comma separated: names in `config/scenario` (for example `demo_obstacles`) or YAML paths |
+| `use_rviz` | `true` | start RViz with `rviz/vectorfield.rviz` (the wrappers' own RViz is always disabled) |
+| `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw` | 0 | start pose in the map (Gazebo: `x_pose`, `y_pose`, `yaw`, the spawn pose) |
+| `use_composition` | `true` | kinematic demo: run map_server, the Nav2 servers and their lifecycle managers in one component container |
+| `headless` | `True` | Gazebo demos: run Gazebo without its GUI |
+
+Each demo launch file exits with an error that names the supported distros when it cannot run on
+the current one.
+
+## Parameters
+
+The demos never ship a full Nav2 parameter file. `vectorfield_bringup.params.merge()` deep-merges
+the overlays onto the installed `nav2_bringup/params/nav2_params.yaml` of the running distro:
+dictionaries merge key by key, other values (lists included) replace, `FollowPath` and any block
+whose `plugin` changes are replaced wholesale, a bare behaviour-tree name is resolved in
+`nav2_bt_navigator/behavior_trees`, and on Humble `nav2_smac_planner::X`, `nav2_navfn_planner::X`
+and `nav2_behaviors::X` are renamed to the `/` form.
+
+| Path | Contents |
+|---|---|
+| `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` |
+| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`), `curve_follower` (local costmap for the M5 follower) |
+| `config/humble/` | `collision_monitor.yaml`, the only distro-specific file |
+| `maps/` | `open_10x10` and `corridor_door` |
+| `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
+| `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists |
+
+Overlay rules:
+
+- Only the motion-model overlays set the velocity smoother's `max_velocity`, `min_velocity`,
+  `max_accel` and `max_decel`, as full `[x, y, θ]` lists at least the controller limits; y is 0
+  except for the omnidirectional overlay, which also sets `min_y_velocity_threshold: 0.001`.
+  Scenario overlays set only `scale_velocities: true`.
+- The demo overlays use `obstacle_mode: contour`, except Ackermann (`none`; contouring is not
+  supported for car-like bases in 0.x).
+- The Ackermann overlay switches the planner to Smac Hybrid-A* (`DUBIN`, turning radius 0.5 m,
+  as the controller and the simulator), uses `PositionGoalChecker` and runs NavigateToPose with
+  `navigate_w_replanning_time.xml`, a stock tree without Spin. The stock recovery trees, and every
+  stock NavigateThroughPoses tree, use Spin, which a car cannot do.
+- No overlay sets `enable_stamped_cmd_vel`.
 
 Distro notes:
 
-- The loopback and Gazebo demos need Jazzy or later and exit with a clear message on Humble.
-  `kinematic_sim_demo` uses `vectorfield_sim` and runs everywhere.
+- The loopback and Gazebo demos need Jazzy or later. `kinematic_sim_demo` uses `vectorfield_sim`
+  and runs everywhere. On Lyrical, whose `navigation_launch.py` has no lifecycle manager, it
+  starts `lifecycle_manager_navigation` itself.
 - On Jazzy and later the command chain is Nav2's velocity smoother, then collision_monitor, then
   `cmd_vel`. On Humble the demos add collision_monitor with `config/humble/collision_monitor.yaml`
   (`cmd_vel` to `cmd_vel_safe`), and the simulator listens on `cmd_vel_safe`.
 
-## What you will see in RViz (planned)
+## What you will see in RViz
 
 `rviz/vectorfield.rviz` shows the map, both costmaps, the global plan, the robot model and TF,
 and the controller's markers, pre-configured with the shared colour legend:
@@ -45,7 +91,14 @@ and the controller's markers, pre-configured with the shared colour legend:
 - the goal with its tolerance and settle rings and the orange braking zone;
 - during obstacle contouring, the blocking obstacle cells, the distance rings and the chosen
   side;
-- optionally, the `field_grid` arrows that show the whole field around the robot.
+- optionally, the `field_grid` arrows that show the whole field around the robot (the
+  "Field grid" display, off by default because the grid costs CPU while subscribed).
+
+The global plan is grey, the controller's window white and the `predicted_path` green. RViz's
+2D Goal Pose tool sends `goal_pose` to bt_navigator. `foxglove/vectorfield.json` (Foxglove,
+through `foxglove_bridge`) shows the same 3D scene plus plots of D, σ, v, ω and the limiter scale
+and a phase/status timeline from `FollowPath/field_state`; `plotjuggler/vectorfield.xml` loads
+the same plots in PlotJuggler.
 
 The full legend is in `vectorfield_ros` and in the
 [documentation](https://h3ct0r.github.io/vectorfield_nav2/).

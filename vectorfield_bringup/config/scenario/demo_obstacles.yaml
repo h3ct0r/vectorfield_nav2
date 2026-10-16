@@ -1,0 +1,27 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Scenario overlay with unmapped obstacles for kinematic_sim_demo.launch.py on open_10x10
+# (plan section 8). Only vectorfield_sim's laser sees them, so the local costmap marks them and
+# the controller contours around them (obstacle_mode contour) or stops before them (none). The
+# lists are in the map frame and can be changed at run time, for example:
+#   ros2 param set /vectorfield_sim box_obstacles "[2.0, 0.0, 0.4, 0.4, 0.0]"
+
+vectorfield_sim:
+  ros__parameters:
+    # [x, y, radius, ...] (m)
+    circle_obstacles: [0.0, 2.0, 0.2, -2.5, -2.5, 0.3]
+    # [x, y, size_x, size_y, yaw, ...] (m, rad): a box on the +x axis, 2 m ahead of the start
+    # pose, and a wall segment.
+    box_obstacles: [2.0, 0.0, 0.4, 0.4, 0.0, -2.0, 2.0, 1.5, 0.2, 0.785]

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PlotJuggler layout for the vector-field controller (plan section 4.1): D and the
+     remaining arc sigma, the command v, v_y and omega, the limiter scale, and the phase
+     and contour side, all from /FollowPath/field_state. Colours follow the legend in
+     vectorfield_ros/legend.hpp. -->
+<root>
+ <tabbed_widget name="Main Window" parent="main_window">
+  <Tab tab_name="vectorfield" containers="1">
+   <Container>
+    <DockSplitter orientation="-" sizes="0.2500;0.2500;0.2500;0.2500" count="4">
+     <DockArea name="D">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
+       <limitY/>
+       <curve name="/FollowPath/field_state/distance" color="#ffd91a"/>
+       <curve name="/FollowPath/field_state/distance_to_end" color="#ff8c00"/>
+      </plot>
+     </DockArea>
+     <DockArea name="command">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
+       <limitY/>
+       <curve name="/FollowPath/field_state/cmd/linear/x" color="#00d9e6"/>
+       <curve name="/FollowPath/field_state/cmd/linear/y" color="#3373ff"/>
+       <curve name="/FollowPath/field_state/cmd/angular/z" color="#e633e6"/>
+      </plot>
+     </DockArea>
+     <DockArea name="limiter">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
+       <limitY/>
+       <curve name="/FollowPath/field_state/limiter_scale" color="#33cc33"/>
+      </plot>
+     </DockArea>
+     <DockArea name="phase">
+      <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
+       <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
+       <limitY/>
+       <curve name="/FollowPath/field_state/phase" color="#ffffff"/>
+       <curve name="/FollowPath/field_state/contour_direction" color="#e61a1a"/>
+      </plot>
+     </DockArea>
+    </DockSplitter>
+   </Container>
+  </Tab>
+  <currentTabIndex index="0"/>
+ </tabbed_widget>
+ <use_relative_time_offset enabled="1"/>
+ <Plugins>
+  <plugin ID="DataStream ROS2 Topic Subscriber">
+   <use_header_stamp value="false"/>
+   <discard_large_arrays value="true"/>
+   <max_array_size value="100"/>
+   <selected_topics>
+    <topic name="/FollowPath/field_state"/>
+   </selected_topics>
+  </plugin>
+ </Plugins>
+ <customMathEquations/>
+ <snippets/>
+</root>

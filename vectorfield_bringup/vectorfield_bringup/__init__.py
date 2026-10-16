@@ -14,6 +14,7 @@
 
 """Python helpers for the vectorfield_bringup launch files.
 
-Planned for M3: ``vectorfield_bringup.params.merge()``, which deep-merges the controller and
-scenario overlays onto the installed ``nav2_bringup/params/nav2_params.yaml``.
+- :mod:`vectorfield_bringup.params`: ``merge()``, which deep-merges the controller and scenario
+  overlays onto the installed ``nav2_bringup/params/nav2_params.yaml``;
+- :mod:`vectorfield_bringup.demo`: the pieces the demo launch files share.
 """
