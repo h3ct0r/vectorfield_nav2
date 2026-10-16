@@ -146,10 +146,11 @@ if(BUILD_TESTING)
 
   # Every test runs isolated (unique ROS_DOMAIN_ID per test process). Tests
   # that load plugins see this package's installed plugin description:
-  # colcon installs a package before testing it.
+  # colcon installs a package before testing it. The timeout covers the CI coverage build
+  # (Debug, --coverage), where the NavFn tail grid runs about 30x slower than in RelWithDebInfo.
   function(vf_controller_add_gtest name)
     ament_add_ros_isolated_gtest(${name} test/${name}.cpp
-      TIMEOUT 120
+      TIMEOUT 600
       APPEND_ENV AMENT_PREFIX_PATH=${CMAKE_INSTALL_PREFIX})
     if(TARGET ${name})
       target_link_libraries(${name} vf_controller_test_support)
