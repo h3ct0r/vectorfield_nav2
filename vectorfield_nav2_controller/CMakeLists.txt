@@ -158,6 +158,10 @@ if(BUILD_TESTING)
   endfunction()
 
   vf_controller_add_gtest(test_plugin_discovery)
+  # Layer 2 through the server harness (plan section 9).
+  vf_controller_add_gtest(test_controller_lifecycle)
+  vf_controller_add_gtest(test_controller_approach)
+  vf_controller_add_gtest(test_controller_obstacles_cancel)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)

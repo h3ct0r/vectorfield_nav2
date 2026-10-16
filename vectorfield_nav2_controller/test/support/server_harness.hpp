@@ -116,7 +116,8 @@ struct HarnessOptions
   /// Extra FeasiblePathHandler parameters (Gen C; names relative to the handler).
   std::vector<rclcpp::Parameter> path_handler_parameters;
 
-  /// Costmap side (m); square, centred on `costmap_center`.
+  /// Costmap side (m); square, centred on `costmap_center`. Rounded to whole metres: Nav2
+  /// declares `width` and `height` as integers.
   double costmap_size{3.0};
   /// Costmap resolution (m).
   double costmap_resolution{0.05};
