@@ -165,10 +165,16 @@ double sideProbeHorizon(
 
 int chooseContourSide(
   const SideProbeResult & plus, const SideProbeResult & minus, double resolution,
-  double stop_margin, double min_free, double jn_dot_phi, double phi_norm) noexcept
+  double stop_margin, double min_free, double jn_dot_phi, double phi_norm,
+  bool require_exit) noexcept
 {
   if (!(plus.s_free >= min_free) && !(minus.s_free >= min_free)) {
     return 0;  // neither side leaves room to brake from v_r: no episode
+  }
+  if (
+    require_exit && !(plus.collision_free && plus.exit_reached) &&
+    !(minus.collision_free && minus.exit_reached)) {
+    return 0;  // neither side gets past the blockage (a dead end): no episode
   }
   // 1. collision-free; 2. exit reached.
   Preference preference = preferTrue(plus.collision_free, minus.collision_free);

@@ -17,20 +17,13 @@ Per pull request, on every gating distro (`colcon test`; launch tests keep the d
 | `test_merged_configs` (pytest) | all | for every motion model × scenario merge, the smoother limits cover the controller's on every commanded axis; scenario overlays never set smoother limits; the curve_follower merge lists `static_layer` |
 | `test_open_kinematic_<model>` | all | `vectorfield_sim` on `open_10x10`: the 3-goal route (each goal SUCCEEDED within 120 s, max \|D\| after convergence < 0.10 m, 0.25 m Ackermann, final position within the goal tolerance, no NoValidControl, no FollowPath failure; Ackermann: no infeasible command); the final-command publishers; an unmapped box 0.8 m ahead, centred and offset 0.1 m (contour engages, clearance ≥ λ − d − 0.05, one cell less for omnidirectional, rejoin, goal reached); Ackermann: a blocked area (stop ≥ stop_margin − res short, NavigateToPose aborts) |
 | `test_open_loopback_<model>` | Jazzy and later | the same route and final-command publishers on Nav2's loopback simulator |
-| `test_corridor_kinematic_<model>` | all; differential, skid-steer, omnidirectional | `corridor_door` with contour on: through the door before and after a 0.05 m / 2° map → odom step (no contour activation, clearance ≥ 0.05 m); a goal 0.4 m from a wall; a blocked corridor (stop ≥ stop_margin − res short, NoValidControl, FollowPath fails, Nav2 replans) |
+| `test_corridor_kinematic_<model>` | all; differential, skid-steer, omnidirectional | `corridor_door` with contour on: through the door before and after a 0.05 m / 2° map → odom step (no contour activation, clearance ≥ 0.05 m); a goal 0.4 m from a wall; a blocked corridor, with the contour on (differential only: a dead end, no side probe passes) and with `obstacle_mode: none` (stop ≥ stop_margin − res short, NoValidControl, FollowPath fails, Nav2 replans) |
 
 The final command (`cmd_vel` on Jazzy and later, `cmd_vel_safe` on Humble) may be published only by
 collision_monitor and the allow-listed docking_server (Jazzy and later) and following_server
 (Lyrical and later). The launch tests share the helpers of the `vectorfield_system_tests` Python
 package (`launch`, `harness`, `geometry`, `checks`), imported from the source tree, and the test
 overlay `test/config/global_obstacle_layer_off.yaml`.
-
-Known gap: in a corridor blocked across its full width, with the contour on, contour episodes
-repeat in front of the blockage (each side probe reaches its exit test while retreating along a
-side wall), so the controller neither stops at the blockage nor raises NoValidControl; Nav2's
-progress checker fails FollowPath instead. `test_corridor_kinematic_differential` runs this case
-as an expected failure (reported as a skip with the reason; a pass fails the test) and checks the
-blocked corridor with `obstacle_mode: none`.
 
 Nightly and non-gating, registered only with `-DVF_NIGHTLY_TESTS=ON`: Gazebo TB3 (label
 `gazebo`) and noise, latency and slip injection (label `nightly`). No nightly tests exist yet.

@@ -209,6 +209,15 @@ TEST(ChooseContourSide, RanksTheSidesInTheSpecifiedOrder)
   plus.s_free = 0.10;
   minus.s_free = 0.15;
   EXPECT_EQ(chooseContourSide(plus, minus, res, m_s, min_free, jn, phi_norm), 0);
+  // path_blocked (require_exit): no side past the blockage, no episode; otherwise such a side.
+  EXPECT_EQ(chooseContourSide(base, base, res, m_s, min_free, jn, phi_norm, true), 0);
+  plus = base;
+  minus = base;
+  minus.exit_reached = true;
+  minus.path_to_exit = 1.0;
+  EXPECT_EQ(chooseContourSide(plus, minus, res, m_s, min_free, jn, phi_norm, true), -1);
+  minus.collision_free = false;
+  EXPECT_EQ(chooseContourSide(plus, minus, res, m_s, min_free, jn, phi_norm, true), 0);
 }
 
 TEST(ContourWatchdog, TripsOnLengthOrTime)

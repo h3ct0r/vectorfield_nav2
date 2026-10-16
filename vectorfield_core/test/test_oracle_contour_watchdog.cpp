@@ -43,7 +43,8 @@ struct WatchdogResult
 };
 
 // A wall perpendicular to the path at x = 3 that extends beyond the grid (y in [−7, 7], grid |y| <= 6),
-// path y = 0 → (8, 0).
+// path y = 0 → (8, 0), contour with `obstacle_activation: always` (with `path_blocked` no side
+// probe gets past the wall, so no episode starts: O56_LongWallAcrossPathStops).
 // `windowed`: plugin-style re-pruned windows (raw plan every 2.5 cm, prune 2 m, WindowScan,
 // cap_at_curve_end); else the fixed follower curve. Runs until kContourWatchdog or 40 s.
 WatchdogResult runWatchdog(bool windowed)
@@ -58,7 +59,9 @@ WatchdogResult runWatchdog(bool windowed)
   vf::sim::SimulationOptions options;
   options.stop_when_settled = false;
   options.stop_when_stopped = false;
-  Runner runner(tcContourConfig(), options);
+  vf::CoreConfig config = tcContourConfig();
+  config.obstacles.obstacle_activation = vf::ObstacleActivation::kAlways;
+  Runner runner(config, options);
   runner.reset(Pose2{Vec2(0.0, 0.0), 0.0});
   runner.input().goal = goalAt(Vec2(8.0, 0.0));
   runner.input().obstacles = world.map();

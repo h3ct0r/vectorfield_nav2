@@ -23,11 +23,10 @@ at (3.5, 0). In order:
 2. the same back through the door after a 0.05 m / 2° map -> odom step (a localization jump,
    undone afterwards);
 3. a goal 0.4 m in front of the corridor's end wall: no contour activation, goal reached;
-4. an unmapped wall blocking the corridor with the contour on (differential only, an expected
-   failure): the plan expects the robot to stop at least stop_margin − res short of it and the
-   controller to raise NoValidControl, after which Nav2 replans. Instead the side probe accepts
-   both sides (each contour reaches its exit test while retreating along a side wall), so contour
-   episodes repeat in front of the wall and the controller never stops or raises NoValidControl;
+4. an unmapped wall blocking the corridor with the contour on (differential only): neither side
+   probe gets past it (a dead end), so no contour episode starts there; the robot stops at least
+   stop_margin − res short of it, the controller raises NoValidControl (bt_navigator's FollowPath
+   fails) and Nav2 replans;
 5. the same wall with obstacle_mode switched to none at run time: the robot stops at least
    stop_margin − res short of it, the controller raises NoValidControl (bt_navigator's FollowPath
    fails) and Nav2 replans.
@@ -128,16 +127,8 @@ class TestCorridor(unittest.TestCase):
         MOTION_MODEL == 'differential', 'the dead end is the same for every model; run once'
     )
     def test_4_blocked_corridor_with_contour(self):
-        """Blocked corridor with the contour on (expected failure)."""
-        # An expected failure (module docstring, item 4). launch_testing binds test methods with
-        # functools.partial, which drops @unittest.expectedFailure, so it is spelled out: the
-        # known failure reports a skip with its reason, and a pass fails the test.
-        result = self._drive_into_block()
-        try:
-            self._check_blocked(result)
-        except AssertionError as error:
-            self.skipTest(f'expected failure (contour dead end): {error}')
-        self.fail('unexpected success: the contour now handles the dead end; make this a test')
+        """Blocked corridor with the contour on: stop, NoValidControl, replan."""
+        self._check_blocked(self._drive_into_block())
 
     def test_5_blocked_corridor(self):
         """Blocked corridor with obstacle_mode none: stop, NoValidControl, replan."""

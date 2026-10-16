@@ -114,7 +114,8 @@ struct SideProbeResult
 {
   /// No collision.
   bool collision_free{false};
-  /// The episode-exit test was reached.
+  /// The episode-exit test was reached; in `path_blocked` mode only past the blockage, never by
+  /// retreating along the path (math_spec §6.4 "Side probe").
   bool exit_reached{false};
   /// \f$c_{\mathrm{cl}} = \min \mathrm{EDT}_{\mathrm{all}}(p) - w_{\mathrm{lat}}\f$ over the
   /// rollout's base positions (m).
@@ -129,7 +130,9 @@ struct SideProbeResult
 /// clearance \f$\min(c_{\mathrm{cl}}, 2m_s)\f$ (equal within res/2); shorter path to the exit;
 /// larger \f$s_{\mathrm{free}}\f$; \f$\operatorname{sgn}((Jn_o)^\top\Phi)\f$ if
 /// \f$\lvert(Jn_o)^\top\Phi\rvert \ge 0.1\lVert\Phi\rVert\f$; +1. Returns 0 (no episode) when
-/// neither side has \f$s_{\mathrm{free}} \ge v_r^2/(2a_{\mathrm{dec}}) + m_s\f$.
+/// neither side has \f$s_{\mathrm{free}} \ge v_r^2/(2a_{\mathrm{dec}}) + m_s\f$, or, with
+/// `require_exit`, when no side is collision-free with its exit reached (the ranking then picks
+/// such a side).
 /// @param plus Rollout with \f$\sigma_c = +1\f$.
 /// @param minus Rollout with \f$\sigma_c = -1\f$.
 /// @param resolution Grid resolution.
@@ -137,10 +140,12 @@ struct SideProbeResult
 /// @param min_free \f$v_r^2/(2a_{\mathrm{dec}}) + m_s\f$.
 /// @param jn_dot_phi \f$(Jn_o)^\top\Phi\f$ at the start.
 /// @param phi_norm \f$\lVert\Phi\rVert\f$ at the start.
+/// @param require_exit A side must reach its exit (`path_blocked`: get past the blockage).
 /// @return +1, −1 or 0.
 int chooseContourSide(
   const SideProbeResult & plus, const SideProbeResult & minus, double resolution,
-  double stop_margin, double min_free, double jn_dot_phi, double phi_norm) noexcept;
+  double stop_margin, double min_free, double jn_dot_phi, double phi_norm,
+  bool require_exit = false) noexcept;
 
 /// @brief Watchdog (math_spec §6.4): travelled_m > `obstacle_max_contour_length` or elapsed_s >
 /// `obstacle_max_contour_time`.

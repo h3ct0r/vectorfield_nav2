@@ -554,6 +554,24 @@ bool nearestBlockingSite(
   return true;
 }
 
+/// @brief A side probe at station s* is past the blockage (math_spec §6.4 "Side probe",
+/// `path_blocked`): \f$\mathrm{dir}\,(s^\star - s_{B,\mathrm{first}}) \ge 0\f$ for the first
+/// blocking station (station difference wrapped on closed curves), which includes \f$B(s^\star)\f$
+/// empty. A probe that retreats along the path, so that s* moves back, never passes.
+bool pastBlockage(const StepEnv & env, double s_star) noexcept
+{
+  const std::vector<BlockingSite> * blocking = env.obstacles.blocking;
+  if (blocking == nullptr || blocking->empty()) {
+    return true;  // B(s*) empty
+  }
+  if (!std::isfinite(s_star)) {
+    return false;
+  }
+  const double first = blocking->front().s;
+  const double ds = env.closed ? wrapPeriodic(s_star - first, env.length) : s_star - first;
+  return static_cast<double>(env.model.direction) * ds >= 0.0;
+}
+
 /// @brief The field exit tests of an episode at x (math_spec §6.4 "Exit"): the distance test
 /// \f$D_o > D'_{\mathrm{in}} + h_c\f$ against K, and the direction test \f$n^\top\Phi \ge
 /// 0.05\lVert\Phi\rVert\f$ with the nominal \f$\Phi\f$, measured to the blocking set \f$B(s^\star)\f$
@@ -1256,8 +1274,11 @@ struct SideProbePolicy
     ++k;
     previous_cmd = result.cmd;
     if (!work.contour.active) {
-      // The exit test ended the episode here (a watchdog trip is a failure, not an exit).
-      if ((result.status & Status::kContourWatchdog) == 0U) {
+      // The exit test ended the episode here (a watchdog trip is a failure, not an exit); in
+      // path_blocked mode it counts only past the blockage, never after a retreat.
+      if (
+        (result.status & Status::kContourWatchdog) == 0U &&
+        (!env.obstacles.use_blocking || pastBlockage(env, result.sample.s_star))) {
         exit_reached = true;
         path_to_exit = arc;
       }
@@ -1574,7 +1595,7 @@ int probeSides(
   const double min_free = model.v_r * model.v_r / (2.0 * a_dec) + safety.stop_margin;
   return chooseContourSide(
     results[0], results[1], env.obstacles.resolution, safety.stop_margin, min_free,
-    J(n_start).dot(Phi), Phi.norm());
+    J(n_start).dot(Phi), Phi.norm(), env.obstacles.use_blocking);
 }
 
 /// @brief Step 0 of plan §3.1: the obstacle preparation of the call, frozen for every

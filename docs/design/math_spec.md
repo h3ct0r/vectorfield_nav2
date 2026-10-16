@@ -913,7 +913,7 @@ closer than $2 r_{\mathrm{insc}}$ merge, and gaps narrower than about $2\lambda$
 2. measured at $x$ to the active blocking set $B(s^\star)$ (`path_blocked`) or to $K$ (`always`):
    $D \le D_{\mathrm{in}}'$ and $n^\top \Phi < 0$, with $\Phi$ the nominal (unshaped) path field
    [Spec]; no episode starts while $B(s^\star)$ is empty;
-3. the side probe returns a side.
+3. the side probe returns a side (`path_blocked`: a side that gets past the blockage).
 
 **Blocking set** (`path_blocked`) [Design, M1]. $B = \{b_j = (s_j, f_j)\}$: the station $s_j$ of each
 blocked gate sample and its nearest lethal cell $f_j$ (the full-mask feature), kept when $f_j \in K$.
@@ -956,6 +956,24 @@ If neither side has $s_{\mathrm{free}} \ge v_r^2/(2 a_{\mathrm{dec}}) + m_s$, no
 *Rationale*: a 1.5 s horizon ends before the obstacle's flank, so both sides look free and the
 tie-break, i.e. tracking noise, picks the side; clearance ranks above path length so a side that
 grazes a wall by 1 cm loses to an open one.
+
+*Past the blockage* (`path_blocked`) [Design, M1]. A side reaches its exit (rank 2) only if its
+rollout gets past the blockage: it ends on an exit test at a closest-point station with
+$\mathrm{dir}\,(s^\star - s_{B,1}) \ge 0$, $s_{B,1}$ the first station of $B$ in traversal order
+(station difference wrapped on closed curves). This includes $B(s^\star)$ empty; an exit reached
+after $s^\star$ has moved back before $s_{B,1}$, i.e. by retreating, does not count. No episode
+starts unless a collision-free side reaches its exit; otherwise the cap brakes the robot short of
+the blockage and kBlocked follows ({ref}`sec-collision-blocked`). `always` keeps rank 2 as the plain
+exit test and starts an episode on any side. *Rationale*: in a dead end (a corridor closed across
+the path, its side walls in $K$ with the closing wall), neither side can pass, yet an episode
+started (the ranking required no exit) and ended on a retreat: the evaluation point drops back along
+the path, and $B$, rebuilt every cycle from the gate's lookahead, empties once the closing wall is
+beyond it, as if passed (in a wider corridor the probe itself met an exit test while retreating
+along a side wall). The episode restarted on the way back, so the per-episode watchdog never tripped
+and the robot never stopped or set kBlocked (no NoValidControl, no replan). The price: an obstacle
+the probe cannot pass within $T_{\mathrm{side}}$ (TC: a wall across the path wider than about 2 m)
+stops the robot for a replan instead of being contoured; the watchdog still bounds episodes that
+start, and every `always` episode.
 
 **Latched circulation.** $T_\lambda = \sigma_c\, J n_o$ for the whole episode. This is (3.67) with
 the sign frozen; it removes the $\Pi A = 0$ singularity and the trap basin of {ref}`sec-contour-trap`.
@@ -1686,8 +1704,11 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
 - **O37 Goal veto.** A 0.3 m disc on an open curve's end: no episode, stop
   $\ge m_s - \mathrm{res}$ short. A free goal 0.3 m behind a 0.2 m box: one episode, released by the
   gate, goal reached. A cap stopping the robot inside xy_tol: settled, never kBlocked.
-- **O38 Watchdog.** A perpendicular wall longer than the limit trips kContourWatchdog at the same
-  travelled distance (±1 cell) on a fixed curve and on re-pruned windows.
+- **O38 Watchdog.** With `always`, a perpendicular wall longer than the limit trips kContourWatchdog
+  at the same travelled distance (±1 cell) on a fixed curve and on re-pruned windows.
+- **O56 Dead end** (`path_blocked`). A straight path into a 1.2 m corridor closed by a wall across it,
+  and the O38 wall: no episode starts, the robot stops $\ge m_s - \mathrm{res}$ short of the wall
+  (and within $3 m_s$), never collides, and kBlocked, once set, stays set.
 
 ### 12.6 Laws
 
