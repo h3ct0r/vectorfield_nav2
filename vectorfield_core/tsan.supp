@@ -1,0 +1,6 @@
+# ThreadSanitizer suppressions for the core tests (`tsan` preset and the CI tsan job).
+#
+# libstdc++ fills std::__numpunct_cache lazily the first time a locale's numpunct facet is used
+# (here by muParser's number parsing). Two threads that parse at once both write the same values;
+# the uninstrumented library makes TSan report it. GCC PR 56316. Our own code is not suppressed.
+race:std::__numpunct_cache<char>::_M_cache

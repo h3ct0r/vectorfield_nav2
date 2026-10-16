@@ -117,7 +117,7 @@
       "configurePreset": "tsan",
       "inherits": "base",
       "environment": {
-        "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1"
+        "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:suppressions=${sourceDir}/tsan.supp"
       }
     },
     {
