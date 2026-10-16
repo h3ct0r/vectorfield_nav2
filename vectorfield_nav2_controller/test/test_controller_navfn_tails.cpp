@@ -51,6 +51,13 @@ const auto * const kRosEnvironment =
 
 constexpr double kDeg = vf::kPi / 180.0;
 constexpr int kHeadings = 16;
+#ifdef VF_COVERAGE_BUILD
+// The CI coverage build (Debug, --coverage) runs each goal about 100x slower: drive one offset
+// per heading (k mod 8), so every heading and every offset is still covered (16 goals, not 128).
+constexpr bool kSubset = true;
+#else
+constexpr bool kSubset = false;
+#endif
 constexpr std::array<std::array<double, 2>, 8> kGoalOffsets = {{
   {-0.5, -0.5},
   {-0.5, 0.0},
@@ -105,7 +112,11 @@ TEST_P(NavfnTails, EveryOffsetAndHeadingEndsCleanly)
   for (int k = 0; k < kHeadings; ++k) {
     const double heading = vf::wrapAngle(k * 2.0 * vf::kPi / kHeadings);
     const vf::Vec2 direction = vf::heading(heading);
-    for (const auto & offset_cells : kGoalOffsets) {
+    for (std::size_t j = 0; j < kGoalOffsets.size(); ++j) {
+      if (kSubset && j != static_cast<std::size_t>(k) % kGoalOffsets.size()) {
+        continue;
+      }
+      const auto & offset_cells = kGoalOffsets[j];
       const vf::Vec2 offset(offset_cells[0], offset_cells[1]);
       const vf::Pose2 goal{
         kCellCentre + offset * resolution, vf::wrapAngle(heading + (rotate ? 0.5 * vf::kPi : 0.0))};
@@ -174,7 +185,7 @@ TEST_P(NavfnTails, EveryOffsetAndHeadingEndsCleanly)
       }
     }
   }
-  EXPECT_EQ(goals, static_cast<std::size_t>(kHeadings) * kGoalOffsets.size());
+  EXPECT_EQ(goals, static_cast<std::size_t>(kHeadings) * (kSubset ? 1U : kGoalOffsets.size()));
 }
 
 INSTANTIATE_TEST_SUITE_P(

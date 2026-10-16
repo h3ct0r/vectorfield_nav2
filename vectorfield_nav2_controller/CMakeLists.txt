@@ -146,8 +146,8 @@ if(BUILD_TESTING)
 
   # Every test runs isolated (unique ROS_DOMAIN_ID per test process). Tests
   # that load plugins see this package's installed plugin description:
-  # colcon installs a package before testing it. The timeout covers the CI coverage build
-  # (Debug, --coverage), where the NavFn tail grid runs about 30x slower than in RelWithDebInfo.
+  # colcon installs a package before testing it. The timeout leaves room for the CI coverage
+  # build (Debug, --coverage).
   function(vf_controller_add_gtest name)
     ament_add_ros_isolated_gtest(${name} test/${name}.cpp
       TIMEOUT 600
@@ -167,6 +167,9 @@ if(BUILD_TESTING)
   vf_controller_add_gtest(test_controller_obstacles_cancel)
   vf_controller_add_gtest(test_controller_replans)
   vf_controller_add_gtest(test_controller_navfn_tails)
+  if(TARGET test_controller_navfn_tails AND CMAKE_CXX_FLAGS MATCHES "--coverage")
+    target_compile_definitions(test_controller_navfn_tails PRIVATE VF_COVERAGE_BUILD)
+  endif()
   vf_controller_add_gtest(test_controller_footprint)
   vf_controller_add_gtest(test_controller_goal_checkers)
   # Its own process: Jazzy's shim library links PositionGoalChecker's.

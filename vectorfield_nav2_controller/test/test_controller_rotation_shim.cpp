@@ -151,8 +151,14 @@ private:
       va_copy(copy, *args);
       char buffer[1024];
       // The format comes from the logging macro that called this handler.
-      // NOLINTNEXTLINE(clang-diagnostic-format-nonliteral)
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
+#endif
       std::vsnprintf(buffer, sizeof(buffer), format, copy);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
       va_end(copy);
       self->messages_.emplace_back(buffer);
     }
