@@ -44,7 +44,7 @@ the code, the shipped RViz configuration and this table.
 
 | Namespace | Marker(s) | Shows | Colour |
 |---|---|---|---|
-| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW · v 0.38 ω 0.12 · D 0.04 m · σ 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
+| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW \| v 0.38 w 0.12 \| D 0.04 m \| sigma 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
 | `footprint` | LINE_STRIP at the current pose | robot outline | green normal / orange speed-capped / red blocked |
 | `curve` | LINE_STRIP of the conditioned window (plugin) or the full curve (follower); LINE_LIST dashes for the extension rays; small SPHERE at the virtual tail vertex | exactly the geometry the field uses | white; rays grey |
 | `closest_point` | SPHERE at $x^*$, ARROW of $T$, LINE from the evaluation point to $x^*$ (length $D$) | projection, tangent, distance | yellow |
@@ -54,8 +54,8 @@ the code, the shipped RViz configuration and this table.
 | `heading` | in rotate phases: ARROW of the target heading and an arc from the current heading to it | the ROTATE_TO_FIELD / ROTATE_TO_HEADING target | yellow / blue |
 | `prediction` | LINE_STRIP of the rollout poses (green up to the first collision), CUBE at the first colliding pose, TEXT `s_free 0.42 m` | collision prediction and braking cap | green → red |
 | `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve | terminal field, braking zone, settle radius | white / orange / cyan |
-| `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (yellow); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 · 1.3/5.0 m · 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / yellow |
-| `curve_info` (follower) | ARROWs every 1 m along the curve (traversal direction), SPHERE at the start, TEXT `lap 2/3 · rem 7.4 m`; for moving frames, an ARROW of the frame velocity | direction, laps, moving-curve motion | white / blue |
+| `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (yellow); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 \| 1.3/5.0 m \| 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / yellow |
+| `curve_info` (follower) | ARROWs every 1 m along the curve (traversal direction), SPHERE at the start, TEXT `lap 2/3 \| rem 7.4 m`; for moving frames, an ARROW of the frame velocity | direction, laps, moving-curve motion | white / blue |
 
 ### Status flags
 

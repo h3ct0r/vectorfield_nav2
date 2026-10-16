@@ -84,6 +84,11 @@ inline constexpr Rgba kMagenta{0.90F, 0.20F, 0.90F, 1.0F};
 inline constexpr Rgba kTranslucentRed{0.90F, 0.10F, 0.10F, 0.35F};
 /// @}
 
+/// @brief Alpha of every CYLINDER ring (goal and contour namespaces): the ring keeps the RGB of
+/// its legend colour and is drawn as a translucent disc, so nested rings and what lies under them
+/// stay visible.
+inline constexpr float kRingAlpha = 0.25F;
+
 /// @brief Text colour of the `status` namespace per phase: FOLLOW green, ROTATE_TO_FIELD
 /// yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red.
 constexpr Rgba phaseColor(vectorfield_core::Phase phase) noexcept

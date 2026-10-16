@@ -193,8 +193,28 @@ if(BUILD_TESTING)
   vf_ros_add_gtest(test_conversions)
   vf_ros_add_gtest(test_core_params)
   vf_ros_add_gtest(test_field_state_constants)
+  vf_ros_add_gtest(test_field_visualizer)
+  vf_ros_add_gtest(test_marker_builder)
   vf_ros_add_gtest(test_param_table)
   vf_ros_add_gtest(test_topics_legend)
+endif()
+
+# The MarkerBuilder benchmark of plan section 4.1 (markers < 0.2 ms; the 12 x 12
+# field grid reported separately). Non-gating; built only when requested and
+# google benchmark is installed.
+option(VF_BUILD_BENCHMARKS "Build the google-benchmark targets (non-gating)" OFF)
+if(VF_BUILD_BENCHMARKS)
+  find_package(benchmark QUIET)
+  if(benchmark_FOUND)
+    add_executable(bench_marker_builder bench/bench_marker_builder.cpp)
+    target_include_directories(bench_marker_builder PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/test")
+    target_link_libraries(bench_marker_builder PRIVATE
+      ${PROJECT_NAME} benchmark::benchmark_main)
+    vf_set_warnings(bench_marker_builder)
+  else()
+    message(STATUS "google benchmark not found: bench_marker_builder is not built")
+  endif()
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
