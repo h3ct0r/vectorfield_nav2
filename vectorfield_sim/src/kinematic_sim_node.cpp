@@ -231,6 +231,11 @@ KinematicSimNode::KinematicSimNode(const rclcpp::NodeOptions & options)
       "cmd_vel_timeout", 0.5,
       readOnly(
         "A command older than this (simulated s) is replaced by zero; 0 disables", 0.0, 1e6)));
+  // Publishing odometry every 10 ms step floods Nav2's odom subscribers (dropped messages).
+  const double odom_rate = declare_parameter<double>(
+    "odom_rate", 50.0,
+    readOnly("odom, its TF and ~/ground_truth (Hz of simulated time)", 0.01, 1e4));
+  odom_every_steps_ = stepsPerPeriod(toNanoseconds(1.0 / odom_rate), config.step_ns);
   const double real_time_factor = declare_parameter<double>(
     "real_time_factor", 1.0,
     readOnly("Simulated seconds per wall second; 0 stops the step timer", 0.0, 1e3));
@@ -277,6 +282,11 @@ KinematicSimNode::KinematicSimNode(const rclcpp::NodeOptions & options)
     "occupied_threshold", 65, readOnlyInteger("Grid cells >= this value are walls", 1, 100));
   scan_geometry_ = ScanGeometry::fullCircle(static_cast<int>(beams), range_max);
   scan_every_steps_ = stepsPerPeriod(toNanoseconds(1.0 / scan_rate), config.step_ns);
+  const std::int64_t scan_latency_ns = toNanoseconds(
+    declare_parameter<double>(
+      "scan_latency", 0.02,
+      readOnly("Delay from a scan's stamp to its delivery (simulated s, whole steps)", 0.0, 1.0)));
+  scan_delay_steps_ = (scan_latency_ns + config.step_ns / 2) / config.step_ns;
 
   // Unmapped obstacles: the callback validates the declarations below too.
   parameter_callback_ =
@@ -368,15 +378,24 @@ void KinematicSimNode::step()
   clock.clock = stamp;
   clock_pub_->publish(clock);
 
-  const vf::Pose2 & pose = plant_->odomPose();
-  const vf::Twist2 & twist = plant_->twist();
-  odom_pub_->publish(toOdometry(pose, twist, stamp, odom_frame_, base_frame_));
-  tf_broadcaster_->sendTransform(toTransform(pose, stamp, odom_frame_, base_frame_));
-  ground_truth_pub_->publish(
-    toOdometry(plant_->groundTruth(), twist, stamp, map_frame_, base_frame_));
+  const std::uint64_t steps = plant_->steps();
+  const bool scan_due = steps % static_cast<std::uint64_t>(scan_every_steps_) == 0;
+  if (scan_due || steps % static_cast<std::uint64_t>(odom_every_steps_) == 0) {
+    const vf::Pose2 & pose = plant_->odomPose();
+    const vf::Twist2 & twist = plant_->twist();
+    odom_pub_->publish(toOdometry(pose, twist, stamp, odom_frame_, base_frame_));
+    tf_broadcaster_->sendTransform(toTransform(pose, stamp, odom_frame_, base_frame_));
+    ground_truth_pub_->publish(
+      toOdometry(plant_->groundTruth(), twist, stamp, map_frame_, base_frame_));
+  }
 
-  if (plant_->steps() % static_cast<std::uint64_t>(scan_every_steps_) == 0) {
-    publishScan(stamp);
+  if (scan_due) {
+    pending_scans_.emplace_back(
+      steps + static_cast<std::uint64_t>(scan_delay_steps_), castScan(stamp));
+  }
+  while (!pending_scans_.empty() && pending_scans_.front().first <= steps) {
+    scan_pub_->publish(pending_scans_.front().second);
+    pending_scans_.pop_front();
   }
 }
 
@@ -494,7 +513,8 @@ void KinematicSimNode::publishInfeasibleCount(std::uint64_t count)
   infeasible_pub_->publish(message);
 }
 
-void KinematicSimNode::publishScan(const builtin_interfaces::msg::Time & stamp)
+sensor_msgs::msg::LaserScan KinematicSimNode::castScan(
+  const builtin_interfaces::msg::Time & stamp) const
 {
   const std::vector<double> ranges = caster_.castScan(plant_->groundTruth(), scan_geometry_);
   sensor_msgs::msg::LaserScan scan;
@@ -514,7 +534,7 @@ void KinematicSimNode::publishScan(const builtin_interfaces::msg::Time & stamp)
     scan.ranges.push_back(
       std::isfinite(range) || scan_use_inf_ ? static_cast<float>(range) : no_return);
   }
-  scan_pub_->publish(scan);
+  return scan;
 }
 
 }  // namespace vectorfield_sim

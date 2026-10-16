@@ -24,11 +24,17 @@ named `vectorfield_sim`. Launch it through `kinematic_sim_demo.launch.py` in
   simulated time. Steps run at `real_time_factor` (1.0) times real time; 0 stops the timer.
 - **Outputs:** `odom` (with the executed body twist), the TF `odom → base_footprint`, a static
   `map → odom` (from `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw`) and
-  `~/ground_truth` (the true pose in the map frame).
+  `~/ground_truth` (the true pose in the map frame). `odom`, its TF and `~/ground_truth` are
+  published together at `odom_rate` (50 Hz of simulated time, rounded to a whole number of
+  steps), not every step: a 100 Hz `odom` makes Nav2 drop odometry messages.
 - **Laser scan:** `scan` in `base_scan` (`scan_beams` 360 over a full turn from −π, `scan_rate`
   10 Hz, `scan_range_max` 30 m, no return = +inf unless `scan_use_inf` is false), ray-cast
   exactly from base_footprint against `/map` (`map_topic`, transient local) and the unmapped
-  obstacles.
+  obstacles. A scan is delivered `scan_latency` (0.02 s, whole steps) after its stamp, and
+  `odom` and its TF are also published at every scan stamp, so a subscriber always has the
+  scan's transform when the scan arrives. Without that, Humble's `tf2_ros::MessageFilter` waits
+  for the transform, which can deadlock the subscriber's TF buffer (Nav2's local costmap then
+  stops following the robot).
 - **Unmapped obstacles** (map frame, settable at run time, validated as a whole):
   `circle_obstacles` = `[x, y, radius, ...]` and `box_obstacles` = `[x, y, size_x, size_y, yaw,
   ...]`. A malformed list is rejected with an error, at start-up and at run time.

@@ -28,6 +28,10 @@ vectorfield_sim:
     step_size: 0.01
     real_time_factor: 1.0
     cmd_vel_timeout: 0.5
+    # odom, its TF and ~/ground_truth; per 10 ms step they would flood Nav2's odom subscribers.
+    odom_rate: 50.0
     scan_beams: 360
     scan_rate: 10.0
     scan_range_max: 30.0
+    # A scan arrives this long after its stamp, once its transform is out (see the sim's README).
+    scan_latency: 0.02

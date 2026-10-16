@@ -1,0 +1,527 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""An rclpy client for the launch tests: waits for Nav2, sends goals and records what they check.
+
+The client spins its own node (``use_sim_time``) in a background executor. Every wait is bounded
+in simulated time and, should the clock stall, in wall time too (:data:`WALL_PER_SIM`,
+:data:`WALL_GRACE`). Nav2 readiness is checked with our own lifecycle ``get_state`` calls, each
+with a timeout and retried, rather than ``BasicNavigator.waitUntilNav2Active``, which waits forever
+for a dropped response.
+"""
+
+import math
+import threading
+import time
+from dataclasses import dataclass
+
+import rclpy
+import tf2_ros
+from action_msgs.msg import GoalStatus
+from lifecycle_msgs.msg import State
+from lifecycle_msgs.srv import GetState
+from nav2_msgs.action import NavigateToPose
+from nav2_msgs.msg import BehaviorTreeLog
+from nav2_msgs.srv import ClearEntireCostmap, SetInitialPose
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
+from rcl_interfaces.msg import Parameter as ParameterMessage
+from rcl_interfaces.msg import ParameterType, ParameterValue
+from rcl_interfaces.srv import SetParameters
+from rclpy.action import ActionClient
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.parameter import Parameter
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
+from std_msgs.msg import UInt64
+
+from vectorfield_msgs.msg import FieldState
+from vectorfield_system_tests.geometry import OccupiedCells
+
+#: FieldState status bits for which the controller raises NoValidControl.
+NO_VALID_CONTROL = (
+    FieldState.STATUS_NON_FINITE
+    | FieldState.STATUS_CONTOUR_WATCHDOG
+    | FieldState.STATUS_HEADING_INFEASIBLE
+    | FieldState.STATUS_BLOCKED
+)
+
+#: Phases in which the robot tracks the path, so that the distance D is meaningful.
+TRACKING_PHASES = (FieldState.PHASE_FOLLOW, FieldState.PHASE_FINAL_APPROACH)
+
+#: Wall seconds allowed per simulated second, plus a fixed grace, before a wait gives up on a
+#: stalled clock.
+WALL_PER_SIM = 2.0
+WALL_GRACE = 15.0
+
+#: The lifecycle nodes that must be active before a test sends goals (every demo has them).
+NAV2_NODES = (
+    'map_server',
+    'controller_server',
+    'planner_server',
+    'behavior_server',
+    'velocity_smoother',
+    'collision_monitor',
+    'bt_navigator',
+)
+
+STATUS_NAMES = {
+    GoalStatus.STATUS_UNKNOWN: 'UNKNOWN (timed out)',
+    GoalStatus.STATUS_ACCEPTED: 'ACCEPTED',
+    GoalStatus.STATUS_EXECUTING: 'EXECUTING',
+    GoalStatus.STATUS_CANCELING: 'CANCELING',
+    GoalStatus.STATUS_SUCCEEDED: 'SUCCEEDED',
+    GoalStatus.STATUS_CANCELED: 'CANCELED',
+    GoalStatus.STATUS_ABORTED: 'ABORTED',
+}
+
+
+@dataclass(frozen=True)
+class FieldSample:
+    """The parts of one ``field_state`` message the tests use."""
+
+    t: float
+    phase: int
+    status: int
+    distance: float
+    contour_direction: int
+
+
+@dataclass(frozen=True)
+class PoseSample:
+    """A true map pose of base_footprint."""
+
+    t: float
+    x: float
+    y: float
+    yaw: float
+
+
+@dataclass
+class Goal:
+    """A NavigateToPose goal in flight."""
+
+    handle: object
+    result: object
+    start: float
+
+
+@dataclass
+class Episode:
+    """What happened between sending a goal and its end (or the end of the wait)."""
+
+    status: int
+    start: float
+    end: float
+    samples: list
+    poses: list
+
+    @property
+    def status_name(self):
+        """Return the goal status as text."""
+        return STATUS_NAMES.get(self.status, str(self.status))
+
+    def contour_activations(self):
+        """Return how many times the contour engaged (contour_direction became non-zero)."""
+        count, active = 0, False
+        for sample in self.samples:
+            if sample.contour_direction != 0 and not active:
+                count += 1
+            active = sample.contour_direction != 0
+        return count
+
+    def no_valid_control(self):
+        """Return the samples with a status bit for which the controller raises NoValidControl."""
+        return [sample for sample in self.samples if sample.status & NO_VALID_CONTROL]
+
+    def tracking_error(self, converged=0.05, after=-math.inf):
+        """Return max |D| over the tracking samples from the first one with |D| <= ``converged``.
+
+        Only samples later than ``after`` count. Returns inf if |D| never got that small.
+        """
+        tracking = [s for s in self.samples if s.phase in TRACKING_PHASES and s.t > after]
+        for index, sample in enumerate(tracking):
+            if abs(sample.distance) <= converged:
+                return max(abs(s.distance) for s in tracking[index:])
+        return math.inf
+
+    def min_distance(self, distance):
+        """Return the minimum of ``distance(x, y)`` over the true poses (inf without poses)."""
+        return min((distance(p.x, p.y) for p in self.poses), default=math.inf)
+
+
+def yaw_of(quaternion):
+    """Return the yaw of a planar quaternion."""
+    return 2.0 * math.atan2(quaternion.z, quaternion.w)
+
+
+class NavHarness:
+    """The test client: one node, spun in a background executor.
+
+    Args:
+        ground_truth: Read the true pose and the infeasible-command count from vectorfield_sim.
+            Without it (Nav2's loopback simulator, which localizes perfectly), the true pose is
+            map -> base_footprint from TF.
+
+    """
+
+    def __init__(self, ground_truth=True):
+        self._ground_truth = ground_truth
+        self._lock = threading.Lock()
+        self._samples = []
+        self._poses = []
+        self._plans = []
+        self._failures = []
+        self._infeasible = None
+        self.map = None
+        self._start()
+
+    def _start(self):
+        """Create the context, the node, its subscriptions and clients, and start spinning."""
+        self._context = rclpy.Context()
+        rclpy.init(context=self._context)
+        self.node = rclpy.create_node(
+            'vf_system_test',
+            context=self._context,
+            parameter_overrides=[Parameter('use_sim_time', Parameter.Type.BOOL, True)],
+        )
+        node = self.node
+        history = QoSProfile(depth=100, reliability=ReliabilityPolicy.RELIABLE)
+        latched = QoSProfile(
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        node.create_subscription(FieldState, '/FollowPath/field_state', self._on_field, history)
+        node.create_subscription(Path, '/plan', self._on_plan, history)
+        node.create_subscription(BehaviorTreeLog, '/behavior_tree_log', self._on_bt_log, history)
+        node.create_subscription(OccupancyGrid, '/map', self._on_map, latched)
+        self.tf_buffer = tf2_ros.Buffer()
+        self._tf_listener = tf2_ros.TransformListener(self.tf_buffer, node)
+        if self._ground_truth:
+            node.create_subscription(
+                Odometry, '/vectorfield_sim/ground_truth', self._on_ground_truth, history
+            )
+            node.create_subscription(
+                UInt64, '/vectorfield_sim/infeasible_command_count', self._on_infeasible, latched
+            )
+        else:
+            node.create_timer(0.05, self._sample_tf)
+        self._navigate = ActionClient(node, NavigateToPose, 'navigate_to_pose')
+
+        self._executor = MultiThreadedExecutor(num_threads=4, context=self._context)
+        self._executor.add_node(node)
+        self._thread = threading.Thread(target=self._executor.spin, daemon=True)
+        self._thread.start()
+
+    def close(self):
+        """Stop spinning and destroy the node."""
+        self._executor.shutdown()
+        self._thread.join(timeout=10.0)
+        self.node.destroy_node()
+        rclpy.shutdown(context=self._context)
+
+    # Callbacks -----------------------------------------------------------------------------------
+
+    def _on_field(self, message):
+        sample = FieldSample(
+            _seconds(message.header.stamp),
+            message.phase,
+            message.status,
+            message.distance,
+            message.contour_direction,
+        )
+        with self._lock:
+            self._samples.append(sample)
+
+    def _on_plan(self, _message):
+        with self._lock:
+            self._plans.append(self.now())
+
+    def _on_bt_log(self, message):
+        # The FollowPath action's status cannot tell a failure from a preemption (Nav2 aborts the
+        # goal a new path replaces); bt_navigator's FollowPath node fails only on a real failure.
+        # Event stamps are not simulated time on every distro: record the receive time.
+        if any(
+            event.node_name == 'FollowPath' and event.current_status == 'FAILURE'
+            for event in message.event_log
+        ):
+            now = self.now()
+            with self._lock:
+                self._failures.append(now)
+
+    def _on_map(self, message):
+        self.map = OccupiedCells(message)
+
+    def _on_ground_truth(self, message):
+        pose = message.pose.pose
+        sample = PoseSample(
+            _seconds(message.header.stamp),
+            pose.position.x,
+            pose.position.y,
+            yaw_of(pose.orientation),
+        )
+        with self._lock:
+            self._poses.append(sample)
+
+    def _on_infeasible(self, message):
+        self._infeasible = message.data
+
+    def _sample_tf(self):
+        try:
+            transform = self.tf_buffer.lookup_transform('map', 'base_footprint', Time())
+        except tf2_ros.TransformException:
+            return
+        sample = PoseSample(
+            _seconds(transform.header.stamp),
+            transform.transform.translation.x,
+            transform.transform.translation.y,
+            yaw_of(transform.transform.rotation),
+        )
+        with self._lock:
+            if not self._poses or self._poses[-1].t < sample.t:
+                self._poses.append(sample)
+
+    # Time and waiting ----------------------------------------------------------------------------
+
+    def now(self):
+        """Return the simulated time (s)."""
+        return self.node.get_clock().now().nanoseconds * 1e-9
+
+    def wait_until(self, predicate, timeout):
+        """Wait until ``predicate()`` is true, for at most ``timeout`` simulated seconds.
+
+        Returns:
+            Whether the predicate became true.
+
+        """
+        start = self.now()
+        wall_deadline = time.monotonic() + WALL_PER_SIM * timeout + WALL_GRACE
+        while not predicate():
+            if self.now() - start > timeout or time.monotonic() > wall_deadline:
+                return predicate()
+            time.sleep(0.02)
+        return True
+
+    def sleep(self, duration):
+        """Wait ``duration`` simulated seconds."""
+        self.wait_until(lambda: False, duration)
+
+    def _wait_wall(self, predicate, timeout):
+        deadline = time.monotonic() + timeout
+        while not predicate():
+            if time.monotonic() > deadline:
+                return predicate()
+            time.sleep(0.02)
+        return True
+
+    def _call(self, client, request, timeout=5.0):
+        """Call a service; return the response, or None if none arrived in ``timeout`` wall s."""
+        if not client.wait_for_service(timeout_sec=timeout):
+            return None
+        future = client.call_async(request)
+        if not self._wait_wall(future.done, timeout):
+            client.remove_pending_request(future)
+            return None
+        return future.result()
+
+    def wait_until_active(self, timeout=180.0):
+        """Wait until /clock runs, every :data:`NAV2_NODES` node is active and the robot is placed.
+
+        Raises:
+            AssertionError: If something is not ready within ``timeout`` wall seconds.
+
+        """
+        deadline = time.monotonic() + timeout
+
+        def remaining():
+            return max(deadline - time.monotonic(), 0.0)
+
+        # Rarely (seen on Lyrical, after the previous test's processes were killed), the new
+        # participant discovers nothing; a fresh one does.
+        for attempt in range(3):
+            if self._wait_wall(lambda: self.now() > 0.0, min(40.0, remaining())):
+                break
+            publishers = self.node.count_publishers('/clock')
+            if attempt == 2 or remaining() <= 0.0:
+                raise AssertionError(f'no /clock ({publishers} publishers discovered)')
+            print(f'no /clock ({publishers} publishers discovered); new node', flush=True)
+            self.close()
+            self._start()
+        for name in NAV2_NODES:
+            client = self.node.create_client(GetState, f'/{name}/get_state')
+            active = False
+            while not active and remaining() > 0.0:
+                response = self._call(client, GetState.Request(), min(5.0, remaining()))
+                active = (
+                    response is not None
+                    and response.current_state.id == State.PRIMARY_STATE_ACTIVE
+                )
+                if not active:
+                    time.sleep(0.5)
+            self.node.destroy_client(client)
+            if not active:
+                raise AssertionError(f'{name} is not active after {timeout:.0f} s')
+        if not self._wait_wall(
+            lambda: self.tf_buffer.can_transform('map', 'base_scan', Time()),
+            min(30.0, remaining()),
+        ):
+            raise AssertionError('no map -> base_scan transform')
+        if not self._navigate.wait_for_server(timeout_sec=max(remaining(), 1.0)):
+            raise AssertionError('no navigate_to_pose action server')
+        if not self._wait_wall(lambda: self.map is not None and self.pose() is not None, 30.0):
+            raise AssertionError('no /map or no true pose')
+
+    # Navigation ----------------------------------------------------------------------------------
+
+    def send_goal(self, x, y, yaw):
+        """Send a NavigateToPose goal in the map frame and wait until it is accepted."""
+        goal = NavigateToPose.Goal()
+        goal.pose.header.frame_id = 'map'
+        goal.pose.header.stamp = self.node.get_clock().now().to_msg()
+        goal.pose.pose.position.x = float(x)
+        goal.pose.pose.position.y = float(y)
+        goal.pose.pose.orientation.z = math.sin(0.5 * yaw)
+        goal.pose.pose.orientation.w = math.cos(0.5 * yaw)
+        start = self.now()
+        future = self._navigate.send_goal_async(goal)
+        if not self._wait_wall(future.done, 30.0):
+            raise AssertionError(f'NavigateToPose ({x}, {y}) got no response')
+        handle = future.result()
+        if not handle.accepted:
+            raise AssertionError(f'NavigateToPose ({x}, {y}) was rejected')
+        return Goal(handle, handle.get_result_async(), start)
+
+    def wait_result(self, goal, timeout):
+        """Return the goal's final status, or None if it has none after ``timeout`` sim s."""
+        if not self.wait_until(goal.result.done, timeout):
+            return None
+        return goal.result.result().status
+
+    def cancel(self, goal, timeout=30.0):
+        """Cancel a goal and return its final status (None if it never ended)."""
+        future = goal.handle.cancel_goal_async()
+        self._wait_wall(future.done, 10.0)
+        return self.wait_result(goal, timeout)
+
+    def navigate(self, x, y, yaw, timeout=120.0):
+        """Send a goal and return its :class:`Episode`; it is cancelled after ``timeout`` sim s."""
+        goal = self.send_goal(x, y, yaw)
+        status = self.wait_result(goal, timeout)
+        if status is None:
+            self.cancel(goal)
+            status = GoalStatus.STATUS_UNKNOWN
+        return self.episode(goal.start, status)
+
+    def episode(self, start, status, end=None):
+        """Return the :class:`Episode` from ``start`` to ``end`` (default: now)."""
+        end = self.now() if end is None else end
+        with self._lock:
+            samples = [s for s in self._samples if start <= s.t <= end]
+            poses = [p for p in self._poses if start <= p.t <= end]
+        return Episode(status, start, end, samples, poses)
+
+    # Observations --------------------------------------------------------------------------------
+
+    def pose(self):
+        """Return the latest true pose (:class:`PoseSample`), or None."""
+        with self._lock:
+            return self._poses[-1] if self._poses else None
+
+    def field_samples_since(self, start):
+        """Return the field_state samples stamped at or after ``start``."""
+        with self._lock:
+            return [s for s in self._samples if s.t >= start]
+
+    def plans_since(self, start):
+        """Return the receive times of the /plan messages since ``start``."""
+        with self._lock:
+            return [t for t in self._plans if t >= start]
+
+    def follow_path_failures_since(self, start):
+        """Return the times at which bt_navigator's FollowPath node failed, since ``start``."""
+        with self._lock:
+            return sorted(t for t in self._failures if t >= start)
+
+    def infeasible_command_count(self, timeout=10.0):
+        """Return vectorfield_sim's infeasible-command count (None if it never arrived)."""
+        self._wait_wall(lambda: self._infeasible is not None, timeout)
+        return self._infeasible
+
+    def final_command_publishers(self, topic, expected, timeout=15.0):
+        """Return the nodes that publish ``topic``, waiting until ``expected`` is among them."""
+
+        def names():
+            return sorted(
+                {info.node_name for info in self.node.get_publishers_info_by_topic(topic)}
+            )
+
+        self._wait_wall(lambda: expected in names(), timeout)
+        return names()
+
+    # vectorfield_sim and Nav2 services -----------------------------------------------------------
+
+    def set_parameter(self, node_name, name, value):
+        """Set a parameter of a node (a bool, string, float or list of floats)."""
+        if isinstance(value, bool):
+            message = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
+        elif isinstance(value, str):
+            message = ParameterValue(type=ParameterType.PARAMETER_STRING, string_value=value)
+        elif isinstance(value, (list, tuple)):
+            message = ParameterValue(
+                type=ParameterType.PARAMETER_DOUBLE_ARRAY,
+                double_array_value=[float(v) for v in value],
+            )
+        else:
+            message = ParameterValue(
+                type=ParameterType.PARAMETER_DOUBLE, double_value=float(value)
+            )
+        request = SetParameters.Request(parameters=[ParameterMessage(name=name, value=message)])
+        client = self.node.create_client(SetParameters, f'/{node_name}/set_parameters')
+        response = self._call(client, request)
+        self.node.destroy_client(client)
+        if response is None or not response.results[0].successful:
+            raise AssertionError(f'{node_name} rejected {name} = {value}: {response}')
+
+    def set_boxes(self, boxes):
+        """Set vectorfield_sim's unmapped ``box_obstacles`` (a list of [x, y, sx, sy, yaw])."""
+        self.set_parameter('vectorfield_sim', 'box_obstacles', [v for box in boxes for v in box])
+
+    def step_map_to_odom(self, x, y, yaw):
+        """Add (x, y, yaw) to vectorfield_sim's published map -> odom (a localization jump)."""
+        request = SetInitialPose.Request()
+        request.pose.header.frame_id = 'map'
+        request.pose.pose.pose.position.x = float(x)
+        request.pose.pose.pose.position.y = float(y)
+        request.pose.pose.pose.orientation.z = math.sin(0.5 * yaw)
+        request.pose.pose.pose.orientation.w = math.cos(0.5 * yaw)
+        client = self.node.create_client(SetInitialPose, '/vectorfield_sim/step_map_to_odom')
+        response = self._call(client, request)
+        self.node.destroy_client(client)
+        if response is None:
+            raise AssertionError('vectorfield_sim did not answer step_map_to_odom')
+
+    def clear_costmaps(self):
+        """Clear both costmaps entirely."""
+        for costmap in ('local_costmap', 'global_costmap'):
+            client = self.node.create_client(
+                ClearEntireCostmap, f'/{costmap}/clear_entirely_{costmap}'
+            )
+            response = self._call(client, ClearEntireCostmap.Request())
+            self.node.destroy_client(client)
+            if response is None:
+                raise AssertionError(f'{costmap} was not cleared')
+
+
+def _seconds(stamp):
+    return stamp.sec + stamp.nanosec * 1e-9

@@ -1,0 +1,7 @@
+# Test overlay: the global costmap keeps only the static map, so obstacles that are not in the map
+# (vectorfield_sim's box_obstacles) are left to the controller's local costmap. The global plan
+# then runs through them, which is what the contour and blocked-corridor tests need.
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      plugins: ["static_layer", "inflation_layer"]

@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -99,11 +100,22 @@ protected:
   }
 
   /// @brief Starts the simulator with `overrides` and the probe; `paused` adds
-  /// `real_time_factor: 0` (the test steps the simulator).
+  /// `real_time_factor: 0` (the test steps the simulator). Unless `overrides` says otherwise,
+  /// odometry is published every step and a scan in the step of its stamp.
   void start(std::vector<rclcpp::Parameter> overrides = {}, bool paused = true)
   {
     if (paused) {
       overrides.emplace_back("real_time_factor", 0.0);
+    }
+    for (const rclcpp::Parameter & fallback :
+         {rclcpp::Parameter("odom_rate", 1e4), rclcpp::Parameter("scan_latency", 0.0)}) {
+      const bool overridden = std::any_of(
+        overrides.begin(), overrides.end(), [&fallback](const rclcpp::Parameter & parameter) {
+          return parameter.get_name() == fallback.get_name();
+        });
+      if (!overridden) {
+        overrides.push_back(fallback);
+      }
     }
     sim_ = std::make_shared<vectorfield_sim::KinematicSimNode>(
       rclcpp::NodeOptions().parameter_overrides(overrides));
@@ -119,7 +131,11 @@ protected:
     } else {
       twist_pub_ = probe_->create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
     }
-    record<nav_msgs::msg::Odometry>("odom", rclcpp::QoS(10), &odom_);
+    subscriptions_.push_back(probe_->create_subscription<nav_msgs::msg::Odometry>(
+      "odom", rclcpp::QoS(100), [this](const nav_msgs::msg::Odometry & message) {
+        odom_ = message;
+        odom_stamps_.push_back(toNs(message.header.stamp));
+      }));
     record<nav_msgs::msg::Odometry>("/vectorfield_sim/ground_truth", rclcpp::QoS(10), &truth_);
     record<sensor_msgs::msg::LaserScan>("scan", rclcpp::SensorDataQoS(), &scan_);
     subscriptions_.push_back(probe_->create_subscription<rosgraph_msgs::msg::Clock>(
@@ -137,6 +153,7 @@ protected:
         for (const auto & transform : message.transforms) {
           if (transform.child_frame_id == "base_footprint") {
             odom_tf_ = transform;
+            odom_tf_stamps_.push_back(toNs(transform.header.stamp));
           }
         }
       }));
@@ -245,6 +262,8 @@ protected:
   std::uint64_t infeasible_{0};
   bool has_infeasible_{false};
   std::vector<std::int64_t> clocks_;
+  std::vector<std::int64_t> odom_stamps_;
+  std::vector<std::int64_t> odom_tf_stamps_;
 };
 
 }  // namespace vf_sim_test

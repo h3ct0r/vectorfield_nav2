@@ -15,13 +15,14 @@
 /// @file
 /// @brief KinematicSimNode in process, motion and time: a constant twist moves odom and TF as
 /// sim::integrate predicts (every model, Twist and TwistStamped input), the command timeout, the
-/// Ackermann infeasible-command count and `/clock`.
+/// Ackermann infeasible-command count, `/clock`, the odometry rate and the scan latency.
 
 #include <gtest/gtest.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "sim_node_test_support.hpp"
 #include "vectorfield_core/config.hpp"
@@ -166,6 +167,46 @@ TEST_F(SimNodeTest, ClockAdvancesByTheFixedStep)
     EXPECT_EQ(clocks_[i], static_cast<std::int64_t>(i + 1) * 20'000'000) << i;
   }
   EXPECT_EQ(toNs(odom_.header.stamp), 500'000'000);
+}
+
+TEST_F(SimNodeTest, OdomAndItsTfFollowOdomRate)
+{
+  // 25 Hz with 10 ms steps: every fourth step publishes odom, the TF and the ground truth (the
+  // 1 Hz scan adds no stamp in these 12 steps).
+  ASSERT_NO_FATAL_FAILURE(start({{"odom_rate", 25.0}, {"scan_rate", 1.0}}));
+  for (int i = 0; i < 12; ++i) {
+    sim_->step();
+  }
+  ASSERT_TRUE(spinUntil([this]() {
+    return clocks_.size() == 12U && odom_stamps_.size() == 3U && odom_tf_stamps_.size() == 3U &&
+           toNs(truth_.header.stamp) == 120'000'000;
+  }))
+    << clocks_.size() << " clocks, " << odom_stamps_.size() << " odom, " << odom_tf_stamps_.size()
+    << " TF";
+  const std::vector<std::int64_t> expected{40'000'000, 80'000'000, 120'000'000};
+  EXPECT_EQ(odom_stamps_, expected);
+  EXPECT_EQ(odom_tf_stamps_, expected);
+  // The clock still advances every step.
+  EXPECT_EQ(clocks_.front(), 10'000'000);
+}
+
+TEST_F(SimNodeTest, ScanArrivesAfterItsLatencyWithItsTransform)
+{
+  // 30 Hz odometry (every third step), a scan every 10 steps delivered two steps later.
+  ASSERT_NO_FATAL_FAILURE(start({{"odom_rate", 30.0}, {"scan_latency", 0.02}}));
+  for (int i = 0; i < 11; ++i) {
+    sim_->step();
+  }
+  ASSERT_TRUE(spinUntil([this]() { return clocks_.size() == 11U; }));
+  spinUntil([]() { return false; }, std::chrono::milliseconds(200));
+  EXPECT_EQ(toNs(scan_.header.stamp), 0) << "the scan arrived before its latency";
+  sim_->step();
+  ASSERT_TRUE(spinUntil([this]() { return toNs(scan_.header.stamp) == 100'000'000; }));
+  // The odometry and its TF also exist at the scan's stamp, off the 30 Hz grid.
+  ASSERT_TRUE(spinUntil([this]() { return odom_tf_stamps_.size() == 5U; }));
+  const std::vector<std::int64_t> expected{
+    30'000'000, 60'000'000, 90'000'000, 100'000'000, 120'000'000};
+  EXPECT_EQ(odom_tf_stamps_, expected);
 }
 
 TEST_F(SimNodeTest, StepTimerRunsWhenNotPaused)
