@@ -1336,10 +1336,16 @@ void reserveScratch(const Model & model, const ObstacleEnv & obstacles, StepScra
   }
   const SafetyConfig & safety = model.config.safety;
   const Kinematics & kinematics = model.kinematics;
-  // The main rollout may follow a cancel ramp past the horizon.
-  const double ramp = kinematics.cancel_deceleration > 0.0
-                        ? kinematics.max_linear_vel / kinematics.cancel_deceleration
-                        : 0.0;
+  // The main rollout may follow a cancel ramp past the horizon. One alpha scales every axis, so
+  // the ramp lasts as long as its slowest axis: linear at cancel_deceleration, angular at
+  // max_angular_accel (math_spec §8.4).
+  const double linear_ramp = kinematics.cancel_deceleration > 0.0
+                               ? kinematics.max_linear_vel / kinematics.cancel_deceleration
+                               : 0.0;
+  const double angular_ramp = kinematics.max_angular_accel > 0.0
+                                ? kinematics.max_angular_vel / kinematics.max_angular_accel
+                                : 0.0;
+  const double ramp = std::max(linear_ramp, angular_ramp);
   scratch->rollout.reserve(
     rolloutPoseBound(model, safety.collision_check_horizon + ramp, resolution));
   if (model.config.obstacles.obstacle_mode != ObstacleMode::kContour) {
@@ -1764,7 +1770,7 @@ GoalEnv makeGoalEnv(const Model & model, const TrackerInput & input, TrackerStat
 
 /// @brief kBlocked of math_spec §10.4 (with the precedence of §9.2): set when the current pose
 /// collides; in a translation phase when \f$s_{\mathrm{free}} < m_s + v_{\mathrm{stop}}^2/(2
-/// a_{\mathrm{dec}})\f$, released only at \f$s_{\mathrm{free}} \ge m_s + h_b\f$, never when settled
+/// a_{\mathrm{dec}})\f$, released only \f$h_b\f$ above that threshold, never when settled
 /// (a binding cap with XY reached settles); in a rotation phase when the rollout collides before
 /// leaving the rotation. Not evaluated in STOPPED.
 bool evaluateBlocked(
@@ -1783,12 +1789,15 @@ bool evaluateBlocked(
   if (first.settled || next.holding || (first.xy_reached && cap_binds)) {
     return false;
   }
-  const double stop_margin = model.config.safety.stop_margin;
-  if (was_blocked) {
-    return !(s_free >= stop_margin + blockedReleaseBand(resolution));
-  }
+  // Set below m_s + v_stop^2/(2 a_dec); release h_b above that threshold, so the band stays real
+  // when the Ackermann v_stop = v_ack makes the braking term exceed h_b (math_spec §10.4).
   const double a_dec = model.kinematics.max_linear_decel;
-  return s_free < stop_margin + model.v_stop * model.v_stop / (2.0 * a_dec);
+  const double set_below =
+    model.config.safety.stop_margin + model.v_stop * model.v_stop / (2.0 * a_dec);
+  if (was_blocked) {
+    return !(s_free >= set_below + blockedReleaseBand(resolution));
+  }
+  return s_free < set_below;
 }
 
 /// @brief Validates a configuration for the constructor; throws ConfigError on any error.

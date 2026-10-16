@@ -114,6 +114,10 @@ inline constexpr double kProbeMinOffset = 0.02;
 /// Cap on the vertex-spacing term \f$\min(\bar\ell, 0.10)\f$ of the heading-tracking probe offset
 /// (math_spec §7.4; Curve::vertexSpacing()).
 inline constexpr double kProbeSpacingCap = 0.10;
+/// Relative slack of the heading-tracking jump threshold \f$1.05\,(2\delta + 2\max(D_+, D_-))\f$:
+/// on a polyline the arc between the probes' feet exceeds their chord by up to
+/// \f$1/\cos(\Theta/2)\f$, \f$\Theta\f$ the turn between them (math_spec §7.4).
+inline constexpr double kProbeJumpSlack = 1.05;
 /// Lower bound of the chord \f$\ell_c = \max(0.10, 2\,\mathrm{res})\f$ (math_spec §1).
 inline constexpr double kChordMinLength = 0.10;
 /// Lower bound of the kBlocked release band \f$h_b = \max(2\,\mathrm{res}, 0.05)\f$

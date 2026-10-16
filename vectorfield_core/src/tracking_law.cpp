@@ -45,8 +45,11 @@ bool contourChanged(const ProbeSample & a, const ProbeSample & b) noexcept
 }
 
 /// @brief Jump test between the spatial probes (math_spec §7.4 [Design]): a closest-point jump
-/// \f$\lvert s^\star_+ - s^\star_-\rvert > 2\delta + 2\max(D_+, D_-)\f$, with the arc difference
-/// wrapped on closed curves, or a contour change. A change of vertex or segment is not a jump.
+/// \f$\lvert s^\star_+ - s^\star_-\rvert > 1.05\,(2\delta + 2\max(D_+, D_-))\f$, with the arc
+/// difference wrapped on closed curves, or a contour change. A change of vertex or segment is not
+/// a jump. The 5% slack covers the polyline arc between feet on different segments, which exceeds
+/// their chord (at most \f$2\delta\f$ on the path): with \f$\delta = \bar\ell\f$ on a 126-gon the
+/// feet are 1.0003 x \f$2\delta\f$ apart along the curve.
 ///
 /// The threshold carries the closest-point tie tolerance (1e-9 m, Appendix C item 1) as a rounding
 /// allowance: on the path of a straight piece (D = 0, heading along T) the feet are exactly
@@ -59,7 +62,8 @@ bool probesJump(
     return true;
   }
   const double arc = wrapPeriodic(plus.s_star - minus.s_star, curve_length);
-  return std::abs(arc) > 2.0 * delta + 2.0 * std::max(plus.D, minus.D) + kTieTolerance;
+  return std::abs(arc) >
+         kProbeJumpSlack * (2.0 * delta + 2.0 * std::max(plus.D, minus.D)) + kTieTolerance;
 }
 
 }  // namespace

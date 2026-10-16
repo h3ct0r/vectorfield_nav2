@@ -910,9 +910,20 @@ closer than $2 r_{\mathrm{insc}}$ merge, and gaps narrower than about $2\lambda$
 **Start.** An episode starts only in a cycle where all hold (thesis 3.72's activation region):
 
 1. contour is on, the gate is open and no goal veto applies;
-2. measured to $K$ at $x$: $D_o \le D_{\mathrm{in}}'$ and $n_o^\top \Phi < 0$, with $\Phi$ the
-   nominal (unshaped) path field [Spec];
+2. measured at $x$ to the active blocking set $B(s^\star)$ (`path_blocked`) or to $K$ (`always`):
+   $D \le D_{\mathrm{in}}'$ and $n^\top \Phi < 0$, with $\Phi$ the nominal (unshaped) path field
+   [Spec]; no episode starts while $B(s^\star)$ is empty;
 3. the side probe returns a side.
+
+**Blocking set** (`path_blocked`) [Design, M1]. $B = \{b_j = (s_j, f_j)\}$: the station $s_j$ of each
+blocked gate sample and its nearest lethal cell $f_j$ (the full-mask feature), kept when $f_j \in K$.
+The active set is $B(s^\star) = \{b_j : \mathrm{dir}\,(s_j - s^\star) \ge 0\}$ (station difference
+wrapped on closed curves); $D_B$ and $n_B$ are the distance and unit normal from the nearest
+$f_j \in B(s^\star)$ to $x$ (below res/2 the normal is taken from base_link). $L_B$ is the station
+extent of $B$ (0 with fewer than two samples or with `always`). *Rationale*: $K$ can merge the
+blocking obstacle with a long wall parallel to the path; measured to $K$, the start and exit tests
+follow that wall for its whole length (U17, O35). The blocking set keeps them on the part of $K$
+that actually blocks the path, and releases the episode once that part is behind the robot.
 
 Episodes start only in the once-per-call obstacle preparation, which also runs the side probe;
 rollouts never start one. No episode starts while cancelling, in STOPPED, while holding the goal or
@@ -924,11 +935,12 @@ the contour forced on at that side, the gate frozen and $\gamma_{\mathrm{col}} =
 mask. Each rollout stops at the episode-exit test, the first collision or
 
 $$
-T_{\mathrm{side}} = \max\!\big(T_h,\ (D_{\mathrm{in}}' - \lambda + \pi\lambda)/v_r\big)
-\quad (\approx 4.6\ \mathrm{s}\ \text{for TB3}),
+T_{\mathrm{side}} = \max\!\big(T_h,\ (D_{\mathrm{in}}' - \lambda + \pi\lambda + L_B)/v_r\big)
+\quad (\approx 4.6\ \mathrm{s}\ \text{for TB3 and a point obstacle}),
 $$
 
-long enough for the radial approach plus half a circulation. Rank the sides by, in order:
+long enough for the radial approach, half a circulation and the length of the blocking set, so an
+extended obstacle is passed within the probe. Rank the sides by, in order:
 
 1. collision-free;
 2. exit reached;
@@ -948,8 +960,11 @@ grazes a wall by 1 cm loses to an open one.
 **Latched circulation.** $T_\lambda = \sigma_c\, J n_o$ for the whole episode. This is (3.67) with
 the sign frozen; it removes the $\Pi A = 0$ singularity and the trap basin of {ref}`sec-contour-trap`.
 
-**Exit**, ending the episode and clearing $\sigma_c$, on any of: $n_o^\top \Phi \ge 0.05\lVert\Phi\rVert$;
-$D_o > D_{\mathrm{in}}' + h_c$; the gate closes; $K$ is lost; the goal veto.
+**Exit**, ending the episode and clearing $\sigma_c$, on any of: $n^\top \Phi \ge 0.05\lVert\Phi\rVert$,
+with $n = n_B$ (`path_blocked`) or $n_o$ (`always`); $B(s^\star)$ empty (`path_blocked`);
+$D_o > D_{\mathrm{in}}' + h_c$ ($D_o$ measured to $K$); the gate closes; $K$ is lost; the goal veto.
+With `path_blocked` the episode usually ends on $B(s^\star)$ empty or the $n_B$ test, before the
+gate's release time has passed.
 
 **Field during an episode.**
 
@@ -1061,8 +1076,15 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
 
   $$
   \dot\psi_d = v\,\frac{\operatorname{wrap}\big(\psi_d(x + \delta\mathbf h) - \psi_d(x - \delta\mathbf h)\big)}{2\delta} + \partial_t\psi_d,
-  \qquad \delta = \max(0.02\ \mathrm{m},\ \lvert v \rvert \Delta t).
+  \qquad \delta = \max\big(0.02\ \mathrm{m},\ \lvert v \rvert \Delta t,\ \min(\bar\ell, 0.10\ \mathrm{m})\big),
   $$
+
+  $\bar\ell$ is the polyline's mean vertex spacing (`Curve::vertexSpacing()`; parametric and expression
+  curves report none and the term drops out) [Design, M1]. *Rationale*: with $2\delta$ below the
+  vertex spacing, the number of vertices between the probes alternates between 0 and 1, so the
+  finite difference alternates between 0 and the full vertex turn; on 5 cm polyline circles
+  heading tracking then settled 2.7–4.5 cm off the curve (O40). A span of whole vertex spacings
+  keeps the count constant.
 
   The probes use the `FieldProbe`, which returns `ProbeSample{psi_d, s_star, D, contour_active, sigma_c}`
   at the cycle's $t$ with the frozen hint, $K$ and gate. A probe whose field norm is below
@@ -1070,8 +1092,10 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
   $\partial_t\psi_d = \operatorname{wrap}(\psi_d(x, t + \Delta t/2) - \psi_d(x, t - \Delta t/2))/\Delta t$
   for time-varying fields, else 0 [Spec].
 - **Jump-only zeroing** [Design]. $\dot\psi_d := 0$ only when the probes see a closest-point jump,
-  $\lvert s^\star_+ - s^\star_- \rvert > 2\delta + 2\max(D_+, D_-)$ (arc difference wrapped on closed
-  curves), or differ in `contour_active` or `sigma_c`. A change of vertex or segment is not a jump.
+  $\lvert s^\star_+ - s^\star_- \rvert > 1.05\,\big(2\delta + 2\max(D_+, D_-)\big)$ (arc difference
+  wrapped on closed curves), or differ in `contour_active` or `sigma_c`. A change of vertex or segment
+  is not a jump. The 5% slack covers the polyline arc between feet on different segments, which
+  exceeds their chord by up to $1/\cos(\Theta/2)$, $\Theta$ the turn between them [Design, M1].
   *Rationale*: probes $2\delta \ge 4$ cm apart straddle a vertex on most cycles of raw Nav2 plans
   (NavFn vertices every 2.5 cm), and zeroing on every segment change lost the feedforward on
   81–100% of cycles, leaving a steady offset of up to 0.22 m on a 0.5 m circle. On smooth pieces
@@ -1275,13 +1299,16 @@ completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` chan
 - **Settled.**
 
   $$
-  \text{settled} := \text{XY reached} \wedge \big(\lVert p - g\rVert \le \sigma_{\mathrm{stop}} \ \vee\ \sigma_{\mathrm{base}} \le \sigma_{\mathrm{stop}} \ \vee\ \text{cap binds}\big),
+  \text{settled} := \text{XY reached} \wedge \big(\lVert p - g\rVert \le \sigma_{\mathrm{stop}} \ \vee\ \text{cap binds} \ \vee\ (\text{Ackermann} \wedge \sigma_{\mathrm{base}} \le \sigma_{\mathrm{stop}})\big),
   \qquad \sigma_{\mathrm{stop}} = \mathrm{xy\_tol}/2 .
   $$
 
   It is `TrackerOutput::settled`, the only entry to ROTATE_TO_HEADING and the follower's open-curve
   success test. "Cap binds" means $\gamma_{\mathrm{col}} < \min(1, \gamma_{\mathrm{lim}}, \gamma_{\mathrm{cl}}, \gamma_{\mathrm{ap}})$
-  [Spec]. *Rationale*: a robot that rotates as soon as it enters xy_tol stops at the tolerance edge,
+  [Spec]. The along-track clause $\sigma_{\mathrm{base}} \le \sigma_{\mathrm{stop}}$ applies to
+  Ackermann only [Design, M1]: the other laws converge laterally under the terminal field, so they
+  settle within $\sigma_{\mathrm{stop}}$ of the goal itself, whereas a car-like base cannot remove a
+  lateral offset without reversing. *Rationale*: a robot that rotates as soon as it enters xy_tol stops at the tolerance edge,
   where one outward localisation correction undoes XY reached; Nav2 re-arms its checker on every
   replan, and the robot dances between FOLLOW and ROTATE_TO_HEADING. Settling inside
   $\sigma_{\mathrm{stop}}$ leaves half the tolerance as margin. Nav2 still ends a goal on entering
@@ -1455,8 +1482,11 @@ the cap and kBlocked except the current-pose test.
   leaving the rotation phase it started in (the remaining swept rotation collides). Never set in a
   translation phase while settled, holding the goal, or with XY reached and the cap binding
   [Spec, M1].
-- **Clear** (translation) only when $s_{\mathrm{free}} \ge m_s + h_b$; (rotation) when the swept
-  remaining rotation is free.
+- **Clear** (translation) only when $s_{\mathrm{free}} \ge m_s + v_{\mathrm{stop}}^2/(2 a_{\mathrm{dec}}) + h_b$,
+  i.e. $h_b$ above the set threshold [Design, M1]; (rotation) when the swept remaining rotation is
+  free. For Ackermann $v_{\mathrm{stop}} = v_{\mathrm{ack}}$, and $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ can
+  exceed $h_b$ (0.09 m at $v_{\mathrm{ack}} = 0.3$, $a_{\mathrm{dec}} = 0.5$); a release at $m_s + h_b$
+  would then sit below the set threshold and the flag would toggle every cycle.
 - *Rationale*: the band between $v_{\mathrm{cap}} < 0.02$ and a velocity-based release is under 1 mm
   ($v_{\mathrm{stop}}^2/(2a_{\mathrm{dec}}) = 0.2$ mm), so one cell of sensor flicker would toggle the
   flag, refresh the server's patience timer every other cycle and let the robot creep;

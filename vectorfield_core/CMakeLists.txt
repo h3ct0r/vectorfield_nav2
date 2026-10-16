@@ -188,6 +188,11 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
       continue()
     endif()
     vf_core_add_gtest(${_vf_test_name} "${_vf_test_source}")
+    # The allocation-counting tests replace the global operator new/delete with malloc/free; GCC
+    # 11+ inlines the replacements and reports a false -Wmismatched-new-delete.
+    if(_vf_test_name MATCHES "alloc" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      target_compile_options(${_vf_test_name} PRIVATE -Wno-mismatched-new-delete)
+    endif()
   endforeach()
 
   if(TARGET test_version)

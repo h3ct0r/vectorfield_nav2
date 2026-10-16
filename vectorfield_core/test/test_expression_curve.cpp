@@ -156,7 +156,7 @@ TEST(UpstreamRegression, U02_IdentifiersBoundByName)
       std::sqrt(0.25) * std::sin(s) + 0.05 * std::exp(-2.0));
     EXPECT_LE((curve->r(s, 0.0) - expected).norm(), 1e-14) << "s = " << s;
   }
-  for (const std::string & name : {"s", "t", "sin", "sqrt", "tanh", "exp", "atan2", "rnd", "_pi"}) {
+  for (const char * name : {"s", "t", "sin", "sqrt", "tanh", "exp", "atan2", "rnd", "_pi"}) {
     SCOPED_TRACE(name);
     expectInvalid(expressionSpec("cos(s)", "sin(s)", {{name, 1.0}}), "reserved");
   }
@@ -228,7 +228,7 @@ TEST(ExpressionCurve, Limits)
   many.emplace_back("p32", 32.0);
   expectInvalid(expressionSpec("cos(s)", "sin(s)", many), "the limit is 32");
 
-  for (const std::string & name : {"1a", "a-b", "", "a b", "\xc3\xa9", "a.b", "a(b)", "a+b"}) {
+  for (const char * name : {"1a", "a-b", "", "a b", "\xc3\xa9", "a.b", "a(b)", "a+b"}) {
     SCOPED_TRACE(name);
     expectInvalid(expressionSpec("cos(s)", "sin(s)", {{name, 1.0}}), "not an identifier");
   }
@@ -299,10 +299,10 @@ TEST(ExpressionCurve, DeterministicFunctionSetWithoutRnd)
     EXPECT_NEAR(curve->r(0.0, 0.0).x(), 1.0 + 0.001 * function.value, 1e-15);
   }
   expectInvalid(expressionSpec("cos(s) + 0*rnd()", "sin(s)"), "rnd");
-  for (const std::string & name : {"sin", "atan2", "sum", "rnd", "s", "t", "_pi", "_e", "coth"}) {
+  for (const char * name : {"sin", "atan2", "sum", "rnd", "s", "t", "_pi", "_e", "coth"}) {
     EXPECT_TRUE(vf::detail::isReservedExpressionName(name)) << name;
   }
-  for (const std::string & name : {"a", "u", "us", "pi", "e", "sine", "s1", "t_0"}) {
+  for (const char * name : {"a", "u", "us", "pi", "e", "sine", "s1", "t_0"}) {
     EXPECT_FALSE(vf::detail::isReservedExpressionName(name)) << name;
   }
 }
