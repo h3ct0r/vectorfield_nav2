@@ -81,8 +81,8 @@ struct LegacyPathOutput
 /// 3. the closest pose is the minimum distance over the poses within `max_robot_pose_search_dist`
 ///    of integrated distance from the plan start, ties going to the **last** minimum (the `<=`
 ///    of `nav2_util::geometry_utils::min_by` on Jazzy and later; Humble's own uses `<`, so the
-///    port carries its own); if it is the last pose of the searched range (and not the first), it
-///    steps back one so at least 2 poses remain;
+///    port carries its own); if it is the last pose of the plan (and the plan has more than one),
+///    it steps back one so at least 2 poses remain;
 /// 4. the segment ends at the first pose more than `prune_distance` of integrated distance after
 ///    the closest pose (`first_after_integrated_distance`);
 /// 5. the segment is transformed into the costmap frame and cut at the first pose outside the

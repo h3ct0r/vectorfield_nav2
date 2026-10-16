@@ -69,6 +69,9 @@ struct CycleDiagnostics
   int virtual_vertex{-1};
   /// Vertices passed to `PolylineCurve::assign`.
   std::size_t window_vertices{0};
+  /// Unit direction of the last segment passed to `PolylineCurve::assign` (costmap frame): the
+  /// curve's end tangent, \f$R\,\hat T_{\mathrm{end}}\f$ once the tail is conditioned.
+  vectorfield_core::Vec2 window_end_tangent{vectorfield_core::Vec2::UnitX()};
   /// The speed-limit scale in force.
   double speed_limit_scale{1.0};
   /// FieldVisualizer::builderCalls() (layer-2 test: 0 without subscribers).

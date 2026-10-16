@@ -668,6 +668,8 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   diag.window_kind = build.kind;
   diag.virtual_vertex = build.virtual_vertex;
   diag.window_vertices = s.vertices.size();
+  diag.window_end_tangent =
+    (s.vertices[s.vertices.size() - 1] - s.vertices[s.vertices.size() - 2]).normalized();
   diag.speed_limit_scale = input.speed_limit_scale;
 
   // The goal entered the window too late to brake on the terminal field: checked once per goal,

@@ -158,10 +158,21 @@ if(BUILD_TESTING)
   endfunction()
 
   vf_controller_add_gtest(test_plugin_discovery)
+  # Pure unit test of the raw-plan intake (plan section 5.1).
+  vf_controller_add_gtest(test_plan_processing)
   # Layer 2 through the server harness (plan section 9).
   vf_controller_add_gtest(test_controller_lifecycle)
   vf_controller_add_gtest(test_controller_approach)
   vf_controller_add_gtest(test_controller_obstacles_cancel)
+  vf_controller_add_gtest(test_controller_replans)
+  vf_controller_add_gtest(test_controller_navfn_tails)
+  vf_controller_add_gtest(test_controller_footprint)
+  vf_controller_add_gtest(test_controller_goal_checkers)
+  # Its own process: Jazzy's shim library links PositionGoalChecker's.
+  vf_controller_add_gtest(test_controller_rotation_shim)
+  # LegacyPathHandler against FeasiblePathHandler (plan section 5.1); its
+  # body is compiled on Gen C only.
+  vf_controller_add_gtest(test_path_handler_parity)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)

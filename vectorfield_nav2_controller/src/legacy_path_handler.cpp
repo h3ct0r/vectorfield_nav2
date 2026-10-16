@@ -131,7 +131,7 @@ void LegacyPathHandler::computeWindow(
     vectorfield_core::Vec2(robot_pose.pose.position.x, robot_pose.pose.position.y));
 
   // 3. The closest pose within max_robot_pose_search_dist of integrated distance; keep >= 2
-  // poses when the closest is the last one.
+  // poses when the closest is the plan's last one (not merely the last one searched).
   std::vector<geometry_msgs::msg::PoseStamped> & poses = plan_.poses;
   const double search_distance = config_.max_robot_pose_search_dist < 0.0
                                    ? std::numeric_limits<double>::max()
@@ -139,9 +139,7 @@ void LegacyPathHandler::computeWindow(
   const PoseIterator search_end =
     firstAfterIntegratedDistance(poses.begin(), poses.end(), search_distance);
   PoseIterator closest = closestPose(poses.begin(), search_end, robot_in_plan);
-  if (
-    poses.size() > 1 && search_end != poses.begin() && closest == std::prev(search_end) &&
-    closest != poses.begin()) {
+  if (poses.size() > 1 && closest == std::prev(poses.end())) {
     closest = std::prev(closest);
   }
 

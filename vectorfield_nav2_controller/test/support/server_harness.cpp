@@ -61,9 +61,12 @@ constexpr const char * kControllerType = "vectorfield_nav2_controller::VectorFie
 constexpr const char * kShimType = "nav2_rotation_shim_controller::RotationShimController";
 /// The server's goal-checker id (stock nav2_params.yaml).
 constexpr const char * kGoalCheckerId = "general_goal_checker";
-/// Gen C: the server's default path-handler id and type.
+/// The server's default path-handler id (Gen C); path-handler parameter overrides go under it.
 constexpr const char * kPathHandlerId = "PathHandler";
+#if VF_HAS_PATH_HANDLER
+/// Gen C: the server's default path-handler type.
 constexpr const char * kPathHandlerType = "nav2_controller::FeasiblePathHandler";
+#endif
 /// The server's `min_{x,y,theta}_velocity_threshold` defaults.
 constexpr double kVelocityThreshold = 1e-4;
 /// Every harness transform is injected under this authority.
