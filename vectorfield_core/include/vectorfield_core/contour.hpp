@@ -102,8 +102,12 @@ int markBlockedSamples(
   double tolerance, Span<std::uint8_t> blocked) noexcept;
 
 /// @brief Side-probe horizon \f$T_{\mathrm{side}} = \max(T_h, (D'_{\mathrm{in}} - \lambda +
-/// \pi\lambda)/v_r)\f$ (math_spec §6.4; TB3 ≈ 4.6 s).
-double sideProbeHorizon(double horizon, double D_in_prime, double lambda, double v_r) noexcept;
+/// \pi\lambda + L_B)/v_r)\f$ (math_spec §6.4; TB3 with a point obstacle ≈ 4.6 s): the radial
+/// approach, half a circulation and the station extent \f$L_B\f$ of the blocking set (0 for a
+/// point obstacle and in `always` mode), so extended obstacles are passed within the probe.
+double sideProbeHorizon(
+  double horizon, double D_in_prime, double lambda, double v_r,
+  double blocking_extent = 0.0) noexcept;
 
 /// @brief Outcome of one side-probe rollout (math_spec §6.4).
 struct SideProbeResult

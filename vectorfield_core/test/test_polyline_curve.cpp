@@ -994,6 +994,19 @@ TEST(PolylineCurve, PointAtTangentAtAndSampling)
   EXPECT_EQ(curve.sampleStations(0.0, 1.0, 0.0, 0.0, samples), 0u);
 }
 
+TEST(PolylineCurve, VertexSpacingIsTheMeanSegmentLength)
+{
+  const PolylineCurve open =
+    buildPolyline({{0.0, 0.0}, {2.0, 0.0}, {2.0, 1.5}, {0.5, 1.5}}, false, hinted());
+  const vf::Curve & as_curve = open;
+  EXPECT_DOUBLE_EQ(as_curve.vertexSpacing(), 5.0 / 3.0);
+  // A closed curve counts its closing segment.
+  const PolylineCurve square =
+    buildPolyline({{0.0, 0.0}, {1.0, 0.0}, {1.0, 1.0}, {0.0, 1.0}}, true, hinted());
+  EXPECT_DOUBLE_EQ(square.vertexSpacing(), 1.0);
+  EXPECT_EQ(PolylineCurve().vertexSpacing(), 0.0);
+}
+
 TEST(PolylineCurve, OnCurveInteriorPointsHaveZeroNormal)
 {
   const PolylineCurve curve =

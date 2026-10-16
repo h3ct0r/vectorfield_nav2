@@ -143,6 +143,19 @@ public:
   /// PolylineCurve assigned directly).
   virtual const CurveSpec * spec() const noexcept { return nullptr; }
 
+  /// @brief Mean vertex spacing \f$\bar\ell\f$ (m): the length divided by the segment count for a
+  /// vertex-based curve (PolylineCurve; for the plugin, the per-cycle window); 0 for parametric
+  /// and expression curves, which have no vertices.
+  ///
+  /// Heading tracking widens its \f$\dot\psi_d\f$ probe offset to \f$\delta = \max(0.02,
+  /// \lvert v\rvert\Delta t, \min(\bar\ell, 0.10))\f$ (math_spec §7.4). On a polyline the field
+  /// direction turns only where the probes straddle a vertex, so a span \f$2\delta\f$ shorter than
+  /// a vertex spacing sees the whole turning angle on some cycles and nothing on the others. A span
+  /// that is a whole number of vertex spacings always contains the same number of vertices: the
+  /// finite difference stops alternating, and the CommandLimiter's angular rate limit no longer
+  /// rectifies that ripple into a heading bias (a steady offset inside tight curves).
+  virtual double vertexSpacing() const noexcept { return 0.0; }
+
   /// @brief Station of the curve's start: always 0.
   double startStation() const noexcept { return 0.0; }
 

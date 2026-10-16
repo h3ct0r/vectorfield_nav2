@@ -108,9 +108,12 @@ inline constexpr double kSideTieFraction = 0.1;
 /// The contour blend degenerates when \f$\lVert\theta\Phi + (1-\theta)\Psi\rVert <
 /// 10^{-9}\lVert\Phi\rVert\f$ (math_spec §6.4, sec-contour-mods).
 inline constexpr double kBlendDegenerateFraction = 1e-9;
-/// Minimum heading-tracking probe offset: \f$\delta = \max(0.02, \lvert v\rvert\Delta t)\f$
-/// (math_spec §7.4, sec-laws-ht).
+/// Minimum heading-tracking probe offset: \f$\delta = \max(0.02, \lvert v\rvert\Delta t,
+/// \min(\bar\ell, 0.10))\f$ (math_spec §7.4, sec-laws-ht).
 inline constexpr double kProbeMinOffset = 0.02;
+/// Cap on the vertex-spacing term \f$\min(\bar\ell, 0.10)\f$ of the heading-tracking probe offset
+/// (math_spec §7.4; Curve::vertexSpacing()).
+inline constexpr double kProbeSpacingCap = 0.10;
 /// Lower bound of the chord \f$\ell_c = \max(0.10, 2\,\mathrm{res})\f$ (math_spec §1).
 inline constexpr double kChordMinLength = 0.10;
 /// Lower bound of the kBlocked release band \f$h_b = \max(2\,\mathrm{res}, 0.05)\f$

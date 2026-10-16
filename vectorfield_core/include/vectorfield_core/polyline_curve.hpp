@@ -144,6 +144,8 @@ public:
   std::size_t sampleStations(
     double s0, double s1, double ds, double t, Span<Vec2> out) const noexcept override;
   const CurveSpec * spec() const noexcept override;
+  /// @brief \f$\bar\ell = L/\f$ segmentCount() (0 when empty), from the stations stored by assign().
+  double vertexSpacing() const noexcept override;
 
 private:
   std::vector<Vec2> vertices_;

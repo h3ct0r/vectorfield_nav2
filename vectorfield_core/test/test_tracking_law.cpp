@@ -526,6 +526,46 @@ TEST(LawHeadingTracking, ProbesAlongTheHeadingAtDeltaAndHalfPeriod)
   }
 }
 
+// The probe offset covers the curve's mean vertex spacing, capped at 0.10 m:
+// delta = max(0.02, |v| dt, min(l_bar, 0.10)) (math_spec §7.4). NaN or negative spacings are
+// ignored, and a faster robot's |v| dt still wins.
+TEST(LawHeadingTracking, ProbeOffsetCoversTheVertexSpacing)
+{
+  std::vector<ProbeCall> calls;
+  const auto probe = [&calls](const Vec2 & x, double offset) {
+    calls.push_back(ProbeCall{x, offset});
+    ProbeSample sample;
+    sample.psi_d = 0.1 * x.x();
+    sample.s_star = x.x();
+    sample.D = 0.1;
+    return sample;
+  };
+  struct Case
+  {
+    double spacing;
+    double speed;
+    double delta;
+  };
+  const Case cases[] = {{0.0, 0.2, 0.02},   {0.035, 0.2, 0.035},   {0.08, 0.2, 0.08},
+                        {0.25, 0.2, 0.10},  {vf::kNaN, 0.2, 0.02}, {-1.0, 0.2, 0.02},
+                        {0.035, 0.9, 0.045}};
+  const Vec2 x(0.5, -0.25);
+  for (const Case & c : cases) {
+    SCOPED_TRACE("spacing " + std::to_string(c.spacing) + ", speed " + std::to_string(c.speed));
+    calls.clear();
+    LawInput input = lawInput(Pose2{Vec2::Zero(), 0.0}, x, Vec2(c.speed, 0.0));
+    input.dt = 0.05;
+    input.vertex_spacing = c.spacing;
+    const LawOutput out = vf::headingTrackingLaw(input, probe, kKpsi, 1.0, 0.0);
+    ASSERT_EQ(calls.size(), 2U);
+    EXPECT_NEAR((calls[0].x - (x + c.delta * Vec2::UnitX())).norm(), 0.0, 1e-15);
+    EXPECT_NEAR((calls[1].x - (x - c.delta * Vec2::UnitX())).norm(), 0.0, 1e-15);
+    // A linear psi_d: the difference quotient is the gradient whatever delta is.
+    EXPECT_NEAR(out.psi_d_dot, 0.1 * c.speed, 1e-12);
+    EXPECT_FALSE(out.jump);
+  }
+}
+
 // O40 (law part): on a smooth circle, unsaturated, |psi_d-dot - grad(psi_d)^T (v h)| <= 1e-3
 // rad/s, and psi_d-dot is never zeroed.
 TEST(LawHeadingTracking, O40FeedforwardAlongTheMotionOnASmoothCircle)

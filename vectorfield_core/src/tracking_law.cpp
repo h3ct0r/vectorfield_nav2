@@ -199,7 +199,12 @@ LawOutput headingTrackingLaw(
   bool jump = false;
   if (!held && probe) {
     const Vec2 h = heading(psi);
-    const double delta = std::max(kProbeMinOffset, std::abs(v) * input.dt);
+    // A span 2 delta of whole vertex spacings keeps the vertex count between the probes constant,
+    // so the finite difference does not alternate between the full turn and 0 (curve.hpp
+    // Curve::vertexSpacing()). NaN or negative spacings are ignored by the max.
+    const double spacing = std::min(input.vertex_spacing, kProbeSpacingCap);
+    const double delta =
+      std::max({kProbeMinOffset, std::abs(v) * input.dt, std::isnan(spacing) ? 0.0 : spacing});
     const ProbeSample plus = probe(input.x + delta * h, 0.0);
     const ProbeSample minus = probe(input.x - delta * h, 0.0);
     bool zero = !probeUsable(plus) || !probeUsable(minus);

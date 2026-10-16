@@ -216,6 +216,20 @@ struct TrackerOutput
   bool cancel_complete{false};
 };
 
+/// @brief One element of the blocking set B (math_spec §6.4, `path_blocked` activation): a blocked
+/// gate sample whose feature site lies in K.
+///
+/// The contour's start test and its direction exit are measured to the part of K that blocks the
+/// path, so a long wall merged into K (gaps narrower than \f$2r_{\mathrm{insc}}\f$) can neither
+/// start an episode where the path runs beside it nor end one before the obstacle is passed.
+struct BlockingSite
+{
+  /// Path station \f$s_j\f$ of the gate sample (curve arc length, not wrapped).
+  double s{0.0};
+  /// Feature site \f$b_j\f$ of the sample: the centre of the nearest site cell (grid frame).
+  Vec2 site_grid{Vec2::Zero()};
+};
+
 /// @brief Caller-owned per-thread work buffers of Tracker::step (plan §3.1 "StepScratch").
 ///
 /// Grows on demand and never shrinks: after warm-up a steady-state step performs no allocation
@@ -239,6 +253,9 @@ struct StepScratch
   std::vector<Vec2> gate_samples_grid;
   /// 1 = gate sample blocked.
   std::vector<std::uint8_t> gate_blocked;
+  /// Blocking set B of this cycle, in traversal order (`path_blocked` only; empty otherwise),
+  /// frozen with K for the whole step.
+  std::vector<BlockingSite> blocking;
   /// Grid width of `k_mask`.
   int k_width{0};
   /// Grid height of `k_mask`.

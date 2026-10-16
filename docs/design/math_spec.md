@@ -756,8 +756,8 @@ Consider the static terminal field on a borderless extended curve, $\dot x = \Ph
 - **Terminal mode** (plugin; in core). Enter when $\lVert g - g_c \rVert < 0.05$ m; leave on a new
   `goal_seq` or when that distance exceeds 0.25 m. Only in terminal mode is the terminal field used
   and FINAL_APPROACH possible; otherwise the window carries the static field and
-  $\sigma_{\mathrm{base}} := +\infty$. The follower passes $g = r(s_{\mathrm{goal}})$, so its open
-  curves are always terminal.
+  $\sigma_{\mathrm{base}} := +\infty$. Leaving terminal mode returns FINAL_APPROACH to FOLLOW
+  [Spec, M1]. The follower passes $g = r(s_{\mathrm{goal}})$, so its open curves are always terminal.
 - **Window-end cap** (`cap_at_curve_end`, plugin true): a speed-shaping term
   $\gamma_{\mathrm{ap}} = \min\big(1,\ \sqrt{v_{\min}^2 + 2 a_{\mathrm{dec}}\, \sigma_{\mathrm{end}}}\,/v_r\big)$,
   with $\sigma_{\mathrm{end}} = \max(0,\ S_{N-1} - s^\star_{\mathrm{base}})$ to the window's last real
@@ -870,7 +870,8 @@ The contour runs at the active law's evaluation point $x$ ({ref}`sec-laws-points
 - samples $r(s)$ one cell apart for $s \in [s^\star,\ \min(s^\star + \ell_{\mathrm{look}},\ s_{\mathrm{end}})]$,
   with $s^\star$ the cycle's closest point, $\ell_{\mathrm{look}}$ = `obstacle_lookahead` (auto
   $\max(1.0,\ v_r T_h)$) and $s_{\mathrm{end}}$ the goal for open curves or the last window vertex;
-  closed curves wrap; rays are never sampled;
+  closed curves wrap; rays are never sampled; for $\mathrm{dir} = -1$ the samples run toward
+  decreasing $s$ and are kept in traversal order [Spec, M1];
 - a sample is blocked iff $D_o^{\mathrm{all}}(r(s)) < w_{\mathrm{lat}} - $ `obstacle_gate_tolerance`
   (0.05). Grazing contacts are left to the predictor;
 - the gate is open in a cycle with a blocked sample; it closes after staying clear for
@@ -891,7 +892,9 @@ $K$ is the 8-connected component of it that contains the seed cell. $\mathrm{EDT
 the sites of the full mask that lie in $K$; the dilated mask is used only for connectivity, so
 $D_o$ is measured to real cells, not to the dilation.
 
-- Seed when no episode is active: the feature cell of the first blocked gate sample.
+- Seed when no episode is active: the feature cell of the first blocked gate sample. With
+  `obstacle_activation: always` there is no gate: the seed is the site nearest to the evaluation
+  point, and no flood fill runs while that site is farther than $D_{\mathrm{in}}'$ [Spec, M1].
 - Seed during an episode: $k_{\mathrm{seed}}$ = the last $x_o^\star$ in the grid frame (never a cell
   index, never the evaluation frame), mapped each cycle through the current grid origin. If that
   cell is not in the dilated mask, seed from the nearest dilated cell within
@@ -910,6 +913,11 @@ closer than $2 r_{\mathrm{insc}}$ merge, and gaps narrower than about $2\lambda$
 2. measured to $K$ at $x$: $D_o \le D_{\mathrm{in}}'$ and $n_o^\top \Phi < 0$, with $\Phi$ the
    nominal (unshaped) path field [Spec];
 3. the side probe returns a side.
+
+Episodes start only in the once-per-call obstacle preparation, which also runs the side probe;
+rollouts never start one. No episode starts while cancelling, in STOPPED, while holding the goal or
+in ROTATE_TO_HEADING [Spec, M1]. A consequence: when $v_r T_h$ exceeds $D_{\mathrm{in}}'$, the rollout
+sees the blocking obstacle before an episode can start and the cap brakes until it does.
 
 **Side probe**, once per episode start. For $\sigma_c = \pm 1$, roll out ({ref}`sec-collision`) with
 the contour forced on at that side, the gate frozen and $\gamma_{\mathrm{col}} = 1$, against the full
@@ -960,7 +968,10 @@ $D_o > D_{\mathrm{in}}' + h_c$; the gate closes; $K$ is lost; the goal veto.
 
 **Watchdog.** `travelled_m` accumulates base_link path length and `elapsed_s` accumulates $\Delta t$
 from the episode start. `travelled_m` > `obstacle_max_contour_length` (5.0) or `elapsed_s` >
-`obstacle_max_contour_time` (20) sets kContourWatchdog (→ STOPPED).
+`obstacle_max_contour_time` (20) sets kContourWatchdog (→ STOPPED). The path length is
+$\lVert (v_x, v_y) \rVert \Delta t$ of the measured twist, counted from the cycle after the start; a trip
+ends the episode, reports its final counters in that cycle, and STOPPED keeps the kContourWatchdog
+bit [Spec, M1].
 
 (sec-contour-notes)=
 
@@ -1085,6 +1096,7 @@ $x_{\mathrm{ref}} = x_r$ ({ref}`sec-terminal-shift`).
 - **Speed band.** In FOLLOW, a positive law speed below $v_{\mathrm{ack}}$ is raised to
   $v_{\mathrm{ack}}$. Only the braking cap (including kBlocked) and STOPPED (including cancel)
   command 0. The band is lifted once $\sigma_{\mathrm{base}} < \mathrm{xy\_tol} + v_{\mathrm{ack}}^2/(2 a_{\mathrm{dec}})$.
+  It applies before the kinematic box, and not in a cycle where the cap binds [Spec, M1].
   Rounding down instead would deadlock: at $v = 0$, $\lvert\omega\rvert \le \lvert v \rvert / R_{\min} = 0$,
   so the heading error between about 83° and 90° could never shrink.
 - **Speed limit.** $v_r\gamma_{\mathrm{lim}}$ is floored at $v_{\mathrm{ack}}$, with a warning; never in
@@ -1234,7 +1246,9 @@ $\omega$. All axes move together along a straight line in command space, so the 
 direction is kept; for FL this is a first-order lag of $\dot p_c$. In STOPPED: for a cancel, the
 linear bound is $a_{\mathrm{can}}$, raised to $\max(a_{\mathrm{can}}, a_{\mathrm{dec}})$ for the rest
 of the cancel once a rollout finds a collision, and the angular bound is $\alpha_{\max}$; otherwise
-the maximum decelerations.
+the maximum decelerations. The cycle in which a cancel rollout first finds a collision is re-run with
+the raised bound, STATUS_COLLISION_AHEAD is set while that bound applies, and it clears when the
+cancel ends [Spec, M1].
 
 **Ackermann curvature clamp**: if $\lvert\omega\rvert > \lvert v\rvert/R_{\min}$, set
 $\omega := \operatorname{sgn}(\omega)\lvert v\rvert/R_{\min}$ and kCurvatureSaturated.
@@ -1256,7 +1270,8 @@ completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` chan
   arguments, passed in `GoalInfo::xy_reached`. Plugin Gen A/B: a latch
   $\lVert p - g\rVert \le \mathrm{xy\_tol}$, re-armed on every `setPlan`. Follower: the core latch
   `xy_latched`, set when $\lVert p - g\rVert \le$ `goal_tolerance` and cleared only by a `goal_seq`
-  change or reset. XY reached never disagrees with Nav2.
+  change or reset. XY reached never disagrees with Nav2. Inside a rollout, step 0 uses the caller's
+  value and later steps emulate the Gen A/B latch $\lVert p - g\rVert \le \mathrm{xy\_tol}$ [Spec, M1].
 - **Settled.**
 
   $$
@@ -1291,7 +1306,10 @@ completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` chan
 | STOPPED | kHeadingInfeasible, kContourWatchdog, or `input.cancel` | target 0 on every axis, bypassing the $v_{\mathrm{ack}}$ band, the rotate floors and goal hold; decelerations per {ref}`sec-limiter-accel`; a cancel collision sets STATUS_COLLISION_AHEAD and never throws | latched until `goal_seq` changes or reset; a cancel ends when the output is below 0.01 m/s and 0.01 rad/s |
 
 $F_{\mathrm{trk}}$ is evaluated only when $\lVert F_{\mathrm{trk}}\rVert \ge 0.05 v_r$; otherwise there is
-no entry and an active rotation keeps its last target [Spec].
+no entry and an active rotation keeps its last target [Spec]. The norm is taken before speed shaping,
+so a binding collision cap never changes the decision. Rotation phases and STOPPED evaluate
+$F_{\mathrm{trk}}$ for the phase the robot will track next (FINAL_APPROACH if its entry holds, else
+FOLLOW), so entry and exit measure the same angle [Spec, M1].
 
 **Why $\pi/2$ and $\pi/4$, measured at the tracked point** [Design]. Under FL, $v = \mathbf h^\top F$
 reaches 0 at $\lvert e\rvert = \pi/2$; below that FL turns while advancing, so the phase is needed only
@@ -1326,7 +1344,8 @@ motion resumes by itself.
 never kBlocked; this cycle's target is 0, and ROTATE_TO_HEADING or goal hold starts next cycle, whose
 rollout checks the swept rotation.
 
-**Backstop.** `allow_reversing` (false) clamps the drive-direction speed to $q\,v \ge 0$.
+**Backstop.** `allow_reversing` (false) clamps the drive-direction speed to $q\,v \ge 0$, after the
+kinematic box, for unicycle and Ackermann drives (an omni body $v_x < 0$ is legitimate) [Spec, M1].
 
 (sec-phases-follower)=
 
@@ -1376,7 +1395,9 @@ radius $r_{\mathrm{circ}} + \mathrm{res}$ leaves the grid.
 
 `CollisionPredictor` rolls out the private `stepNominal` on copies of the state with
 $\gamma_{\mathrm{col}} = 1$, zero-order hold at the control period, time advancing by $\Delta t$ per
-step, and moving curve frames extrapolated with the input frame twist. Each step integrates the
+step, and moving curve frames extrapolated with the input frame twist. The first step uses the
+cycle's measured $\Delta t$, so reusing it as the final command is exact; later steps hold each
+command for the nominal period $1/f$ [Spec, M1]. Each step integrates the
 nominal plant exactly (no slip) [Derived]:
 
 $$
@@ -1391,7 +1412,10 @@ in yaw (the chord of a point at $r_{\mathrm{circ}}$ is then at most res).
 
 The rollout stops at the first colliding pose, at the horizon $T_h$, at settled, when the footprint
 goes off-grid, or at STOPPED, except during a cancel: while `input.cancel` is set it continues through
-the STOPPED ramp until the command is below 0.01 m/s and 0.01 rad/s.
+the STOPPED ramp until the command is below 0.01 m/s and 0.01 rad/s. A settled step is integrated
+before the rollout ends; settled ends a rollout only outside rotation phases, so ROTATE_TO_HEADING
+still checks its swept rotation; a cancel ramp may run past the horizon, by at most 10 s
+[Spec, M1].
 
 $$
 s_{\mathrm{free}} = \begin{cases}
@@ -1428,7 +1452,9 @@ the cap and kBlocked except the current-pose test.
 - **Set** when the current pose collides; or, in a translation phase (FOLLOW, FINAL_APPROACH),
   when $s_{\mathrm{free}} < m_s + v_{\mathrm{stop}}^2/(2 a_{\mathrm{dec}})$ (equivalently
   $v_{\mathrm{cap}} < v_{\mathrm{stop}}$); or, in a rotation phase, when the rollout collides before
-  leaving that rotation (the remaining swept rotation collides).
+  leaving the rotation phase it started in (the remaining swept rotation collides). Never set in a
+  translation phase while settled, holding the goal, or with XY reached and the cap binding
+  [Spec, M1].
 - **Clear** (translation) only when $s_{\mathrm{free}} \ge m_s + h_b$; (rotation) when the swept
   remaining rotation is free.
 - *Rationale*: the band between $v_{\mathrm{cap}} < 0.02$ and a velocity-based release is under 1 mm
@@ -1742,7 +1768,7 @@ Every RViz/Foxglove marker in {doc}`../visualization` is drawn from `FieldSample
 | heading target | ROTATE_TO_FIELD: $\angle F_{\mathrm{trk}}$ (+π if `drive_backward`); ROTATE_TO_HEADING: the goal yaw; HT: $\psi_d$; the arc spans $\operatorname{wrap}(\psi_{\mathrm{tgt}} - \psi)$ |
 | prediction | rollout poses from `StepScratch`, the first colliding pose, $s_{\mathrm{free}}$ |
 | contour | gate open, episode active, $\sigma_c$, $x_o^\star$, $D_o$, $\theta$, `travelled_m`, `elapsed_s`, the blocked gate samples, $K$'s cells; the $\lambda$, $D_{\mathrm{in}}$, $D_{\mathrm{in}}'$ rings are centred at $x_o^\star$ [Spec]; the side arrow is $\sigma_c J n_o$ at $x_{\mathrm{eval}}$ |
-| `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. |
+| `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. `Tracker::probe()` shapes with the speed limit $\gamma_{\mathrm{lim}}$ only; the cycle's collision cap is not stored [Spec, M1]. |
 | streamlines | RK4 integration of $\dot x = F(x)$ at the frozen $t$ with step `field_grid_resolution`/2 [Spec] |
 
 (sec-math-constants)=

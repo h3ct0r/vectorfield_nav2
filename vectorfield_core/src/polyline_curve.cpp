@@ -891,4 +891,10 @@ std::size_t PolylineCurve::sampleStations(
 
 const CurveSpec * PolylineCurve::spec() const noexcept { return spec_.get(); }
 
+double PolylineCurve::vertexSpacing() const noexcept
+{
+  const std::size_t segments = segmentCount();
+  return segments > 0 ? length(0.0) / static_cast<double>(segments) : 0.0;
+}
+
 }  // namespace vectorfield_core

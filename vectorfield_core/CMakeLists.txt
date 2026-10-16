@@ -222,8 +222,11 @@ if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_BENCHMARKS)
     vf_core_set_warnings(${name})
   endfunction()
 
-  # The core benchmarks of plan section 3.5 (field evaluation, EDT, Tracker::step, episode
-  # start) arrive in M1. The MarkerBuilder benchmark belongs to vectorfield_ros (M2).
+  # The core benchmarks of plan section 3.5; reference numbers are in docs/benchmarks.md. The
+  # MarkerBuilder benchmark belongs to vectorfield_ros.
+  vf_core_add_benchmark(bench_field bench/bench_field.cpp)
+  vf_core_add_benchmark(bench_edt bench/bench_edt.cpp)
+  vf_core_add_benchmark(bench_tracker bench/bench_tracker.cpp)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_FUZZERS)

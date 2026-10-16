@@ -898,6 +898,19 @@ TEST(ParametricCurve, ConstructorValidatesDomainAndOptions)
   EXPECT_EQ(line.options().global_search_samples, 400);
 }
 
+// Parametric and expression curves have no vertices: Curve::vertexSpacing() is 0, so heading
+// tracking keeps delta = max(0.02, |v| dt) (math_spec §7.4).
+TEST(ParametricCurve, HasNoVertexSpacing)
+{
+  const auto builtin = makeParametric(builtinSpec("ellipse", {{"a", 1.3}, {"b", 1.3}}));
+  const auto expression =
+    makeParametric(expressionSpec("3*cos(s)", "2*sin(s)", 0.0, vf::kTwoPi, true));
+  ASSERT_NE(builtin, nullptr);
+  ASSERT_NE(expression, nullptr);
+  EXPECT_EQ(builtin->vertexSpacing(), 0.0);
+  EXPECT_EQ(expression->vertexSpacing(), 0.0);
+}
+
 // Concurrent const use from several threads gives the serial answers (run under TSan too).
 TEST(ParametricCurve, ConcurrentClosestPoint)
 {

@@ -116,6 +116,10 @@ struct LawInput
   double last_psi_d{kNaN};
   /// Closed curves: \f$L(t)\f$ for the wrapped jump test; open curves: \f$+\infty\f$.
   double curve_length{kInf};
+  /// Mean vertex spacing \f$\bar\ell\f$ of the curve (Curve::vertexSpacing(); 0 for parametric
+  /// curves): heading tracking's probe offset is \f$\delta = \max(0.02, \lvert v\rvert\Delta t,
+  /// \min(\bar\ell, 0.10))\f$ (math_spec §7.4).
+  double vertex_spacing{0.0};
   /// The field is time-varying: \f$\partial_t\psi_d\f$ is probed (math_spec §7.4).
   bool time_varying{false};
 };
@@ -162,7 +166,8 @@ LawOutput feedbackLinearizationLaw(const LawInput & input, double d, double q) n
 /// \f$\omega = \operatorname{clamp}(\dot\psi_d, \pm\omega_c) + k_\psi e\f$ with \f$\omega_c =
 /// \bar\omega\f$ (Ackermann: \f$\lvert v\rvert/R_{\min}\f$).
 /// \f$\dot\psi_d = v\,\operatorname{wrap}(\psi_d(x + \delta\mathbf h) - \psi_d(x - \delta\mathbf
-/// h))/(2\delta) + \partial_t\psi_d\f$, \f$\delta = \max(0.02, \lvert v\rvert\Delta t)\f$,
+/// h))/(2\delta) + \partial_t\psi_d\f$, \f$\delta = \max(0.02, \lvert v\rvert\Delta t,
+/// \min(\bar\ell, 0.10))\f$ with \f$\bar\ell\f$ = LawInput::vertex_spacing (Curve::vertexSpacing()),
 /// \f$\partial_t\psi_d = \operatorname{wrap}(\psi_d(x, t + \Delta t/2) - \psi_d(x, t -
 /// \Delta t/2))/\Delta t\f$ for time-varying fields. \f$\dot\psi_d := 0\f$ only on a probe NaN
 /// or a jump: \f$\lvert s^\star_+ - s^\star_-\rvert > 2\delta + 2\max(D_+, D_-)\f$ (wrapped when
