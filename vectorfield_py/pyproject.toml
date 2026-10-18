@@ -43,8 +43,8 @@ classifiers = [
 dependencies = ["numpy>=1.21"]
 
 [project.optional-dependencies]
-# The vf-* CLIs (M4) import matplotlib lazily; the GIF writer uses Pillow.
-tools = ["matplotlib", "pillow"]
+# The vf-* CLIs import these lazily: matplotlib for plots, Pillow for GIFs, PyYAML for files.
+tools = ["matplotlib>=3.5", "pillow", "pyyaml"]
 test = ["pytest"]
 
 [project.urls]
@@ -53,7 +53,11 @@ Documentation = "https://h3ct0r.github.io/vectorfield_nav2/"
 Repository = "https://github.com/h3ct0r/vectorfield_nav2"
 Issues = "https://github.com/h3ct0r/vectorfield_nav2/issues"
 
-# M4 adds [project.scripts]: vf-plot, vf-sim, vf-tune and vf-curve (vectorfield_tools).
+[project.scripts]
+vf-curve = "vectorfield_tools.vf_curve:main"
+vf-plot = "vectorfield_tools.vf_plot:main"
+vf-sim = "vectorfield_tools.vf_sim:main"
+vf-tune = "vectorfield_tools.vf_tune:main"
 
 [tool.scikit-build]
 minimum-version = "0.10"

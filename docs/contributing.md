@@ -28,3 +28,7 @@ sphinx-build -W --keep-going -b html docs docs/_build/html
 
 `docs/gen_params.py` runs automatically at the start of the build and regenerates the
 {doc}`parameters` pages from the parameter definitions.
+
+The figures in `docs/_static/figures/` are committed, because the docs job does not build the
+C++ bindings: after changing the field, the tracker or the plotting helpers, regenerate them with
+`pip install './vectorfield_py[tools]' && python docs/gen_figures.py` and commit the result.

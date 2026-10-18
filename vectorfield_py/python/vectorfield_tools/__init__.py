@@ -14,8 +14,14 @@
 
 """Command-line tools built on the vectorfield bindings.
 
-The CLIs arrive in M4: ``vf-plot`` (fields and streamlines), ``vf-sim`` (closed-loop
-simulation, with GIF output), ``vf-tune`` and ``vf-curve``.
-They import matplotlib lazily. Install the ``tools`` extra
-(``pip install './vectorfield_py[tools]'``) or, under ROS, the python3-matplotlib rosdep.
+- ``vf-curve`` (:mod:`.vf_curve`): describe, sample, plot and export curves;
+- ``vf-plot`` (:mod:`.vf_plot`): fields, streamlines, obstacles and the field decomposition;
+- ``vf-sim`` (:mod:`.vf_sim`): closed-loop simulation with plots and GIF animations;
+- ``vf-tune`` (:mod:`.vf_tune`): configuration validation, suggestions and parameter sweeps.
+
+The helpers behind them (:mod:`.curves`, :mod:`.config`, :mod:`.obstacles`, :mod:`.simulation`
+and :mod:`.plotting`) are importable, for example by ``docs/gen_figures.py``. matplotlib, Pillow
+and PyYAML are imported only when needed: install the ``tools`` extra
+(``pip install './vectorfield_py[tools]'``) or, under ROS, the python3-matplotlib, python3-pil
+and python3-yaml rosdep keys.
 """

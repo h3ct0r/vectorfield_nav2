@@ -8,8 +8,8 @@ core. The package provides two Python packages:
 
 The bindings call the same C++ code as the Nav2 controller plugin and the curve follower.
 
-**Status: M4.** `vectorfield` binds the core API listed below; the `vf-plot`, `vf-sim`,
-`vf-tune` and `vf-curve` CLIs of `vectorfield_tools` are next.
+**Status: M4.** `vectorfield` binds the core API listed below; `vectorfield_tools` provides the
+`vf-curve`, `vf-plot`, `vf-sim` and `vf-tune` command-line tools.
 
 ## Python API
 
@@ -53,6 +53,35 @@ print(abs(result.D[-100:]).max())
 
 `ClosedLoopSimulator.run()` and the batch queries release the GIL; `Tracker.step()` does not.
 
+## Command-line tools
+
+They need the `tools` extra (matplotlib, Pillow and PyYAML, imported only when used) and print an
+install hint without it. Every tool has `--help`; the exit status is 0 on success, 1 when an
+optional dependency is missing and 2 for invalid input, curves or configurations.
+
+- `vf-curve`: describe a curve (length, closure, regularity, `kappa_path`), plot it, and export
+  it as an `x,y` CSV or as a `vectorfield_msgs/msg/Curve` YAML that `--curve` reads back.
+- `vf-plot`: the field around a curve as arrows and streamlines; with obstacles (`--circle`,
+  `--box`) or an open curve, the field the controller commands from `--pose`, contour included;
+  `--decompose X,Y` draws and prints $-\eta G n$, $\eta H T$, $\Phi_T$ and $F$ at a point.
+- `vf-sim`: a closed-loop simulation for `--model differential|skid_steer|omnidirectional|ackermann`
+  with a summary (final and post-transient $|D|$, settle time, phases), a plot (`-o`), an animated
+  GIF (`--gif`, at most 10 s at 12 fps by default) and the recorded columns (`--csv`).
+- `vf-tune`: `validate_config()` on a parameter file (a Nav2 file with
+  `controller_server.ros__parameters.FollowPath`, a node file or flat keys), with a suggested
+  change per finding, the per-plan advice for `--curve`, and `--sweep NAME=START:STOP:STEP`
+  simulations that report max $|D|$ and the settle time per value.
+
+A curve is a built-in with optional parameters (`ellipse:a=2,b=1`), an expression pair in `s`
+and `t` (`'2*cos(s); sin(s)'` with `--s-range`), or a CSV or YAML polyline file.
+
+```bash
+vf-sim --model differential --curve ellipse --gif ellipse.gif
+vf-plot --curve lemniscate_bernoulli:a=2 -o field.svg
+vf-tune nav2_params.yaml --curve path.csv --sweep convergence_gain=1:4:0.5
+vf-curve --curve '2*cos(s); sin(s)' --export ellipse.yaml
+```
+
 ## Install with pip (no ROS)
 
 Build from a git checkout. The build compiles the sibling `vectorfield_core` directory, so only
@@ -63,15 +92,15 @@ and pybind11 for the build.
 ```bash
 python3 -m venv .venv
 . .venv/bin/activate
-pip install ./vectorfield_py            # add [tools] for matplotlib and Pillow (M4 CLIs)
+pip install './vectorfield_py[tools]'  # without [tools]: the bindings only
 pip install pytest
 pytest vectorfield_py/test
 python -c "import vectorfield; print(vectorfield.__version__)"
 ```
 
 The wheel links a static, position-independent `vectorfield_core` into the extension and
-contains only the `vectorfield/` and `vectorfield_tools/` packages. Optional extras are `tools`
-(matplotlib and Pillow) and `test` (pytest).
+contains only the `vectorfield/` and `vectorfield_tools/` packages, plus the `vf-*` entry
+points. Optional extras are `tools` (matplotlib, Pillow and PyYAML) and `test` (pytest).
 
 ## Build with colcon
 
@@ -83,8 +112,8 @@ colcon test-result --verbose
 ```
 
 Under ament, the package links the installed shared `vectorfield_core` and installs both Python
-packages and the extension into the Python install directory of the workspace. From M4 the CLIs
-also run as `ros2 run vectorfield_py vf-sim`.
+packages and the extension into the Python install directory of the workspace. The CLIs run as
+`ros2 run vectorfield_py vf-sim` (rosdep keys python3-matplotlib, python3-pil and python3-yaml).
 
 ## Versions
 

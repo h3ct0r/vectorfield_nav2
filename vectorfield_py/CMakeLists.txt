@@ -69,13 +69,15 @@ if(SKBUILD)
   # pyproject.toml packs python/vectorfield and python/vectorfield_tools (wheel.packages); the
   # compiled module joins the vectorfield package.
   install(TARGETS _vectorfield LIBRARY DESTINATION vectorfield)
-  # M4: the CLIs are [project.scripts] entry points in pyproject.toml.
+  # The CLIs are [project.scripts] entry points in pyproject.toml.
 else()
   ament_python_install_package(vectorfield PACKAGE_DIR python/vectorfield)
   ament_python_install_package(vectorfield_tools PACKAGE_DIR python/vectorfield_tools)
   install(TARGETS _vectorfield LIBRARY DESTINATION "${PYTHON_INSTALL_DIR}/vectorfield")
-  # M4: install(PROGRAMS scripts/vf-plot scripts/vf-sim scripts/vf-tune scripts/vf-curve
-  #     DESTINATION lib/${PROJECT_NAME}), run as `ros2 run vectorfield_py vf-sim`.
+  # The CLIs, run as `ros2 run vectorfield_py vf-sim`.
+  foreach(tool curve plot sim tune)
+    install(PROGRAMS scripts/vf_${tool}.py DESTINATION lib/${PROJECT_NAME} RENAME vf-${tool})
+  endforeach()
 
   if(BUILD_TESTING)
     find_package(ament_cmake_pytest REQUIRED)

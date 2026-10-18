@@ -81,10 +81,29 @@ $$
 \Phi = v_r\,(-G\, n + H\, T)
 $$
 
+:::{figure} _static/figures/field_ellipse.svg
+:alt: Unit arrows and streamlines of the field around an ellipse; every streamline joins the ellipse and then circulates along it.
+:width: 85%
+
+The static field around the ellipse $a = 2$, $b = 1$ ($k_f = 2$, atan gain). Arrows show the
+direction of $\Phi$, whose norm is $v_r$ everywhere; streamlines join the curve and circulate
+along it.
+:::
+
 **Feedforward.** Since $x^* = r(s^*, t)$ and $\Pi_T$ removes the tangential part,
 $\Phi_T = \Pi_T\, \partial r / \partial t\,\rvert_{s = s^*}$: the normal velocity of the curve at
 the closest point. The implementation therefore needs only the curve velocity at $x^*$, for
 example from a moving frame's twist.
+
+:::{figure} _static/figures/field_decomposition.svg
+:alt: At a point outside a circle that translates to the right, arrows for the convergence, circulation and feedforward terms and their sum F.
+:width: 70%
+
+The decomposition (3.27) at $x = (2.3, 0.8)$ for a circle of radius 1.5 m translating at
+0.1 m/s along $+x$ (dashed: the circle 10 s later), with $v_r = 0.4$ m/s. $\Phi_T$ is the
+curve's normal velocity at $x^*$, and $\eta = 0.46 > v_r$ scales $-G\,n$ and $H\,T$ so that
+$\lVert F \rVert = v_r$. The arrows are drawn 2 s long.
+:::
 
 **Assumption 3.** The curve's normal speed must stay below the field speed,
 $v_m = \max \lVert \Pi_T\, \partial\mathbf{D}/\partial t \rVert < v_r$ (3.10); otherwise $\eta$
@@ -124,6 +143,17 @@ project; {doc}`motion_models` and {doc}`design/math_spec` describe them. The sam
 drives aerial robots through an acceleration-level controller {cite:p}`rezende2020quadcopter`;
 this project targets ground robots.
 
+:::{figure} _static/figures/models_convergence.svg
+:alt: Distance to a circle over 40 seconds on a log scale for four motion models; three decay exponentially, skid-steer levels off near 6 cm.
+:width: 85%
+
+Closed-loop $\lvert D \rvert$ of the four motion models on a circle of radius 1.5 m, starting
+1 m outside it at $v_r = 0.4$ m/s with the default limits (`vf-sim`). Near the curve the decay
+rate is about $G'(0)\, v_r$. The skid-steer plant has `vectorfield_sim`'s slip
+($\eta_\psi = 0.75$, $x_{\mathrm{ICR}} = 0.05$), which feedback linearisation does not model;
+it settles about 6 cm off the curve.
+:::
+
 ## Open paths: the terminal field
 
 Assumption 1 excludes curves with endpoints, but a Nav2 path ends at the goal. This project
@@ -144,6 +174,52 @@ Here $\sigma_b$ is `terminal_braking_distance`, $v_{\min}$ is `min_approach_spee
 $\sigma_{\mathrm{stop}}$ is half the goal tolerance. $\varphi$ is odd and Lipschitz, so $\sigma$
 never changes sign while $D \to 0$: the robot converges onto the path and slows down over the
 last $\sigma_b$ before the goal. This construction is not part of the paper.
+
+**Derivation.** The rays make the extended path a borderless curve, so the closest point and
+$n^\top T = 0$ still hold, and
+
+$$
+\dot D = n^\top \Phi = -v_r\, G(D),
+$$
+
+exactly as for a static closed curve: $D$ decreases monotonically to 0. By Lemma 3
+(3.15–3.16), $\dot s^* = T^\top \dot x / \Omega$, with $\Omega = 1$ on segments and rays and
+$\Omega > 0$ within the reach of curved pieces, so the remaining arc length obeys
+
+$$
+\dot\sigma = -\dot s^* = -\frac{v_r\, H(D)}{\Omega}\, \varphi(\sigma).
+$$
+
+1. **No overshoot.** $\varphi(0) = 0$ and $\varphi$ is Lipschitz, so $\sigma = 0$ is an
+   equilibrium of this scalar equation; by uniqueness of solutions $\sigma$ keeps its sign and
+   $\lvert\sigma\rvert$ never increases.
+2. **Arrival.** For $\lvert\sigma\rvert \ge \sigma_{\mathrm{stop}}$,
+   $\lvert\varphi\rvert \ge v_{\min}/v_r$, so $\lvert\dot\sigma\rvert \ge v_{\min} H / \Omega$,
+   which tends to $v_{\min}$ as $D \to 0$: $\sigma_{\mathrm{stop}}$ is reached in finite time.
+   Below it $\varphi$ is linear and $\sigma$ decays exponentially, so the robot reaches the goal
+   tolerance but never the goal itself; success is decided by the settled test, not by
+   $\sigma \le 0$.
+3. **Speed.** $\lVert\Phi\rVert = v_r \sqrt{G^2 + H^2 \varphi^2}$ tends to 0 at the goal: the
+   unit-norm property is given up on purpose.
+4. **Discrete time.** On the path, a zero-order hold gives
+   $\sigma_{k+1} = \sigma_k - \Delta t\, v_r\, \varphi(\sigma_k)$, which keeps the sign of
+   $\sigma$ when $v_r \Delta t < \sigma_b$ and $v_{\min} \Delta t < \sigma_{\mathrm{stop}}$.
+   In the linear part the demanded deceleration is at most $v_r^2 / \sigma_b$; the validator
+   warns when it exceeds `max_linear_decel`.
+
+{doc}`design/math_spec` (section 5) adds the reference-point shift of the feedback-linearisation
+control point and the terminal-mode hysteresis.
+
+:::{figure} _static/figures/terminal_profile.svg
+:alt: Left, phi of sigma rising linearly to 1 over the braking zone, with a small floor near zero for the tighter tolerance. Right, commanded speed against remaining arc length following v_r times phi.
+:width: 100%
+
+Left: $\varphi(\sigma)$ at the defaults ($v_r = 0.4$ m/s, $v_{\min} = 0.05$ m/s,
+$\sigma_b = 0.5$ m) for goal tolerances of 0.25 m and 0.05 m; the `min_approach_speed` floor
+binds only when $v_{\min} \sigma_b > v_r \sigma_{\mathrm{stop}}$, here for 0.05 m. Right: the
+commanded speed of a differential robot on a 4 m straight path follows $v_r\,\varphi(\sigma)$
+through the braking zone until it settles inside the goal tolerance.
+:::
 
 ## Obstacles
 
@@ -178,6 +254,18 @@ The thesis gives no convergence proof for this extension. On a costmap, this pro
 that engages only when the path is blocked, a circulation side latched per episode, hysteresis
 and a watchdog. {doc}`obstacle_avoidance` covers its use.
 
+:::{figure} _static/figures/contour_disc.svg
+:alt: A robot on a straight path meets a disc, circulates below it at distance lambda, then returns to the path and stops at the goal.
+:width: 100%
+
+A disc of radius 0.3 m blocks a straight path (`obstacle_mode: contour`, differential drive,
+defaults). Dashed: the $\lambda$ level set of the obstacle distance; dotted: $D_{\mathrm{in}}$
+and $D'_{\mathrm{in}}$. Orange arrows are the commanded field where the contour is active, as
+seen when the episode starts (black outline); the side is latched for the whole episode,
+because a head-on approach would otherwise sit in the trap basin of {doc}`design/math_spec`
+(section 6.3). The orange stretch of the trajectory is the contour episode.
+:::
+
 ## Assumptions and limits
 
 - **Unique closest point.** Points with several closest points (the medial axis) form a set of
@@ -193,7 +281,8 @@ and a watchdog. {doc}`obstacle_avoidance` covers its use.
 - **Obstacles.** The obstacle extension has no proof and can fail in traps; the watchdog bounds
   how long an episode may last.
 
-Generated figures of the field are planned for M4, with the Python tools.
+The figures on this page come from the `vectorfield` bindings and are generated by
+`docs/gen_figures.py`; `vf-plot` and `vf-sim` draw the same views for other curves and settings.
 
 ## References
 
