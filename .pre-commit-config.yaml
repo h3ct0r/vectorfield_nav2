@@ -24,7 +24,7 @@
 # pre-commit hooks, so bump them with `pre-commit autoupdate`.
 
 # Vendored upstream sources are never reformatted or linted.
-exclude: ^vectorfield_core/(third_party|test/fuzz/corpus)/
+exclude: ^(vectorfield_core/(third_party|test/fuzz/corpus)|docs/_static/figures)/
 
 # Node hooks (markdownlint-cli2, prettier-package-xml) run on a pinned, nodeenv-managed Node so
 # results do not depend on the host. npm 11 (Node 24, current Homebrew) refuses the git-sourced
