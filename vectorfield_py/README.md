@@ -8,13 +8,50 @@ core. The package provides two Python packages:
 
 The bindings call the same C++ code as the Nav2 controller plugin and the curve follower.
 
-**Status: M0 skeleton.** `vectorfield` exposes only `__version__`, and `vectorfield_tools` is
-empty. Both build paths and the tests already work. M4 adds:
+**Status: M4.** `vectorfield` binds the core API listed below; the `vf-plot`, `vf-sim`,
+`vf-tune` and `vf-curve` CLIs of `vectorfield_tools` are next.
 
-- bindings for curves, gain functions, fields, kinematics, tracking laws, the `Tracker`, the
-  command limiter, grids and the EDT, the collision predictor, the simulator and
-  `validate_config`;
-- the `vf-plot`, `vf-sim`, `vf-tune` and `vf-curve` CLIs.
+## Python API
+
+Names are snake_case. Points are float64 arrays of shape (2,) or (N, 2), poses (N, 3)
+`[x, y, yaw]`, grids (height, width) indexed `[iy, ix]`; every returned array is a copy.
+Configuration and sample structs are mutable attribute objects with keyword constructors
+(`vf.FieldConfig(desired_speed=0.3)`); a nested group is a live reference
+(`config.motion.max_linear_vel = 0.8` edits `config`), and `copy()` is deep. Parameter enums
+also accept their parameter strings (`config.field.gain_function = 'rational'`).
+
+- Curves: `CurveSpec` (`polyline()`, `expression()`, `builtin()`), `make_curve(spec, options)`,
+  `Curve.closest_point(x, context, hint)` and batch `closest_points()`, `PolylineCurve` with
+  `SearchPolicy`, `builtin_shapes()`, `resample()`, `kappa_path()`.
+- Fields and laws: `GainFunction`, `DistanceField` (`field_vectors()` for plots),
+  `TerminalProfile`, `FieldSample`, `streamline()`, `Kinematics`, `ControlLaw` and the law
+  helpers, `CommandLimiter`.
+- Obstacles: `OccupancyGrid` (from a mask), `EuclideanDistanceTransform`, `ObstacleMap`,
+  `Footprint`, `FootprintChecker`, `CollisionPredictor`.
+- Configuration: `CoreConfig` and its groups, `validate_config(config, costmap_info=None)`
+  (codes in `vectorfield.issue`).
+- Controller: `Tracker(config)`, `Tracker.step(input, state) -> (output, next_state)`,
+  `probe_points()` and `streamline()` for field plots, `TrackerInput`, `Phase`, `Status`.
+- `vectorfield.sim`: `integrate()` and `ClosedLoopSimulator`, whose `run()` returns NumPy
+  columns (t, pose, cmd, D, phase, ...).
+
+Invalid configurations raise `vectorfield.ConfigError` (a `ValueError`); rejected curves raise
+its subclass `CurveError`, whose `code` is `'INVALID_CURVE'` or `'UNSUPPORTED'`.
+
+```python
+import math
+import vectorfield as vf
+
+curve = vf.make_curve(vf.CurveSpec.builtin('ellipse', a=2.0, b=1.0))
+config = vf.CoreConfig()
+config.motion.motion_model = 'omnidirectional'
+simulator = vf.sim.ClosedLoopSimulator(vf.Tracker(config))
+simulator.reset((2.5, 0.0, math.pi / 2))
+result = simulator.run(vf.TrackerInput(curve), 30.0)
+print(abs(result.D[-100:]).max())
+```
+
+`ClosedLoopSimulator.run()` and the batch queries release the GIL; `Tracker.step()` does not.
 
 ## Install with pip (no ROS)
 

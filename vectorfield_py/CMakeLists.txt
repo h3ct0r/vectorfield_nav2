@@ -44,7 +44,16 @@ endif()
 find_package(Python3 3.10 REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(pybind11 CONFIG REQUIRED)
 
-pybind11_add_module(_vectorfield MODULE src/bindings.cpp)
+pybind11_add_module(_vectorfield MODULE
+  src/bindings.cpp
+  src/bind_types.cpp
+  src/bind_config.cpp
+  src/bind_curves.cpp
+  src/bind_field.cpp
+  src/bind_motion.cpp
+  src/bind_obstacles.cpp
+  src/bind_tracker.cpp
+)
 target_link_libraries(_vectorfield PRIVATE vectorfield_core::vectorfield_core)
 set_target_properties(_vectorfield PROPERTIES CXX_EXTENSIONS OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -72,8 +81,9 @@ else()
     find_package(ament_cmake_pytest REQUIRED)
     # colcon test puts only the dependencies' install spaces on PYTHONPATH; the tests import the
     # packages this package has just installed.
-    ament_add_pytest_test(test_import test/test_import.py
+    ament_add_pytest_test(pytest_vectorfield test
       APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
+      TIMEOUT 300
     )
 
     find_package(ament_lint_auto QUIET)
