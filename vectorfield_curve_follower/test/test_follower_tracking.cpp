@@ -72,12 +72,19 @@ protected:
     const std::uint64_t cycles = follower_->lastCycle().cycles;
     const auto handle = send(goal);
     EXPECT_TRUE(handle);
-    tick();
+    // The follower takes the pending goal at the start of a cycle, and the action server then
+    // aborts the preempted one. In the coverage build that has taken more than one tick, so the
+    // first tick's cycle could still be the old goal's: tick until the preempted goal's result
+    // arrives, and read the phase of the cycle that ran the new goal.
+    bool preempted = false;
+    for (int i = 0; i < 40 && !preempted && !HasFatalFailure(); ++i) {
+      tick();
+      preempted = waitFor([&]() { return ready(previous); }, std::chrono::milliseconds(500));
+    }
+    EXPECT_TRUE(preempted) << "the preempted goal was not aborted";
     EXPECT_GT(follower_->lastCycle().cycles, cycles);
     EXPECT_TRUE(follower_->lastCycle().tracker_ran);
     const vf::Phase phase = follower_->lastCycle().phase;
-    // The preempted goal is aborted by the action server.
-    EXPECT_TRUE(waitFor([&]() { return ready(previous); }));
     if (handle) {
       client_->async_cancel_goal(handle);
       const auto canceled = waitResult(resultOf(handle), 10.0);
