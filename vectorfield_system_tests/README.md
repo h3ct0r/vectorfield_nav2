@@ -57,3 +57,22 @@ colcon build --packages-up-to vectorfield_system_tests --cmake-args -DVF_NIGHTLY
 colcon test --packages-select vectorfield_system_tests --ctest-args -L 'gazebo|nightly'
 colcon test-result --verbose
 ```
+
+## Controller comparison
+
+`benchmarks/compare_controllers.py` (Jazzy and later; installed, not a test) drives the 3-goal
+route on `loopback_demo` with this controller, Regulated Pure Pursuit, MPPI and Graceful, under
+the same limits, goal checker, smoother and collision monitor, and writes
+[docs/controller_comparison.md](../docs/controller_comparison.md) and a per-goal CSV. Each run is
+its own launch, about one minute on Jazzy:
+
+```bash
+ros2 run vectorfield_system_tests compare_controllers.py --runs 5 \
+  --out-md docs/controller_comparison.md --out-csv controller_comparison.csv
+```
+
+`--controllers vf,rpp,mppi,graceful` selects the controllers, `--log-dir` keeps the launch logs
+and `--from-csv` regenerates the page from a recorded CSV (and the JSON next to it). A run that
+fails for a Nav2 reason outside the controller plugin (a goal acknowledgement time-out in
+bt_navigator, a controller server that stops publishing) is repeated up to `--retries` times
+and listed on the page.

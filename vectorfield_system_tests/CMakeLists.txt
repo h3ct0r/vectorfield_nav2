@@ -122,4 +122,12 @@ if(BUILD_TESTING)
   endif()
 endif()
 
+# The controller comparison (docs/controller_comparison.md): installed with the
+# helpers it imports, never registered as a test.
+install(PROGRAMS benchmarks/compare_controllers.py
+  DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY vectorfield_system_tests
+  DESTINATION lib/${PROJECT_NAME}
+  FILES_MATCHING PATTERN "*.py")
+
 ament_package()
