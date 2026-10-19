@@ -290,8 +290,8 @@ public:
     } else {
       const vf::Pose2 next = vf::sim::integrate(kinematics_, pose_, cmd, dt);
       distance_ += (next.p - pose_.p).norm();
-      swept_ += vf::wrapAngle(
-        std::atan2(next.p.y(), next.p.x()) - std::atan2(pose_.p.y(), pose_.p.x()));
+      swept_ +=
+        vf::wrapAngle(std::atan2(next.p.y(), next.p.x()) - std::atan2(pose_.p.y(), pose_.p.x()));
       pose_ = next;
     }
     vf::Pose2 published = pose_;
