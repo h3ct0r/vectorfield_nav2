@@ -27,6 +27,11 @@ install(
   DESTINATION lib/${PROJECT_NAME}
   RENAME initial_pose_publisher
 )
+# The curve follower's example clients keep their names: `ros2 run vectorfield_bringup send_curve.py`.
+install(
+  PROGRAMS scripts/send_curve.py scripts/moving_frame_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # Install the resource directories that exist. The placeholder README.md files
 # describe content that arrives in later milestones and are not installed.

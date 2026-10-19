@@ -29,6 +29,8 @@ SUPPORTED_DISTROS = ('humble', 'jazzy', 'kilted', 'lyrical', 'rolling')
 #: Distros with Nav2's loopback simulator and the Gazebo TurtleBot simulations.
 JAZZY_AND_LATER = SUPPORTED_DISTROS[1:]
 
+FOLLOWER = 'curve_follower'
+
 
 class UnsupportedDistroError(RuntimeError):
     """The running ROS distro cannot run this demo."""
@@ -125,6 +127,19 @@ def overlay_paths(motion_model, scenarios, share_dir=None):
 def merged_params_file(motion_model, scenarios):
     """Merge the overlays onto nav2_bringup's parameters and return the written file."""
     return params.write_params(params.merge(overlay_paths(motion_model, scenarios)))
+
+
+def follower_parameters(merged):
+    """Return the curve follower's parameters, taken from merged Nav2 parameters.
+
+    The follower declares the controller's common keys unprefixed, so the ``FollowPath`` block
+    (motion model, speeds, limits, obstacle mode; ``plugin`` left out) configures it like the
+    controller. The merged ``curve_follower`` section, if any, then overrides it.
+    """
+    controller = merged.get('controller_server', {}).get('ros__parameters', {})
+    values = {k: v for k, v in controller.get('FollowPath', {}).items() if k != 'plugin'}
+    values.update(merged.get(FOLLOWER, {}).get('ros__parameters', {}))
+    return values
 
 
 def navigation_lifecycle_nodes(context=None):

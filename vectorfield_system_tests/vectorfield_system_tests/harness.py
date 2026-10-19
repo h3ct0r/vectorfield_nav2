@@ -172,11 +172,13 @@ class NavHarness:
         ground_truth: Read the true pose and the infeasible-command count from vectorfield_sim.
             Without it (Nav2's loopback simulator, which localizes perfectly), the true pose is
             map -> base_footprint from TF.
+        field_topic: The FieldState topic recorded in the episodes (the controller's by default).
 
     """
 
-    def __init__(self, ground_truth=True):
+    def __init__(self, ground_truth=True, field_topic='/FollowPath/field_state'):
         self._ground_truth = ground_truth
+        self._field_topic = field_topic
         self._lock = threading.Lock()
         self._samples = []
         self._poses = []
@@ -202,7 +204,7 @@ class NavHarness:
             reliability=ReliabilityPolicy.RELIABLE,
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
-        node.create_subscription(FieldState, '/FollowPath/field_state', self._on_field, history)
+        node.create_subscription(FieldState, self._field_topic, self._on_field, history)
         node.create_subscription(Path, '/plan', self._on_plan, history)
         node.create_subscription(BehaviorTreeLog, '/behavior_tree_log', self._on_bt_log, history)
         node.create_subscription(OccupancyGrid, '/map', self._on_map, latched)

@@ -7,14 +7,21 @@ vector-field tracker as the Nav2 controller plugin. Nav2's planner is bypassed: 
 is the reference.
 
 **Status:** the node is implemented (M5). `curve_follower_demo`, `send_curve.py` and
-`moving_frame_publisher.py` come with `vectorfield_bringup`.
+`moving_frame_publisher.py` come with `vectorfield_bringup`; the end-to-end tests are the
+`test_curve_*` launch tests of `vectorfield_system_tests`.
 
 ## Running it
 
 The component is `vectorfield_curve_follower::CurveFollower` (node name `curve_follower`); the
 executable `curve_follower` runs it alone. It is a Nav2 lifecycle node: start it with a
 `nav2_lifecycle_manager` (`node_names: [curve_follower]`, `autostart: true`), or by hand with
-`ros2 lifecycle set /curve_follower configure` and `activate`.
+`ros2 lifecycle set /curve_follower configure` and `activate`. On the kinematic simulator, with
+Nav2:
+
+```bash
+ros2 launch vectorfield_bringup curve_follower_demo.launch.py
+ros2 run vectorfield_bringup send_curve.py --shape lemniscate_bernoulli --laps 3
+```
 
 ## Interfaces
 
@@ -27,7 +34,7 @@ All names are relative, so the node can run in a namespace.
 | Publisher | `~/curve` | The active curve (transient local) |
 | Publishers | `~/markers`, `~/field_grid`, `~/predicted_path`, `~/window`, `~/field_state`, `~/obstacle_distance` | Visualization, including the `curve_info` marker namespace (direction, start, laps, frame velocity) |
 | Publisher | `/diagnostics` | Node health (`diagnostic_updater`) |
-| Subscriptions | `odom`, `speed_limit`, `local_costmap/costmap_raw`, `local_costmap/published_footprint` | Robot state, speed limits and obstacles; the local costmap must publish the full costmap (`always_send_full_costmap: true`) |
+| Subscriptions | `odom`, `speed_limit`, `local_costmap/costmap_raw`, `local_costmap/published_footprint` | Robot state, speed limits (volatile, as controller_server subscribes) and obstacles; the local costmap must publish the full costmap (`always_send_full_costmap: true`) |
 | Subscriptions | `<action>/_action/status` | Every `exclusive_actions` entry (the Nav2 interlock) |
 | Subscription | the goal's `frame_odom_topic` | Only for `FRAME_MOVING` goals that give one |
 | TF | `global_frame` ← `robot_base_frame`, ← the curve frame; costmap frame ← `global_frame`; `moving_frame_reference` ← curve frame | Robot pose, curve frame, obstacles, moving frames |

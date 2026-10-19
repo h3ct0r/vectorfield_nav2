@@ -169,3 +169,18 @@ def test_merged_file_is_written(model, tmp_path):
     assert set(stock) <= set(merged)
     path = params.write_params(merged, str(tmp_path / 'merged.yaml'))
     assert params.load_yaml(path) == merged
+
+
+@pytest.mark.parametrize('model', demo.MOTION_MODELS)
+def test_follower_parameters(model):
+    """curve_follower_demo gives the follower FollowPath without its plugin, then its section."""
+    merged = _merged(model, ('kinematic_sim', 'curve_follower'))
+    follow_path = _node(merged, 'controller_server')['FollowPath']
+    follower = demo.follower_parameters(merged)
+    assert 'plugin' not in follower
+    assert follower['motion_model'] == model
+    assert all(follower[k] == v for k, v in follow_path.items() if k != 'plugin')
+    assert (
+        follower['moving_frame_reference']
+        == _node(merged, demo.FOLLOWER)['moving_frame_reference']
+    )

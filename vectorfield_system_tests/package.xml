@@ -46,6 +46,7 @@
   <test_depend>vectorfield_curve_follower</test_depend>
   <test_depend>vectorfield_msgs</test_depend>
   <test_depend>vectorfield_nav2_controller</test_depend>
+  <test_depend>vectorfield_py</test_depend>
   <test_depend>vectorfield_ros</test_depend>
   <test_depend>vectorfield_sim</test_depend>
 

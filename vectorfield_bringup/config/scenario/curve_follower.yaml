@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay for the curve follower (plan section 8; the follower itself arrives in M5).
+# Scenario overlay for the curve follower (plan section 8), merged by curve_follower_demo.
 # The follower reads the local costmap's costmap_raw, so it needs the mapped walls as well as the
 # laser, and a costmap that is updated, not only published, at its rate: costmap_raw is
 # published from the update loop, so publish_frequency above update_frequency has no effect.
@@ -28,3 +28,10 @@ local_costmap:
 velocity_smoother:
   ros__parameters:
     scale_velocities: true
+
+# The follower's own keys; curve_follower_demo gives it the FollowPath block first.
+curve_follower:
+  ros__parameters:
+    # TF differencing of moving curve frames (FRAME_MOVING without frame_odom_topic), as
+    # published by moving_frame_publisher.py under odom.
+    moving_frame_reference: "odom"

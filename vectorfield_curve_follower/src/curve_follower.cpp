@@ -1235,8 +1235,10 @@ CurveFollower::CallbackReturn CurveFollower::on_configure(const rclcpp_lifecycle
         const std::lock_guard<std::mutex> lock(impl->mutex);
         impl->odom = Snapshot<nav_msgs::msg::Odometry>{std::move(msg), received};
       });
+    // Volatile, as controller_server's: Nav2's speed_limit publishers (SpeedFilter, route_server)
+    // are volatile, and a transient_local subscription matches none of them.
     s.speed_limit_sub = compat::subscribe<nav2_msgs::msg::SpeedLimit>(
-      this, "speed_limit", rclcpp::QoS(1).reliable().transient_local(),
+      this, "speed_limit", rclcpp::QoS(10).reliable(),
       [impl](nav2_msgs::msg::SpeedLimit::ConstSharedPtr msg) {
         const double received = impl->clock->now().seconds();
         const std::lock_guard<std::mutex> lock(impl->mutex);

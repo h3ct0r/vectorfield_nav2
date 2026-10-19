@@ -78,14 +78,18 @@ if(BUILD_TESTING)
   # Per-PR launch tests (plan section 9, layer 4): the default `launch_test`
   # label, isolated, serial and without retries. The motion model reaches the
   # test through VF_TEST_MOTION_MODEL; the shared helpers are imported from the
-  # source tree.
+  # source tree. TIMEOUT (default 300 s) overrides the CTest timeout.
   function(vf_add_launch_test file model)
+    cmake_parse_arguments(_vf "" "TIMEOUT" "" ${ARGN})
+    if(NOT _vf_TIMEOUT)
+      set(_vf_TIMEOUT 300)
+    endif()
     get_filename_component(_vf_name "${file}" NAME_WE)
     set(_vf_target "${_vf_name}_${model}")
     add_launch_test("${file}"
       TARGET "${_vf_target}"
       RUNNER "${ament_cmake_ros_DIR}/run_test_isolated.py"
-      TIMEOUT 300
+      TIMEOUT ${_vf_TIMEOUT}
       ENV "VF_TEST_MOTION_MODEL=${model}" ${VF_DISCOVERY_ENV}
       APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
     )
@@ -105,6 +109,12 @@ if(BUILD_TESTING)
   # case runs in test_open_kinematic.
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
+  endforeach()
+
+  # The curve follower (M5) on curve_follower_demo, differential only: laps of closed curves,
+  # moving frames, open curves and the Nav2 interlock. Minutes of simulated driving each.
+  foreach(_vf_test test_curve_laps test_curve_moving test_curve_open)
+    vf_add_launch_test(test/${_vf_test}.py differential TIMEOUT 600)
   endforeach()
 
   if(VF_NIGHTLY_TESTS)

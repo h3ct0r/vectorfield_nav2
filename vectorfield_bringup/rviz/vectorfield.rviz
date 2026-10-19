@@ -322,6 +322,99 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: Vector field
+    - Class: rviz_common/Group
+      Displays:
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: Markers
+          Namespaces:
+            closest_point: true
+            command: true
+            contour: true
+            control_point: true
+            curve: true
+            curve_info: true
+            field: true
+            footprint: true
+            goal: true
+            heading: true
+            prediction: true
+            status: true
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /curve_follower/markers
+          Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: false
+          Name: Field grid
+          Namespaces:
+            {}
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /curve_follower/field_grid
+          Value: false
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 255; 255; 255
+          Enabled: true
+          Head Diameter: 0.03
+          Head Length: 0.02
+          Length: 0.3
+          Line Style: Billboards
+          Line Width: 0.015
+          Name: Window
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.03
+          Shaft Diameter: 0.005
+          Shaft Length: 0.02
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /curve_follower/window
+          Value: true
+        - Alpha: 1
+          Buffer Length: 1
+          Class: rviz_default_plugins/Path
+          Color: 51; 204; 51
+          Enabled: true
+          Head Diameter: 0.03
+          Head Length: 0.02
+          Length: 0.3
+          Line Style: Billboards
+          Line Width: 0.015
+          Name: Predicted path
+          Offset:
+            X: 0
+            Y: 0
+            Z: 0
+          Pose Color: 255; 85; 255
+          Pose Style: None
+          Radius: 0.03
+          Shaft Diameter: 0.005
+          Shaft Length: 0.02
+          Topic:
+            Depth: 1
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /curve_follower/predicted_path
+          Value: true
+      Enabled: true
+      Name: Curve follower
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
