@@ -19,9 +19,15 @@
 // integrates the last command it received (vectorfield_core::sim::integrate) and publishes TF,
 // odometry, the local costmap, the footprint and (optionally) a moving frame's odometry; then
 // /clock advances by one period, and the tick waits until the follower's clock has reached it,
-// the follower has run the cycle (CurveFollower::lastCycle()) and its command has reached the
-// robot. Every timeout of the follower is therefore measured in simulated time, and the wall
-// clock only bounds the waits (hang guards), so a slow build changes nothing but the run time.
+// a goal that was executing has run its cycle (CurveFollower::lastCycle()) and every command
+// published so far has reached the robot. Goal transitions are synchronized without ticking:
+// send() returns once the follower has run the new goal's first cycle or refused it (or, with a
+// goal executing, once the new goal is pending, so that the next tick's cycle takes it), cancel()
+// once the server has accepted the cancel request, and waitResult() stops ticking at the cycle
+// that ended the goal. Simulated time therefore never advances while the follower is busy with
+// the previous tick or a goal transition: every timeout of the follower is measured in simulated
+// time, and the wall clock only bounds the waits (hang guards), so a slow build changes nothing
+// but the run time.
 
 #ifndef FOLLOWER_TEST_HARNESS_HPP_
 #define FOLLOWER_TEST_HARNESS_HPP_
@@ -43,6 +49,7 @@
 
 #include "action_msgs/msg/goal_status.hpp"
 #include "action_msgs/msg/goal_status_array.hpp"
+#include "action_msgs/srv/cancel_goal.hpp"
 #include "geometry_msgs/msg/polygon_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
@@ -115,11 +122,6 @@ inline bool isZero(const vf::Twist2 & twist)
   return twist.vx == 0.0 && twist.vy == 0.0 && twist.wz == 0.0;
 }
 
-inline bool sameTwist(const vf::Twist2 & a, const vf::Twist2 & b)
-{
-  return a.vx == b.vx && a.vy == b.vy && a.wz == b.wz;
-}
-
 inline double seconds(std::int64_t ns) { return 1e-9 * static_cast<double>(ns); }
 
 /// The follower's last cycle, for failure messages.
@@ -130,8 +132,9 @@ inline std::string describe(const CycleSnapshot & snapshot)
          std::to_string(static_cast<int>(snapshot.tracker_ran)) + ", decision " +
          std::to_string(static_cast<int>(snapshot.decision.action)) + " (" +
          snapshot.decision.reason + "), status " + std::to_string(snapshot.status) +
-         ", published " + std::to_string(snapshot.commands_published) + ", last result " +
-         std::to_string(snapshot.last_result) + " (" + snapshot.last_reason + ")";
+         ", published " + std::to_string(snapshot.commands_published) + ", goal " +
+         std::to_string(snapshot.goal) + ", last result " + std::to_string(snapshot.last_result) +
+         " (" + snapshot.last_reason + ")";
 }
 
 /// An axis-aligned box of lethal cells (odom frame, m).
@@ -586,7 +589,7 @@ protected:
   {
     t_ns_ += kPeriodNs;
     robot_->step(t_ns_, kPeriod);
-    const std::uint64_t cycles = follower_->lastCycle().cycles;
+    const CycleSnapshot before = follower_->lastCycle();
     robot_->publishClock(t_ns_);
     // /clock is best effort: republished while the follower has not seen it.
     auto republish = std::chrono::steady_clock::now();
@@ -601,16 +604,16 @@ protected:
       return false;
     });
     ASSERT_TRUE(clock_seen) << "the follower did not receive /clock";
+    // A goal executing at the last tick runs one cycle at this one, or takes a pending goal and
+    // refuses it (no cycle).
     ASSERT_TRUE(waitFor([&]() {
       const CycleSnapshot snapshot = follower_->lastCycle();
-      return !snapshot.executing || snapshot.cycles > cycles;
+      return !before.executing || snapshot.cycles > before.cycles || snapshot.goal != before.goal;
     }))
-      << "no control cycle at t = " << now();
-    // Compared with the latest snapshot: the cycle that ended the wait may be the goal's first
-    // (run on acceptance), with this tick's cycle still running.
+      << "no control cycle at t = " << now() << ": " << describe(follower_->lastCycle());
     ASSERT_TRUE(
-      waitFor([&]() { return sameTwist(robot_->lastCommand(), follower_->lastCycle().command); }))
-      << "the command did not reach the robot";
+      waitFor([&]() { return robot_->commands() == follower_->lastCycle().commands_sent; }))
+      << "the commands did not reach the robot";
   }
 
   void tickFor(double duration)
@@ -635,9 +638,13 @@ protected:
     return true;
   }
 
-  /// Sends a goal; null (and a failure) if it was not answered or rejected.
+  /// Sends a goal; null (and a failure) if it was not answered or rejected. The action server
+  /// takes a goal after answering the client: this waits (no tick) until the follower has run
+  /// the goal's first cycle or refused it, or, with a goal executing, until the goal is pending,
+  /// so that the next tick's cycle takes it.
   std::shared_ptr<GoalHandle> send(const FollowCurve::Goal & goal)
   {
+    const CycleSnapshot before = follower_->lastCycle();
     auto future = client_->async_send_goal(goal);
     if (future.wait_for(kWallTimeout) != std::future_status::ready) {
       ADD_FAILURE() << "goal not answered";
@@ -646,8 +653,25 @@ protected:
     auto handle = future.get();
     if (!handle) {
       ADD_FAILURE() << "goal rejected (the follower never rejects goals)";
+      return handle;
+    }
+    const bool taken = waitFor([&]() {
+      return before.executing ? follower_->preemptPending()
+                              : follower_->lastCycle().goal > before.goal;
+    });
+    if (!taken) {
+      ADD_FAILURE() << "the follower did not take the goal: " << describe(follower_->lastCycle());
     }
     return handle;
+  }
+
+  /// Requests a cancel and waits (no tick) until the server has accepted it, so that the next
+  /// tick's cycle sees it.
+  void cancel(const std::shared_ptr<GoalHandle> & handle)
+  {
+    auto response = client_->async_cancel_goal(handle);
+    ASSERT_EQ(response.wait_for(kWallTimeout), std::future_status::ready) << "cancel not answered";
+    EXPECT_EQ(response.get()->return_code, action_msgs::srv::CancelGoal::Response::ERROR_NONE);
   }
 
   ResultFuture resultOf(const std::shared_ptr<GoalHandle> & handle)
@@ -660,11 +684,15 @@ protected:
     return future.valid() && future.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
   }
 
-  /// Ticks until the result arrives, for at most `max_duration` of simulated time (on failure:
-  /// an empty result, whose `result` is null).
+  /// Ticks until the follower ends the goal of `future` (the goal it executes, or one that has
+  /// ended), for at most `max_duration` of simulated time, then waits (no tick) for the result,
+  /// which the cycle that ended the goal sent (on failure: an empty result, whose `result` is
+  /// null).
   WrappedResult waitResult(const ResultFuture & future, double max_duration)
   {
-    if (!tickUntil([&]() { return ready(future); }, max_duration)) {
+    const bool ended =
+      tickUntil([&]() { return ready(future) || !follower_->lastCycle().executing; }, max_duration);
+    if (!ended || !waitFor([&]() { return ready(future); })) {
       ADD_FAILURE() << "no result within " << max_duration
                     << " s of simulated time: " << describe(follower_->lastCycle());
       return WrappedResult{};

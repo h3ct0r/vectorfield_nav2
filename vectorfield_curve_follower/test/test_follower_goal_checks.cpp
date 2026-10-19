@@ -61,7 +61,7 @@ protected:
     tickFor(1.0);
     ASSERT_FALSE(ready(result)) << "the goal ended: " << result.get().result->error_msg;
     EXPECT_GT(robot_->commands(), 5U);
-    client_->async_cancel_goal(handle);
+    cancel(handle);
     const auto canceled = waitResult(result, 10.0);
     ASSERT_TRUE(canceled.result);
     EXPECT_EQ(canceled.code, rclcpp_action::ResultCode::CANCELED);

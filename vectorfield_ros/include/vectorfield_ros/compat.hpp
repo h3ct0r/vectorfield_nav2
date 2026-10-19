@@ -106,11 +106,14 @@
 #define VF_COMPAT_HAS_TWIST_PUBLISHER 0
 #endif
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <string>
+#include <thread>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -265,15 +268,30 @@ std::shared_ptr<SimpleActionServer<ActionT>> makeActionServer(
   typename SimpleActionServer<ActionT>::CompletionCallback completion_callback,
   std::chrono::milliseconds server_timeout, bool spin_thread = true)
 {
+  /// The server, with a view of its executor.
+  class Server : public SimpleActionServer<ActionT>
+  {
+  public:
+    using SimpleActionServer<ActionT>::SimpleActionServer;
+    bool spinning() const { return this->executor_ == nullptr || this->executor_->is_spinning(); }
+  };
 #if VF_HAS_ROS_COMMON
-  return std::make_shared<SimpleActionServer<ActionT>>(
+  auto server = std::make_shared<Server>(
     node, action_name, std::move(execute_callback), nullptr, std::move(completion_callback),
     server_timeout, spin_thread);
 #else
-  return std::make_shared<SimpleActionServer<ActionT>>(
+  auto server = std::make_shared<Server>(
     node, action_name, std::move(execute_callback), std::move(completion_callback), server_timeout,
     spin_thread);
 #endif
+  // rclcpp's Executor::cancel() is lost when it comes before spin() starts, and Nav2's NodeThread
+  // then joins a thread that spins forever: a server destroyed right after its creation (a
+  // cleanup right after configure) would hang. Its thread spins before the server is returned.
+  const auto context = node->get_node_base_interface()->get_context();
+  while (!server->spinning() && rclcpp::ok(context)) {
+    std::this_thread::sleep_for(std::chrono::microseconds(100));
+  }
+  return server;
 }
 
 /// @brief Subscribes through the `rclcpp_lifecycle::LifecycleNode` base on every distro.
@@ -370,20 +388,97 @@ std::shared_ptr<tf2_ros::Buffer> makeTfBuffer(
   return buffer;
 }
 
+/// @brief A callback group spun by a thread of its own, which stops at destruction however soon
+/// that comes.
+///
+/// rclcpp's Executor::cancel() is lost when it comes before spin() starts, so the dedicated
+/// threads of tf2_ros's TransformListener and Nav2's NodeThread never stop if they are destroyed
+/// right after their creation; this one spins in bounded slices and checks a flag of its own.
+class GroupSpinner
+{
+public:
+  GroupSpinner(
+    rclcpp::CallbackGroup::SharedPtr group,
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base)
+  : context_(node_base->get_context()), executor_(optionsFor(context_))
+  {
+    executor_.add_callback_group(std::move(group), std::move(node_base));
+    thread_ = std::thread([this]() {
+      while (!stop_.load() && rclcpp::ok(context_)) {
+        executor_.spin_once(std::chrono::milliseconds(100));
+      }
+    });
+  }
+
+  ~GroupSpinner()
+  {
+    stop_.store(true);
+    try {
+      executor_.cancel();  // only wakes the thread early: it sees the flag within a slice
+    } catch (const std::exception &) {
+    }
+    thread_.join();
+  }
+
+  GroupSpinner(const GroupSpinner &) = delete;
+  GroupSpinner & operator=(const GroupSpinner &) = delete;
+  GroupSpinner(GroupSpinner &&) = delete;
+  GroupSpinner & operator=(GroupSpinner &&) = delete;
+
+private:
+  static rclcpp::ExecutorOptions optionsFor(const rclcpp::Context::SharedPtr & context)
+  {
+    rclcpp::ExecutorOptions options;
+    options.context = context;
+    return options;
+  }
+
+  rclcpp::Context::SharedPtr context_;
+  rclcpp::executors::SingleThreadedExecutor executor_;
+  std::atomic<bool> stop_{false};
+  std::thread thread_;
+};
+
 /// @brief A TF listener that fills `buffer` from the node's `/tf` and `/tf_static`
 /// subscriptions.
 /// @param buffer Buffer to fill; must outlive the listener.
 /// @param node Pointer-like node.
-/// @param spin_thread Spin the listener's subscriptions in a dedicated thread.
+/// @param spin_thread Spin the listener's subscriptions in a dedicated thread (a GroupSpinner,
+/// not tf2_ros's own, so that the listener can be destroyed at any time).
 template <typename NodeT>
 std::shared_ptr<tf2_ros::TransformListener> makeTfListener(
   tf2_ros::Buffer & buffer, const NodeT & node, bool spin_thread = true)
 {
 #if RCLCPP_VERSION_GTE(30, 0, 0)
-  return std::make_shared<tf2_ros::TransformListener>(buffer, *node, spin_thread);
+  auto && node_arg = *node;
 #else
-  return std::make_shared<tf2_ros::TransformListener>(buffer, node, spin_thread);
+  const NodeT & node_arg = node;
 #endif
+  if (!spin_thread) {
+    return std::make_shared<tf2_ros::TransformListener>(buffer, node_arg, false);
+  }
+  const auto node_base = node->get_node_base_interface();
+  auto group =
+    node_base->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive, false);
+  auto options =
+    tf2_ros::detail::get_default_transform_listener_sub_options<std::allocator<void>>();
+  options.callback_group = group;
+  auto static_options =
+    tf2_ros::detail::get_default_transform_listener_static_sub_options<std::allocator<void>>();
+  static_options.callback_group = group;
+  /// The listener and its thread; the thread stops first (reverse declaration order).
+  struct Spun
+  {
+    std::shared_ptr<tf2_ros::TransformListener> listener;
+    std::unique_ptr<GroupSpinner> spinner;
+  };
+  auto spun = std::make_shared<Spun>();
+  spun->listener = std::make_shared<tf2_ros::TransformListener>(
+    buffer, node_arg, false, tf2_ros::DynamicListenerQoS(), tf2_ros::StaticListenerQoS(), options,
+    static_options);
+  spun->spinner = std::make_unique<GroupSpinner>(group, node_base);
+  buffer.setUsingDedicatedThread(true);
+  return std::shared_ptr<tf2_ros::TransformListener>(spun, spun->listener.get());
 }
 
 /// @brief A `/tf` broadcaster.

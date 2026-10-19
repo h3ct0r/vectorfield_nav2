@@ -92,6 +92,11 @@ struct CycleSnapshot
   std::uint16_t last_result{result_code::kNone};
   /// Reason of the last finished goal ("" on success).
   std::string last_reason;
+  /// Serial number of the goal of the last cycle or refusal: goals taken since construction,
+  /// preempting ones included (1 for the first). Tests synchronize goal transitions on it.
+  std::uint64_t goal{0};
+  /// Commands published since construction, all goals (counted when published).
+  std::uint64_t commands_sent{0};
 };
 
 /// @brief The curve follower (see the file comment).
@@ -116,6 +121,10 @@ public:
 
   /// @brief The last cycle's summary (thread-safe).
   CycleSnapshot lastCycle() const;
+  /// @brief A goal waits to preempt the running one; the next cycle takes it. For tests, which
+  /// call it while the node is active: the action server accepts a goal after answering the
+  /// client, so the answer alone does not say whether the next cycle runs the new goal.
+  bool preemptPending() const;
 
 protected:
   /// @brief Declares the parameters (both listeners), validates them, creates the TF buffer, the

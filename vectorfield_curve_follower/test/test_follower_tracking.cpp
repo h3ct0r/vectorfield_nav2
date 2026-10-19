@@ -69,28 +69,26 @@ protected:
   /// Preempts with `goal` and runs one cycle; returns the phase of that cycle.
   vf::Phase preemptWith(const FollowCurve::Goal & goal, const ResultFuture & previous)
   {
-    const std::uint64_t cycles = follower_->lastCycle().cycles;
+    const CycleSnapshot before = follower_->lastCycle();
+    // Pending once send() returns: the next cycle takes it, and the action server aborts the
+    // preempted goal before that cycle runs.
     const auto handle = send(goal);
     EXPECT_TRUE(handle);
-    // The follower takes the pending goal at the start of a cycle, and the action server then
-    // aborts the preempted one. In the coverage build that has taken more than one tick, so the
-    // first tick's cycle could still be the old goal's: tick until the preempted goal's result
-    // arrives, and read the phase of the cycle that ran the new goal.
-    bool preempted = false;
-    for (int i = 0; i < 40 && !preempted && !HasFatalFailure(); ++i) {
-      tick();
-      preempted = waitFor([&]() { return ready(previous); }, std::chrono::milliseconds(500));
+    tick();
+    EXPECT_TRUE(waitFor([&]() { return ready(previous); })) << "the preempted goal was not aborted";
+    if (ready(previous)) {
+      EXPECT_EQ(previous.get().code, rclcpp_action::ResultCode::ABORTED);
     }
-    EXPECT_TRUE(preempted) << "the preempted goal was not aborted";
-    EXPECT_GT(follower_->lastCycle().cycles, cycles);
-    EXPECT_TRUE(follower_->lastCycle().tracker_ran);
-    const vf::Phase phase = follower_->lastCycle().phase;
+    const CycleSnapshot snapshot = follower_->lastCycle();
+    EXPECT_EQ(snapshot.goal, before.goal + 1) << "the cycle did not run the new goal";
+    EXPECT_EQ(snapshot.cycles, before.cycles + 1);
+    EXPECT_TRUE(snapshot.tracker_ran);
     if (handle) {
-      client_->async_cancel_goal(handle);
+      cancel(handle);
       const auto canceled = waitResult(resultOf(handle), 10.0);
       EXPECT_EQ(canceled.code, rclcpp_action::ResultCode::CANCELED);
     }
-    return phase;
+    return snapshot.phase;
   }
 };
 

@@ -151,6 +151,8 @@ struct Snapshot
 struct GoalRun
 {
   PreparedGoal goal;
+  /// Serial number (CycleSnapshot::goal).
+  std::uint64_t serial{0};
   std::uint32_t goal_seq{0};
   double start_time{0.0};
   std::unique_ptr<vf::Tracker> tracker;
@@ -233,6 +235,7 @@ struct CurveFollower::Impl
   /// @name Control-thread state that outlives goals (work buffers)
   /// @{
   std::uint32_t goal_counter{0};
+  std::uint64_t goals_taken{0};
   vf::StepScratch scratch;
   vf::OccupancyGrid grid;
   vf::EuclideanDistanceTransform edt;
@@ -547,6 +550,8 @@ struct CurveFollower::Impl
     run.has_published = true;
     ++run.published;
     run.last_cmd = command;
+    const std::lock_guard<std::mutex> lock(diag_mutex);
+    ++snapshot.commands_sent;
   }
 
   /// One zero if this goal (or the goal it preempted) published anything.
@@ -765,6 +770,7 @@ struct CurveFollower::Impl
       action_server->terminate_current(result);
     }
     const std::lock_guard<std::mutex> lock(diag_mutex);
+    snapshot.goal = run.serial;
     snapshot.executing = false;
     snapshot.last_result = code;
     snapshot.last_reason = reason;
@@ -773,7 +779,7 @@ struct CurveFollower::Impl
     snapshot.progress = run.laps.progress();
   }
 
-  void reject(const GoalRejection & rejection)
+  void reject(const GoalRejection & rejection, std::uint64_t serial)
   {
     auto result = std::make_shared<FollowCurve::Result>();
     result->error_code = rejection.code;
@@ -783,6 +789,7 @@ struct CurveFollower::Impl
       rejection.message.c_str());
     action_server->terminate_current(result);
     const std::lock_guard<std::mutex> lock(diag_mutex);
+    snapshot.goal = serial;
     snapshot.executing = false;
     snapshot.last_result = rejection.code;
     snapshot.last_reason = rejection.message;
@@ -795,6 +802,7 @@ struct CurveFollower::Impl
   {
     const std::lock_guard<std::mutex> lock(diag_mutex);
     ++snapshot.cycles;
+    snapshot.goal = run.serial;
     snapshot.executing = !ended;
     snapshot.command = run.last_cmd;
     snapshot.commands_published = run.published;
@@ -1048,6 +1056,7 @@ struct CurveFollower::Impl
 
     const std::lock_guard<std::mutex> lock(diag_mutex);
     ++snapshot.cycles;
+    snapshot.goal = run.serial;
     snapshot.executing = !ended;
     snapshot.tracker_ran = ran;
     snapshot.decision = decision;
@@ -1173,6 +1182,12 @@ CycleSnapshot CurveFollower::lastCycle() const
 {
   const std::lock_guard<std::mutex> lock(impl_->diag_mutex);
   return impl_->snapshot;
+}
+
+bool CurveFollower::preemptPending() const
+{
+  const auto server = impl_->action_server;
+  return server && server->is_preempt_requested();
 }
 
 CurveFollower::CallbackReturn CurveFollower::on_configure(const rclcpp_lifecycle::State & /*state*/)
@@ -1350,8 +1365,9 @@ void CurveFollower::execute()
     return;
   }
   auto run = std::make_unique<GoalRun>();
+  run->serial = ++s.goals_taken;
   if (const auto rejection = s.startGoal(*goal, nullptr, run.get())) {
-    s.reject(*rejection);
+    s.reject(*rejection, run->serial);
     return;
   }
   {
@@ -1365,9 +1381,10 @@ void CurveFollower::execute()
       const auto pending = server->accept_pending_goal();
       if (pending) {
         auto next_run = std::make_unique<GoalRun>();
+        next_run->serial = ++s.goals_taken;
         if (const auto rejection = s.startGoal(*pending, run.get(), next_run.get())) {
           s.stopNow(*run);
-          s.reject(*rejection);
+          s.reject(*rejection, next_run->serial);
           return;
         }
         run = std::move(next_run);
