@@ -789,6 +789,17 @@ struct CurveFollower::Impl
     snapshot.commands_published = 0;
   }
 
+  /// The snapshot of a cycle that returned before the Tracker step (a decelerating termination,
+  /// an unsupported frame source): the cycle count and the commands it published.
+  void countCycle(const GoalRun & run, bool ended)
+  {
+    const std::lock_guard<std::mutex> lock(diag_mutex);
+    ++snapshot.cycles;
+    snapshot.executing = !ended;
+    snapshot.command = run.last_cmd;
+    snapshot.commands_published = run.published;
+  }
+
   /// One control cycle. Returns true when the goal ended.
   bool cycle(GoalRun & run)
   {
@@ -807,16 +818,17 @@ struct CurveFollower::Impl
     // A decelerating termination: ramp to zero (the last ramp step is the one zero).
     if (run.terminating) {
       const SupervisorDecision ending = *run.terminating;
+      bool ended = true;
       if (deactivating || nav2Active() || !run.has_published) {
         stopNow(run);
         finish(run, ending.code, ending.reason, false);
-        return true;
-      }
-      if (isZero(decelerate(run, dt))) {
+      } else if (isZero(decelerate(run, dt))) {
         finish(run, ending.code, ending.reason, false);
-        return true;
+      } else {
+        ended = false;
       }
-      return false;
+      countCycle(run, ended);
+      return ended;
     }
 
     // Parameters and the footprint: transactional rebuild.
@@ -876,6 +888,7 @@ struct CurveFollower::Impl
     if (frame.unsupported) {
       stopNow(run);
       finish(run, frame.unsupported->code, frame.unsupported->message, false);
+      countCycle(run, true);
       return true;
     }
     const bool nav2_active = nav2Active();

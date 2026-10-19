@@ -152,6 +152,22 @@ if(BUILD_TESTING)
     target_link_libraries(test_follower_smoke ${PROJECT_NAME} ${rclcpp_action_TARGETS})
     vf_set_warnings(test_follower_smoke)
   endif()
+
+  # Layer 2b (plan section 9): the node in process on simulated time, driven in
+  # lock step by test/follower_test_harness.hpp, one executable per theme.
+  find_package(rosgraph_msgs REQUIRED)
+  function(vf_follower_add_node_gtest name)
+    ament_add_ros_isolated_gtest(${name} test/${name}.cpp TIMEOUT 600)
+    if(TARGET ${name})
+      target_link_libraries(${name}
+        ${PROJECT_NAME} ${rclcpp_action_TARGETS} ${rosgraph_msgs_TARGETS})
+      vf_set_warnings(${name})
+    endif()
+  endfunction()
+  vf_follower_add_node_gtest(test_follower_params)
+  vf_follower_add_node_gtest(test_follower_goal_checks)
+  vf_follower_add_node_gtest(test_follower_supervision)
+  vf_follower_add_node_gtest(test_follower_tracking)
 endif()
 
 ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
