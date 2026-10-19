@@ -535,6 +535,7 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
     throw std::logic_error("VectorFieldController: computeVelocityCommands before configure()");
   }
   CycleDiagnostics & diag = s.diagnostics;
+  const bool previous_threw = diag.threw;
   diag.threw = false;
   s.last_command.header.stamp = pose.header.stamp;
   if (window.poses.empty()) {
@@ -543,6 +544,12 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
 
   // Time: the node clock; the nominal period after a gap or at the first cycle.
   const double now = s.clock->now().seconds();
+  if (s.last_compute_time && now == *s.last_compute_time && !previous_threw) {
+    // No time passed since the last cycle (a simulated /clock slower than the controller, e.g.
+    // Nav2's 10 Hz loopback clock at 20 Hz): the robot and the world are unchanged, so return
+    // the committed command instead of stepping the limiter by a period that did not elapse.
+    return s.last_command;
+  }
   double dt = s.control_period;
   if (s.last_compute_time) {
     const double elapsed = now - *s.last_compute_time;
