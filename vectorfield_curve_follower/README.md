@@ -6,38 +6,60 @@ parametric and time-varying curves, including curves attached to a moving frame,
 vector-field tracker as the Nav2 controller plugin. Nav2's planner is bypassed: the curve itself
 is the reference.
 
-**Status:** skeleton — implemented in M5, together with `curve_follower_demo`, `send_curve.py`
-and `moving_frame_publisher.py` in `vectorfield_bringup`.
+**Status:** the node is implemented (M5). `curve_follower_demo`, `send_curve.py` and
+`moving_frame_publisher.py` come with `vectorfield_bringup`.
 
-## Planned interfaces
+## Running it
+
+The component is `vectorfield_curve_follower::CurveFollower` (node name `curve_follower`); the
+executable `curve_follower` runs it alone. It is a Nav2 lifecycle node: start it with a
+`nav2_lifecycle_manager` (`node_names: [curve_follower]`, `autostart: true`), or by hand with
+`ros2 lifecycle set /curve_follower configure` and `activate`.
+
+## Interfaces
 
 All names are relative, so the node can run in a namespace.
 
 | Kind | Name | Notes |
 |---|---|---|
-| Action server | `follow_curve` | Goals are validated in execute; invalid goals end with an error code before any command |
-| Publisher | `cmd_vel_nav` | Feeds Nav2's velocity smoother and collision_monitor; never remap it to the base topic |
+| Action server | `follow_curve` | `vectorfield_msgs/action/FollowCurve`. Goals are never rejected: they are validated in execute and invalid ones end with an error code before any command |
+| Publisher | `cmd_vel_nav` | Feeds Nav2's velocity smoother or collision_monitor; never remap it to the base topic. `Twist`, or `TwistStamped` with `enable_stamped_cmd_vel` (Jazzy and later). Only while a goal executes |
 | Publisher | `~/curve` | The active curve (transient local) |
-| Publishers | `~/markers`, `~/field_grid`, `~/predicted_path`, `~/window`, `~/field_state`, `~/obstacle_distance` | Visualization, including the `curve_info` marker namespace (direction, start, laps) |
-| Publisher | `/diagnostics` | Node health |
-| Subscriptions | `odom`, `speed_limit`, `local_costmap/costmap_raw`, `local_costmap/published_footprint` | Robot state, speed limits and obstacles |
-| Subscriptions | `<action>/_action/status` | Nav2 actions that must not run at the same time (see below) |
+| Publishers | `~/markers`, `~/field_grid`, `~/predicted_path`, `~/window`, `~/field_state`, `~/obstacle_distance` | Visualization, including the `curve_info` marker namespace (direction, start, laps, frame velocity) |
+| Publisher | `/diagnostics` | Node health (`diagnostic_updater`) |
+| Subscriptions | `odom`, `speed_limit`, `local_costmap/costmap_raw`, `local_costmap/published_footprint` | Robot state, speed limits and obstacles; the local costmap must publish the full costmap (`always_send_full_costmap: true`) |
+| Subscriptions | `<action>/_action/status` | Every `exclusive_actions` entry (the Nav2 interlock) |
+| Subscription | the goal's `frame_odom_topic` | Only for `FRAME_MOVING` goals that give one |
+| TF | `global_frame` ← `robot_base_frame`, ← the curve frame; costmap frame ← `global_frame`; `moving_frame_reference` ← curve frame | Robot pose, curve frame, obstacles, moving frames |
 
-## Planned behaviour
+## Parameters
 
-- **Lifecycle:** managed by `lifecycle_manager_curve_follower` (autostart), or manually with
-  `ros2 lifecycle set`.
-- **Curves:** polylines, muParser expressions r(s, t) and built-in shapes (ellipse,
-  lemniscates, superellipse, rounded rectangle, Lissajous, regular polygon). Closed curves can
-  be followed for a number of laps or until cancelled.
-- **Moving frames:** the curve frame's velocity comes from an Odometry topic or from TF
-  differencing and enters the field as feedforward.
-- **Mutual exclusion with Nav2:** the follower refuses to start, or stops with one zero command,
-  while any of the `exclusive_actions` (by default `follow_path`, `navigate_to_pose`,
-  `navigate_through_poses`, `spin`, `backup`, `drive_on_heading`, `assisted_teleop`,
-  `dock_robot`, `undock_robot`, `follow_object`) is active.
+The common groups (Field, Motion, Phases, Obstacles, Safety, Visualization) come from
+`vectorfield_ros/params/vectorfield_common_params.yaml`, unprefixed; the rotate-to-heading keys
+are unused. The follower's own keys are in
+[`params/vectorfield_follower_params.yaml`](params/vectorfield_follower_params.yaml): loop rate
+and frames, input timeouts, curve intake limits, moving-frame estimation, the progress watchdog
+and the Nav2 interlock.
+
+## Behaviour
+
+- **Goals:** polylines, muParser expressions r(s, t) and built-in shapes (ellipse, lemniscates,
+  superellipse, rounded rectangle, Lissajous, regular polygon). Closed curves are followed for
+  `laps` laps or until cancelled; open curves until the robot settles at their end
+  (`reverse_direction` swaps the end). `desired_speed` > 0 and `reverse_direction` override the
+  parameters for that goal only.
+- **Moving frames:** the curve frame's twist comes from an Odometry topic (child frame = curve
+  frame) or from TF differencing against `moving_frame_reference` (exact log-SE(2) differences,
+  outlier rejection, low-pass filter, extrapolation for at most `input_timeout`) and enters the
+  field as feedforward.
+- **Mutual exclusion with Nav2:** a goal does not start (`NAV2_ACTIVE`) while any of the
+  `exclusive_actions` is active, and stops with one zero command when one becomes active. With
+  `require_nav2_interlock` (default) a goal is refused (`UNSUPPORTED`) when
+  `follow_path/_action/status` has no publisher, i.e. the interlock cannot see Nav2.
 - **Safety:** it publishes only while a goal executes, decelerates on termination, sends one
   zero command and then goes silent. It sees only the local costmap, so mapped hazards must be
   added to it (the bringup overlay adds the static layer).
 - **Failures** end the goal with the `FollowCurve` result codes documented in
-  `vectorfield_msgs`.
+  `vectorfield_msgs`: stale inputs (`STALE_INPUT`) and an untransformable curve frame
+  (`TF_ERROR`) after `stale_abort_timeout`, a persistent block or no progress (`BLOCKED`), a curve
+  moving faster than Assumption 3 allows (`ASSUMPTION3_VIOLATED`), `max_duration` (`TIMEOUT`).

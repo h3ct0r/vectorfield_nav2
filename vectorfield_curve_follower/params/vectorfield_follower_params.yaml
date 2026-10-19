@@ -1,0 +1,216 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Parameters of the curve follower only (no prefix; plan section 6). The common Field, Motion,
+# Phases, Obstacles, Safety and Visualization groups come from vectorfield_common_params
+# (vectorfield_ros), declared on the same node. generate_parameter_library generates
+# vectorfield_curve_follower/vectorfield_follower_params.hpp from this file, and docs/gen_params.py
+# renders the parameter reference from it.
+#
+# Rules:
+# - The root key is unique repo-wide (it is also the C++ namespace and the target name).
+# - Only built-in validators, so both gpl versions behave the same.
+# - The Curve intake keys and assumption3_margin map 1:1 to vectorfield_core::CurveOptions and
+#   CoreConfig::field.assumption3_margin through kFollowerCoreParams
+#   (vectorfield_curve_follower/follower_params.hpp); every other key is ROS-only
+#   (kFollowerRosOnlyParams). Keep both in sync.
+# - The rotate-to-heading keys of the common group are unused: the follower never rotates to a
+#   goal heading.
+vectorfield_follower_params:
+  # --- Node ------------------------------------------------------------------------------------
+  controller_frequency:
+    type: double
+    default_value: 20.0
+    description: "Rate of the control loop while a goal executes (Hz). Also the control period
+      of the stability rules of the configuration check."
+    validation:
+      gt<>: [0.0]
+  global_frame:
+    type: string
+    default_value: "map"
+    read_only: true
+    description: "Control frame: the robot pose, the curve and every marker are expressed in it."
+    validation:
+      not_empty<>: []
+  robot_base_frame:
+    type: string
+    default_value: "base_link"
+    read_only: true
+    description: "Robot base frame; the published footprint is transformed into it."
+    validation:
+      not_empty<>: []
+  odom_topic:
+    type: string
+    default_value: "odom"
+    read_only: true
+    description: "Odometry of the robot (measured twist; its age is checked against
+      input_timeout)."
+    validation:
+      not_empty<>: []
+
+  # --- Timing ----------------------------------------------------------------------------------
+  transform_tolerance:
+    type: double
+    default_value: 0.1
+    description: "Tolerance between a published footprint's stamp and the newest transform when
+      the transform at the stamp is not available (s)."
+    validation:
+      gt_eq<>: [0.0]
+  input_timeout:
+    type: double
+    default_value: 0.3
+    description: "Maximum age of the robot pose, the odometry and a moving frame's input (s).
+      Older inputs make the robot decelerate. Also the extrapolation limit of moving frames."
+    validation:
+      gt<>: [0.0]
+  costmap_timeout:
+    type: double
+    default_value: 0.5
+    description: "Maximum gap between two local_costmap/costmap_raw messages (s); a longer gap
+      means a stalled costmap node and makes the robot decelerate."
+    validation:
+      gt<>: [0.0]
+  stale_abort_timeout:
+    type: double
+    default_value: 2.0
+    description: "A stale input or an untransformable curve frame that lasts this long aborts
+      the goal (STALE_INPUT, TF_ERROR) (s)."
+    validation:
+      gt<>: [0.0]
+  blocked_timeout:
+    type: double
+    default_value: 10.0
+    description: "A blocked robot (kBlocked) that does not resume within this time aborts the
+      goal (BLOCKED) (s)."
+    validation:
+      gt<>: [0.0]
+  goal_tolerance:
+    type: double
+    default_value: 0.10
+    description: "XY tolerance of the end point of an open curve (m)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Curve intake ----------------------------------------------------------------------------
+  max_curve_points:
+    type: int
+    default_value: 20000
+    description: "Maximum vertex count of a polyline curve after conditioning; larger curves are
+      rejected (INVALID_CURVE)."
+    validation:
+      gt_eq<>: [2]
+  default_sample_spacing:
+    type: double
+    default_value: 0.05
+    description: "Resampling spacing of polyline curves whose sample_spacing is <= 0 (m)."
+    validation:
+      gt<>: [0.0]
+  search_window:
+    type: double
+    default_value: 1.0
+    description: "Half-width of the hinted closest-point search around the previous station
+      (m)."
+    validation:
+      gt<>: [0.0]
+  global_search_trigger:
+    type: double
+    default_value: 0.5
+    description: "Distance to the curve above which the global closest-point search also runs
+      (m)."
+    validation:
+      gt_eq<>: [0.0]
+  global_search_hysteresis:
+    type: double
+    default_value: 0.10
+    description: "A global candidate replaces the hinted one only if it is closer by this much
+      (m)."
+    validation:
+      gt_eq<>: [0.0]
+  global_search_samples:
+    type: int
+    default_value: 400
+    description: "Samples of the global closest-point search and of the regularity check of
+      parametric curves."
+    validation:
+      gt_eq<>: [4]
+
+  # --- Time-varying curves ---------------------------------------------------------------------
+  assumption3_margin:
+    type: double
+    default_value: 0.1
+    description: "Margin epsilon_v of Assumption 3: the feedforward of a moving curve is clamped
+      to (1 - epsilon_v) of the reference speed."
+    validation:
+      gt<>: [0.0]
+      lt<>: [1.0]
+  assumption3_abort_time:
+    type: double
+    default_value: 1.0
+    description: "The feedforward clamp (kAssumption3Clamped) acting this long without a block
+      aborts the goal (ASSUMPTION3_VIOLATED) (s)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Moving frames ---------------------------------------------------------------------------
+  frame_twist_cutoff_hz:
+    type: double
+    default_value: 2.0
+    description: "Cutoff of the low-pass filter of the frame twist estimated from TF (Hz); 0
+      disables the filter."
+    validation:
+      gt_eq<>: [0.0]
+  frame_twist_max_speed:
+    type: double
+    default_value: 2.0
+    description: "TF-estimated frame speeds above this are rejected as outliers (m/s)."
+    validation:
+      gt<>: [0.0]
+  moving_frame_reference:
+    type: string
+    default_value: ""
+    description: "Reference frame of TF differencing for FRAME_MOVING goals without
+      frame_odom_topic (e.g. odom). Its chain to the curve frame must not contain map -> odom.
+      Empty: such goals are rejected (UNSUPPORTED)."
+
+  # --- Progress --------------------------------------------------------------------------------
+  progress_radius:
+    type: double
+    default_value: 0.5
+    description: "The robot must move this far (capped at half the nominal speed times
+      progress_timeout) within progress_timeout (m)."
+    validation:
+      gt<>: [0.0]
+  progress_timeout:
+    type: double
+    default_value: 10.0
+    description: "Time allowed to move progress_radius; otherwise the goal aborts (BLOCKED) (s)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Nav2 interlock --------------------------------------------------------------------------
+  exclusive_actions:
+    type: string_array
+    default_value: ["follow_path", "navigate_to_pose", "navigate_through_poses", "spin", "backup",
+      "drive_on_heading", "assisted_teleop", "dock_robot", "undock_robot", "follow_object"]
+    read_only: true
+    description: "Nav2 actions that must not run together with the follower: a goal does not
+      start (NAV2_ACTIVE) while any of them is active, and stops with one zero command when one
+      becomes active. Relative names resolve in the follower's namespace."
+    validation:
+      unique<>: []
+  require_nav2_interlock:
+    type: bool
+    default_value: true
+    description: "At goal start, abort (UNSUPPORTED) if follow_path/_action/status has no
+      publisher, i.e. the interlock cannot see Nav2 (wrong namespace or remap)."
