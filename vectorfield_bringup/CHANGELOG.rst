@@ -9,6 +9,13 @@ Forthcoming
 * examples/follow_curve_client.py and examples/navigate_waypoints.py, the tutorials' clients.
 * send_curve.py sends laps 0 for open curves (laps > 0 made every open curve INVALID_CURVE).
 
+0.2.0 (2026-10-20)
+------------------
+* Example behaviour trees follow_curve.xml and follow_curve_patrol.xml, the follow_curve_bt and
+  reversing scenario overlays, and bt_runner.
+* The Ackermann overlay and template enable contour with a 4 x 4 m local costmap; params.merge()
+  merges a FollowPath without a plugin key key by key.
+
 0.1.1 (2026-10-20)
 ------------------
 * The kinematic-sim demos enable skid slip compensation with vectorfield_sim's own slip parameters;

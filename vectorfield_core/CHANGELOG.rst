@@ -2,6 +2,20 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.0 (2026-10-20)
+------------------
+* Reversing: TrackerInput::drive_sign for plans with cusps; FL control point, heading tracking and
+  Ackermann follow it, a sign change resets the hint, headings, contour episode and blocked latch.
+* Ackermann contour: auto lambda of at least R_min + w_lat + 0.05, a turn-in band before D_in,
+  curvature-aware validation, and a speed factor that keeps the car turning at R_min during an
+  episode.
+* CBF obstacle mode (obstacle_mode: cbf): a minimal-change barrier filter on the shaped field over
+  up to three obstacle sites; a field pointing straight at an obstacle holds the robot and raises
+  kBlocked.
+* Experimental 3D core (vectorfield_core::d3): 3D curves and built-ins, DistanceField3 with the
+  time-varying feedforward and terminal field, VelocityLaw3, CommandLimiter3, Tracker3 and a 3D
+  simulator.
+
 0.1.1 (2026-10-20)
 ------------------
 * In ROTATE_TO_FIELD, ROTATE_TO_HEADING and STOPPED the translational axes brake at their own

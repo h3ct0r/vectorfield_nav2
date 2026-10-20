@@ -2,8 +2,8 @@
 Changelog for package vectorfield_behavior_tree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.2.0 (2026-10-20)
+------------------
 * New package: the Nav2 behaviour-tree node ``FollowCurve`` (plugin library
   ``vectorfield_follow_curve_action_bt_node``), a client of the curve follower's ``follow_curve``
   action, with a ``curve`` port for a blackboard ``vectorfield_msgs/Curve``, convenience ports

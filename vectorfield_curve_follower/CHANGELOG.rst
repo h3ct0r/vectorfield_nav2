@@ -2,6 +2,10 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.0 (2026-10-20)
+------------------
+* CBF obstacle mode support.
+
 0.1.1 (2026-10-20)
 ------------------
 

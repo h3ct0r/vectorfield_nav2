@@ -2,6 +2,11 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.0 (2026-10-20)
+------------------
+* Parameters cusp_tolerance, cbf_gain, cbf_margin and cbf_sites; CBF markers; REV in the status
+  text and the active cusp as the goal marker.
+
 0.1.1 (2026-10-20)
 ------------------
 * Parameters skid_yaw_rate_efficiency and skid_icr_offset.

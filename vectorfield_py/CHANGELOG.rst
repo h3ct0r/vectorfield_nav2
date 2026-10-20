@@ -2,6 +2,11 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.0 (2026-10-20)
+------------------
+* Bindings for the CBF and reversing parameters, and the 3D core as vectorfield.d3; new tools
+  vf-sim3d and vf-curve --dim 3; vf-sim and vf-plot --obstacle-mode cbf.
+
 0.1.1 (2026-10-20)
 ------------------
 * CoreConfig exposes the skid slip compensation parameters.

@@ -2,6 +2,10 @@
 Changelog for package vectorfield_nav2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.2.0 (2026-10-20)
+------------------
+* Adds vectorfield_behavior_tree.
+
 0.1.1 (2026-10-20)
 ------------------
 
