@@ -194,6 +194,7 @@ class NavHarness:
         self._poses = []
         self._plans = []
         self._failures = []
+        self._planner_requests = []
         self._infeasible = None
         self.map = None
         self._abandoned = []
@@ -302,13 +303,22 @@ class NavHarness:
         # The FollowPath action's status cannot tell a failure from a preemption (Nav2 aborts the
         # goal a new path replaces); bt_navigator's FollowPath node fails only on a real failure.
         # Event stamps are not simulated time on every distro: record the receive time.
-        if any(
+        # ComputePathToPose going RUNNING is a planner request, whether or not a path is found.
+        failed = any(
             event.node_name == 'FollowPath' and event.current_status == 'FAILURE'
             for event in message.event_log
-        ):
+        )
+        planning = any(
+            event.node_name == 'ComputePathToPose' and event.current_status == 'RUNNING'
+            for event in message.event_log
+        )
+        if failed or planning:
             now = self.now()
             with self._lock:
-                self._failures.append(now)
+                if failed:
+                    self._failures.append(now)
+                if planning:
+                    self._planner_requests.append(now)
 
     def _on_map(self, message):
         self.map = OccupiedCells(message)
@@ -577,6 +587,11 @@ class NavHarness:
         """Return the times at which bt_navigator's FollowPath node failed, since ``start``."""
         with self._lock:
             return sorted(t for t in self._failures if t >= start)
+
+    def planner_requests_since(self, start):
+        """Return the times bt_navigator's ComputePathToPose node started, since ``start``."""
+        with self._lock:
+            return sorted(t for t in self._planner_requests if t >= start)
 
     def infeasible_command_count(self, timeout=10.0):
         """Return vectorfield_sim's infeasible-command count (None if it never arrived)."""

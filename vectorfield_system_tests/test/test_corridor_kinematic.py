@@ -157,8 +157,13 @@ class TestCorridor(unittest.TestCase):
             return None if stop is None else next(iter(nav.follow_path_failures_since(stop)), None)
 
         def replanned():
+            # Nav2 asked its planner again after the failure. In a fully blocked corridor the
+            # planner may find no path once the global costmap has the box, so a published plan
+            # is not required; a planner request or a new plan both count.
             failure = failed()
-            return failure is not None and bool(nav.plans_since(failure + 1e-6))
+            return failure is not None and bool(
+                nav.plans_since(failure + 1e-6) or nav.planner_requests_since(failure + 1e-6)
+            )
 
         nav.wait_until(replanned, BLOCKED_TIMEOUT)
         result = {'stopped': stopped(), 'failed': failed(), 'replanned': replanned()}
@@ -183,7 +188,7 @@ class TestCorridor(unittest.TestCase):
         self.assertIsNotNone(result['stopped'], f'no NoValidControl status; {context}')
         self.assertIsNotNone(result['failed'], f'no FollowPath failure after it; {context}')
         self.assertTrue(
-            result['replanned'], f'no new plan after the FollowPath failure; {context}'
+            result['replanned'], f'no replanning after the FollowPath failure; {context}'
         )
         # The stop happened at the wall, not anywhere before it.
         self.assertLess(clearance, 3.0 * geometry.STOP_MARGIN, f'stopped early; {context}')
