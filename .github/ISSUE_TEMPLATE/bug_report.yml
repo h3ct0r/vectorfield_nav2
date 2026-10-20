@@ -64,7 +64,7 @@ body:
     id: vf_version
     attributes:
       label: vectorfield_nav2 version or commit
-      placeholder: "0.0.1, or a commit SHA"
+      placeholder: "0.1.0, or a commit SHA"
     validations:
       required: true
 

@@ -2,8 +2,9 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.1.0 (2026-10-19)
+------------------
+* First release.
 * Add the ``vf-curve``, ``vf-plot``, ``vf-sim`` and ``vf-tune`` command-line tools
   (``vectorfield_tools``, M4): curve description and Curve.msg/CSV export, field plots with
   streamlines, obstacles and the field decomposition, closed-loop simulation with plots and GIF
