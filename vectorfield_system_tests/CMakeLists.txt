@@ -79,18 +79,26 @@ if(BUILD_TESTING)
   # label, isolated, serial and without retries. The motion model reaches the
   # test through VF_TEST_MOTION_MODEL; the shared helpers are imported from the
   # source tree. TIMEOUT (default 300 s) overrides the CTest timeout.
+  # The CI coverage build (Debug, --coverage) has taken 270 s just to load Nav2's container:
+  # scale the CTest timeouts and, through VF_TEST_TIME_SCALE, the harness's start-up wait.
+  set(VF_TEST_TIME_SCALE 1)
+  if(CMAKE_CXX_FLAGS MATCHES "--coverage")
+    set(VF_TEST_TIME_SCALE 3)
+  endif()
   function(vf_add_launch_test file model)
     cmake_parse_arguments(_vf "" "TIMEOUT" "" ${ARGN})
     if(NOT _vf_TIMEOUT)
       set(_vf_TIMEOUT 300)
     endif()
+    math(EXPR _vf_TIMEOUT "${_vf_TIMEOUT} * ${VF_TEST_TIME_SCALE}")
     get_filename_component(_vf_name "${file}" NAME_WE)
     set(_vf_target "${_vf_name}_${model}")
     add_launch_test("${file}"
       TARGET "${_vf_target}"
       RUNNER "${ament_cmake_ros_DIR}/run_test_isolated.py"
       TIMEOUT ${_vf_TIMEOUT}
-      ENV "VF_TEST_MOTION_MODEL=${model}" ${VF_DISCOVERY_ENV}
+      ENV "VF_TEST_MOTION_MODEL=${model}" "VF_TEST_TIME_SCALE=${VF_TEST_TIME_SCALE}"
+        ${VF_DISCOVERY_ENV}
       APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
     )
     set_tests_properties("${_vf_target}" PROPERTIES RUN_SERIAL TRUE)

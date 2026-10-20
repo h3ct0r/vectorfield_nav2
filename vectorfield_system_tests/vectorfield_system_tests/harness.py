@@ -32,6 +32,7 @@ are read by stamp (:meth:`NavHarness.pose_at`), not as the latest message.
 
 import faulthandler
 import math
+import os
 import threading
 import time
 from dataclasses import dataclass
@@ -407,6 +408,7 @@ class NavHarness:
             AssertionError: If something is not ready within ``timeout`` wall seconds.
 
         """
+        timeout *= float(os.environ.get('VF_TEST_TIME_SCALE', '1'))
         # Should start-up hang anyway, the thread stacks show where (in the test log).
         faulthandler.dump_traceback_later(timeout + 60.0)
         try:
