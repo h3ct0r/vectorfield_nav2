@@ -243,7 +243,9 @@ vectorfield_common_params:
     type: string
     default_value: "none"
     description: "none: obstacles only stop the robot (collision prediction); contour: circulate
-      around obstacles that block the path. Ackermann does not support contour."
+      around obstacles that block the path (ackermann: with the turning-radius auto values of
+      obstacle_contour_distance, obstacle_full_switch_distance, obstacle_blend_start_distance and
+      obstacle_lookahead)."
     validation:
       one_of<>: [["none", "contour"]]
   obstacle_activation:
@@ -257,22 +259,26 @@ vectorfield_common_params:
     type: double
     default_value: -1.0
     description: "Contour distance lambda from the obstacle (m). Negative selects the auto value
-      max(sqrt((w_lat + 0.10)^2 + d^2), r_circ + d + 0.05)."
+      max(sqrt((w_lat + 0.10)^2 + d^2), r_circ + d + 0.05), and for ackermann at least
+      min_turning_radius + w_lat + 0.05 (d = |reference_point_offset|). Ackermann rejects lambda
+      < min_turning_radius + 0.05."
   obstacle_full_switch_distance:
     type: double
     default_value: -1.0
     description: "Obstacle distance D_in below which only the contour field acts (m). Negative
-      selects lambda + 0.15."
+      selects lambda + 0.15 (ackermann: lambda + max(0.15, min_turning_radius), room for a quarter
+      turn)."
   obstacle_blend_start_distance:
     type: double
     default_value: -1.0
     description: "Obstacle distance D'_in at which the contour starts blending in (m). Negative
-      selects lambda + 0.35."
+      selects lambda + 0.35 (ackermann: D_in + 0.2)."
   obstacle_lookahead:
     type: double
     default_value: -1.0
     description: "Path length checked ahead of the closest point for blocking obstacles (m).
-      Negative selects max(1.0, desired_speed * collision_check_horizon)."
+      Negative selects max(1.0, desired_speed * collision_check_horizon) (ackermann: at least
+      D'_in + 0.1)."
   obstacle_gate_tolerance:
     type: double
     default_value: 0.05

@@ -112,7 +112,20 @@ def suggestion(code, config, kappa=0.0):
             'raise obstacle_contour_distance (or -1, auto) or lower control_point_offset'
         ),
         issue.INVALID_LAW: 'use tracking_law: auto, which picks the law of the motion model',
-        issue.ACKERMANN_CONTOUR: 'use obstacle_mode: none with the ackermann model',
+        issue.ACKERMANN_CONTOUR_RADIUS: (
+            f'raise obstacle_contour_distance to at least min_turning_radius + 0.05 '
+            f'({m.min_turning_radius + 0.05:g}), or -1 (auto)'
+        ),
+        issue.ACKERMANN_CONTOUR_CURVATURE: (
+            'raise obstacle_contour_distance (or -1, auto: min_turning_radius + w_lat + 0.05)'
+        ),
+        issue.ACKERMANN_CONTOUR_TURN_IN: (
+            'raise obstacle_full_switch_distance and obstacle_blend_start_distance (or -1, auto)'
+        ),
+        issue.ACKERMANN_CONTOUR_LOOKAHEAD: (
+            'raise obstacle_lookahead above obstacle_blend_start_distance (or -1, auto)'
+        ),
+        issue.ACKERMANN_CONTOUR_WATCHDOG: 'raise obstacle_max_contour_length',
         issue.ACKERMANN_RADIUS: 'set min_turning_radius to the vehicle turning radius (> 0)',
         issue.FL_OFFSET: 'set control_point_offset > 0 (0.2 m on a TurtleBot-sized base)',
         issue.BRAKING_EXCEEDS_WINDOW: (

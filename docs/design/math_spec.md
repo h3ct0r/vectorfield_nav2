@@ -1022,9 +1022,57 @@ bit [Spec, M1].
   point obstacle at $w_{\mathrm{lat}} + 0.10$, i.e. 10 cm of lateral clearance;
   $r_{\mathrm{circ}} + d + 0.05$ guarantees $\lambda - d \ge r_{\mathrm{circ}} + 0.05$ by the
   triangle inequality, whatever the heading.
-- **Ackermann + contour is rejected** in 0.x: the $\lambda$-offset needs curvature about $1/\lambda$
-  (≈ 3 m⁻¹), far above $1/R_{\min}$, and a car turning at $R_{\min} = 1$ m from $D_{\mathrm{in}}'$
-  passes the head-on point at $\sqrt{D_{\mathrm{in}}'^2 + 1} - 1 \approx 0.20$ m, inside its footprint.
+- **Ackermann** [Design, M7]. With the auto values above the $\lambda$-offset needs curvature
+  about $1/\lambda$ (≈ 2–3 m⁻¹), above $1/R_{\min}$, and a car turning at $R_{\min} = 1$ m from
+  $D_{\mathrm{in}}'$ passes the head-on point at $\sqrt{D_{\mathrm{in}}'^2 + 1} - 1 \approx 0.20$ m,
+  inside its footprint; {ref}`sec-contour-ackermann` scales $\lambda$ and the turn-in band with
+  $R_{\min}$ instead.
+
+(sec-contour-ackermann)=
+
+### 6.6 Ackermann [Design, M7]
+
+Changes for `motion_model: ackermann` only; every other model keeps §6.4–6.5. The design note is
+`m7_ackermann_contour.md`.
+
+- **Evaluation point.** The contour runs at $p_r$ (the rear axle, the law's point,
+  {ref}`sec-laws-points`), with $n_o$ from $\mathrm{EDT}_K$ at $p_r$ and the base_link guard of §6.4.
+  $p_r$ is the no-slip point: on the $\lambda$-set the heading is tangent to it.
+- **Curvature.** At a convex feature of $K$ (a point, a disc, a box corner) the $\lambda$-set is a circle
+  of radius $R_o + \lambda \ge \lambda$ around it; along a face it is straight. It is feasible iff
+  $\lambda \ge R_{\min}$. Auto: $\lambda = \max(\lambda_{\mathrm{auto}},\ R_{\min} + w_{\mathrm{lat}} + 0.05)$,
+  $\lambda_{\mathrm{auto}}$ of §11 at $d = \lvert x_r\rvert$; the circulation then uses at most
+  $R_{\min}/\lambda$ of the curvature (TB3: 65 % at $R_{\min} = 0.5$, 80 % at 1), the rest corrects
+  tracking errors. Error: $\lambda < R_{\min} + 0.05$; warning: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$.
+- **Turn-in.** A car heading straight at a face across its approach is tangent to the $\lambda$-set
+  after a quarter turn at $R_{\min}$ started at $D_o = \lambda + R_{\min}$ (a point needs only
+  $\sqrt{\lambda^2 + 2\lambda R_{\min}}$). Auto: $D_{\mathrm{in}} = \lambda + \max(0.15, R_{\min})$,
+  $D_{\mathrm{in}}' = D_{\mathrm{in}} + 0.2$, and $\ell_{\mathrm{look}} = \max(1.0,\ v_r T_h,\ D_{\mathrm{in}}' + 0.1)$
+  so that the gate opens before the band. Warnings: $D_{\mathrm{in}} < \lambda + R_{\min}$;
+  $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length`
+  $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ (the side probe's half circulation). TB3, $R_{\min} = 0.5$:
+  $\lambda = 0.77$, $D_{\mathrm{in}} = 1.27$, $D_{\mathrm{in}}' = 1.47$, $\ell_{\mathrm{look}} = 1.57$; the
+  blend-zone rule of §11 then needs a 4 m local costmap.
+- **Law in an episode.** The field direction can turn faster than the car (the blend band, the
+  switch of $n_o$ at a corner, an episode that starts inside the band). While an episode is active,
+  heading tracking's speed factor is $\max(\cos e,\ \tfrac12)$ instead of $\max(0, \cos e)$ and
+  $\lvert e \rvert > \pi/2$ does not set kHeadingInfeasible ({ref}`sec-laws-ack`): the car keeps
+  moving at no less than half the field speed and turns at $R_{\min}$ (kCurvatureSaturated) toward
+  $F$. While $D_o < \lambda$, $F = \lVert\Phi\rVert(G\,n_o + H\,\sigma_c J n_o)$ with $H > 0$, so the sign of
+  $e$, i.e. the turn, is the circulation's. The rollouts run the same law, so an arc that collides
+  brakes the car through the cap (§10.3) and kBlocked follows.
+- **Exit.** Once $B(s^\star)$ is empty, the direction test $n^\top\Phi \ge 0.05\lVert\Phi\rVert$ is measured to
+  the episode's last blocking site (`ContourState::b_site`, grid frame; the start's nearest site
+  of $B(s^\star)$, then that of every cycle where $B(s^\star)$ is non-empty) instead of ending the
+  episode. *Rationale*: with $\lambda \ge R_{\min} + w_{\mathrm{lat}}$ the circulation is wide, $s^\star$
+  passes the blockage about 20° past the side point while $\Phi$ still points at the obstacle, and the
+  car's turn back to the path then cut 6 cm inside $\lambda$ ($R_{\min} = 1$, $R_o = 0.3$).
+- **Dead ends and tight gaps.** Unchanged rules: the side probe rolls out the car's pipeline
+  (band, law above, curvature clamp), so a side it cannot drive around (a gap narrower than about
+  $\lambda + w_{\mathrm{lat}}$, a dead end) collides or never gets past the blockage; no episode
+  starts, the cap stops the car and kBlocked follows. No episode reverses in 0.x (the contour is
+  off in reverse segments, §9.4): a manoeuvre that needs a turn tighter than $R_{\min}$ ends in a
+  stop and kBlocked, and Nav2 replans.
 
 (sec-laws)=
 
@@ -1153,7 +1201,9 @@ symmetric in the sign of $v$.
   STOPPED.
 - **Curvature.** $\lvert\omega\rvert \le \lvert v \rvert/R_{\min}$ after scaling and limiting
   (kCurvatureSaturated).
-- **kHeadingInfeasible** when $\lvert e \rvert > \pi/2$ at $p_r$; or $\sigma_{\mathrm{base}} < 0$ while XY
+- **Contour episode** [Design, M7]: speed factor $\max(\cos e, \tfrac12)$, and no kHeadingInfeasible
+  from $\lvert e\rvert > \pi/2$ ({ref}`sec-contour-ackermann`).
+- **kHeadingInfeasible** when $\lvert e \rvert > \pi/2$ at $p_r$ outside a contour episode; or $\sigma_{\mathrm{base}} < 0$ while XY
   is not reached; or, at settled and only if $\mathrm{yaw\_tol} > 10^{-6}$,
   $\lvert \operatorname{wrap}(\psi_{\mathrm{goal}} - \psi) \rvert > \mathrm{yaw\_tol}$. It leads to
   STOPPED; Nav2 replans or aborts.
@@ -1610,6 +1660,11 @@ $\Delta t = 1/f$, $W, H_c$ = costmap width and height in metres.
 | `obstacle_lookahead` | $\max(1.0,\ v_r T_h)$ | 1.0 |
 | `final_approach_distance` | FL: $\max(2d,\ \mathrm{xy\_tol} + d)$; otherwise xy_tol | 0.45 (xy_tol 0.25) |
 
+Ackermann [Design, M7] ({ref}`sec-contour-ackermann`): $\lambda = \max(\cdot,\ R_{\min} + w_{\mathrm{lat}} + 0.05)$
+with $d = \lvert x_r\rvert$, $D_{\mathrm{in}} = \lambda + \max(0.15, R_{\min})$, $D_{\mathrm{in}}' = D_{\mathrm{in}} + 0.2$,
+`obstacle_lookahead` $\max(1.0,\ v_r T_h,\ D_{\mathrm{in}}' + 0.1)$; TB3 with $R_{\min} = 0.5$: 0.77, 1.27,
+1.47, 1.57.
+
 The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{\mathrm{circ}} \ge r_{\mathrm{insc}}$.
 
 **Reject (errors).**
@@ -1620,7 +1675,8 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | `min_in_place_angular_vel` > `rotate_to_heading_angular_vel` | the floor would exceed the rotate speed |
 | not $\lambda < D_{\mathrm{in}} \le D_{\mathrm{in}}'$ | blend order; equality is the hard switch |
 | $\lambda - d < r_{\mathrm{insc}}$ | with $p_c$ on the $\lambda$-set the base is at least $\lambda - d$ away; below $r_{\mathrm{insc}}$ the circulation itself collides |
-| invalid (type, law) pair; Ackermann with contour | {ref}`sec-laws-points`, {ref}`sec-contour-notes` |
+| invalid (type, law) pair | {ref}`sec-laws-points` |
+| Ackermann with contour and $\lambda < R_{\min} + 0.05$ [Design, M7] | the car cannot follow the circulation of a point ({ref}`sec-contour-ackermann`) |
 | Ackermann with $R_{\min} \le 0$ | the curvature clamp needs $R_{\min}$ |
 | $\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)$, or $>$ `window_limit` when set (Gen A/B prune_distance) | the goal must enter the window before braking must start |
 | FL with $d \le 0$ [Spec] | $M(\psi)$ divides by $d$; the plan omits this rule (`upstream_audit.md`, item O3) |
@@ -1638,6 +1694,7 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | $T_h v_{\max} < v_{\max}^2/(2 a_{\mathrm{dec}}) + v_{\max}(2/f + 0.1) + 0.1$, or $T_h v_{\max} > \tfrac12\min(W, H_c) - r_{\mathrm{circ}}$ | the horizon must cover the stopping distance plus two cycles and 0.1 s of latency plus 0.1 m, and stay in the window |
 | Ackermann: $R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1$ | the field's integral curves need more curvature than the car has |
 | $v_r (c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}$ | yaw rate needed to follow the integral curves at $v_r$ |
+| Ackermann with contour [Design, M7]: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$; $D_{\mathrm{in}} < \lambda + R_{\min}$; $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length` $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ | curvature headroom, turn-in band, gate before the band, watchdog ({ref}`sec-contour-ackermann`) |
 
 At configure, $\kappa_{\mathrm{path}} := 0$; the per-plan checks below use the window's value [Spec].
 
@@ -1791,6 +1848,16 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
 - **O56 Dead end** (`path_blocked`). A straight path into a 1.2 m corridor closed by a wall across it,
   and the O38 wall: no episode starts, the robot stops $\ge m_s - \mathrm{res}$ short of the wall
   (and within $3 m_s$), never collides, and kBlocked, once set, stays set.
+- **O57 Ackermann** [Design, M7] ($R_{\min} \in \{0.5, 1\}$, a 0.7 × 0.4 m body with the rear axle
+  0.2 m behind base_link, auto values). Discs of radius 0.15 and 0.3 m on a straight path, centred
+  and 0.1 m off it: one episode with a constant side, the rear axle keeps $\lambda - \mathrm{res}$ from
+  the disc's cells, no collision, never kHeadingInfeasible, the car passes beside the disc (on the
+  free side when offset) and settles on the path at the goal. A box across the path closed on one
+  side, with a gap of $R_{\min} + 0.3$ on the other (narrower than $\lambda + w_{\mathrm{lat}}$, wider than
+  TC's, which TC contours through), and the O56 dead end: no episode, stop
+  $\ge m_s - \mathrm{res}$ and $< 3 m_s$ short, kBlocked kept. A 0.4 m box 0.8 m ahead of a car at rest
+  (inside $D_{\mathrm{in}}$): passed without kHeadingInfeasible or collision. $\lambda < R_{\min} + 0.05$:
+  ConfigError.
 
 ### 12.6 Laws
 

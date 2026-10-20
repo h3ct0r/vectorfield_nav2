@@ -47,6 +47,10 @@ void bindState(py::module_ & m)
     .field("elapsed_s", &ContourState::elapsed_s, "Episode time (s).")
     .field("k_seed", &ContourState::k_seed, "Last obstacle point of the episode (grid frame).")
     .field("k_valid", &ContourState::k_valid, "k_seed is set.")
+    .field(
+      "b_site", &ContourState::b_site,
+      "Ackermann: last blocking site of the episode (grid frame), the exit's fallback.")
+    .field("b_valid", &ContourState::b_valid, "b_site is set.")
     .finish();
 
   using vf::TrackerState;

@@ -21,12 +21,15 @@ unmapped obstacles are the controller's alone. In order:
    0.10 m (0.25 m Ackermann), the final true position within the goal tolerance, no NoValidControl
    status and no FollowPath failure; Ackermann: no infeasible command reached the simulator;
 2. the final-command publishers;
-3. differential, skid-steer, omnidirectional: an unmapped 0.4 m box whose near face is 0.8 m
-   ahead, centred on the path and then offset 0.1 m, with the goal 4 m ahead: the contour
-   engages, the robot keeps λ − d − 0.05 from the box (omnidirectional: one cell less, see
-   _contour_around_box), comes back within the tracking bound of the path and reaches the goal;
-4. Ackermann (no contouring in 0.x): an unmapped wall across the area: the car stops at least
-   stop_margin − res short of it, then NavigateToPose aborts.
+3. an unmapped 0.4 m box whose near face is 0.8 m ahead, centred on the path and then offset
+   0.1 m, with the goal 4 m ahead: the contour engages, the robot keeps λ − d − 0.05 from the box
+   (omnidirectional: one cell less, see _contour_around_box; Ackermann: the box is inside the
+   car's turn-in band, so the bound is the closest approach of a turn at min_turning_radius from
+   rest, geometry.ackermann_contour_bound), comes back within the tracking bound of the path and
+   reaches the goal; Ackermann: no infeasible command reached the simulator, and the car turns
+   around between the two cases (it cannot rotate in place);
+4. Ackermann: an unmapped wall across the area: the car stops at least stop_margin − res short of
+   it, then NavigateToPose aborts.
 """
 
 import math
@@ -84,14 +87,17 @@ class TestOpenArea(unittest.TestCase):
         """Only collision_monitor and the allow-listed servers publish the final command."""
         checks.check_final_command_publishers(self, self.nav)
 
-    @unittest.skipIf(ACKERMANN, 'obstacle contouring is not supported for Ackermann in 0.x')
     def test_3_box_centred(self):
         """Contour around an unmapped box centred on the path."""
         self._contour_around_box(heading=math.pi, offset=0.0)
 
-    @unittest.skipIf(ACKERMANN, 'obstacle contouring is not supported for Ackermann in 0.x')
     def test_4_box_offset(self):
         """Contour around an unmapped box 0.1 m off the path."""
+        if ACKERMANN:
+            # The car faces -x after test 3: a U-turn (left, at min_turning_radius) onto +x.
+            start = self.nav.pose()
+            episode = self.nav.navigate(start.x + 1.0, start.y - 1.0, 0.0, timeout=60.0)
+            self.assertEqual(episode.status, GoalStatus.STATUS_SUCCEEDED, episode.status_name)
         self._contour_around_box(heading=0.0, offset=0.1)
 
     @unittest.skipUnless(ACKERMANN, 'the other models run the blocked case in the corridor test')
@@ -99,12 +105,14 @@ class TestOpenArea(unittest.TestCase):
         """Stop short of an unmapped wall across the area; NavigateToPose aborts."""
         nav = self.nav
         start = nav.pose()
-        # A wall across the whole area, 1.5 m ahead of the car (which faces -x after the route).
-        wall = [start.x - 1.5, 0.0, 0.2, 9.8, 0.0]
+        # A wall across the whole area, 1.5 m ahead of the car (which faces +x after the box
+        # cases), and the goal 3 m ahead, beyond it.
+        ux = 1.0 if math.cos(start.yaw) >= 0.0 else -1.0
+        wall = [start.x + 1.5 * ux, 0.0, 0.2, 9.8, 0.0]
         initial = geometry.box_distance(start.x, start.y, wall) - geometry.ROBOT_RADIUS
         nav.set_boxes([wall])
         nav.sleep(1.0)
-        goal = nav.send_goal(start.x - BOX_GOAL, start.y, math.pi)
+        goal = nav.send_goal(start.x + 3.0 * ux, start.y, 0.0 if ux > 0.0 else math.pi)
         status = nav.wait_result(goal, 90.0)
         if status is None:
             nav.cancel(goal)
@@ -144,6 +152,10 @@ class TestOpenArea(unittest.TestCase):
         self.assertGreaterEqual(episode.contour_activations(), 1, 'the contour never engaged')
         lam = geometry.auto_contour_distance(MOTION_MODEL)
         bound = lam - geometry.evaluation_offset(MOTION_MODEL) - 0.05
+        if ACKERMANN:
+            # The near face is inside the car's turn-in band: the rear axle passes the corner on
+            # the free side as close as a turn at min_turning_radius from rest allows.
+            bound = geometry.ackermann_contour_bound(BOX_AHEAD, 0.5 * BOX_SIZE - offset)
         if MOTION_MODEL == 'omnidirectional':
             # Known margin: the holonomic contour (d = 0, λ = 0.32 m) has come within 0.256 m of
             # the box, 1.4 cm inside the bound; until that is resolved the omni check allows one
@@ -167,3 +179,5 @@ class TestOpenArea(unittest.TestCase):
         final = nav.settled_pose(checks.SETTLE_TIME)
         miss = math.hypot(final.x - goal[0], final.y - goal[1])
         self.assertLessEqual(miss, checks.XY_GOAL_TOLERANCE + checks.STOP_SLACK)
+        if ACKERMANN:
+            self.assertEqual(nav.infeasible_command_count(), 0)

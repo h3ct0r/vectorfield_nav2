@@ -66,6 +66,12 @@ struct ContourState
   Vec2 k_seed{Vec2::Zero()};
   /// `k_seed` is set.
   bool k_valid{false};
+  /// Ackermann, `path_blocked`: the nearest blocking site of the episode's latest cycle with
+  /// \f$B(s^\star)\f$ non-empty, **in the grid frame**; once \f$B(s^\star)\f$ is empty the direction
+  /// exit is measured to it (math_spec §6.6 [Design, M7]).
+  Vec2 b_site{Vec2::Zero()};
+  /// `b_site` is set.
+  bool b_valid{false};
 };
 
 /// @brief The only cross-cycle state of the controller (plan §3.1, rev. 6).

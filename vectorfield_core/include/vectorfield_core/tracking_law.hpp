@@ -122,7 +122,15 @@ struct LawInput
   double vertex_spacing{0.0};
   /// The field is time-varying: \f$\partial_t\psi_d\f$ is probed (math_spec §7.4).
   bool time_varying{false};
+  /// A contour episode is active (math_spec §6.6 [Design, M7]). Ackermann only: the speed factor
+  /// \f$\cos e\f$ is floored at kContourTurnSpeedFactor and \f$\lvert e\rvert > \pi/2\f$ does not
+  /// set kHeadingInfeasible, so the car keeps turning at \f$R_{\min}\f$ toward the field.
+  bool contour_episode{false};
 };
+
+/// @brief Floor of heading tracking's speed factor \f$\cos e\f$ for Ackermann during a contour
+/// episode (math_spec §6.6 [Design, M7]).
+inline constexpr double kContourTurnSpeedFactor = 0.5;
 
 /// @brief Output of a translation law, before the kinematic box.
 struct LawOutput
@@ -143,7 +151,8 @@ struct LawOutput
   /// Jump-only zeroing fired (math_spec §7.4).
   bool jump{false};
   /// Status bits: Status::kHeadingInfeasible when Ackermann sees \f$\lvert e\rvert > \pi/2\f$ at
-  /// \f$p_r\f$ (the Tracker adds the \f$\sigma\f$ and yaw clauses of math_spec §7.5).
+  /// \f$p_r\f$ outside a contour episode (the Tracker adds the \f$\sigma\f$ and yaw clauses of
+  /// math_spec §7.5).
   std::uint32_t status{Status::kNone};
 };
 

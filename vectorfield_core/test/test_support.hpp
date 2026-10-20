@@ -1017,7 +1017,8 @@ inline bool bitEqual(const vf::TrackerState & a, const vf::TrackerState & b)
          bitEqual(ca.gate_clear_s, cb.gate_clear_s) && ca.active == cb.active &&
          ca.sigma_c == cb.sigma_c && bitEqual(ca.travelled_m, cb.travelled_m) &&
          bitEqual(ca.elapsed_s, cb.elapsed_s) && bitEqual(ca.k_seed, cb.k_seed) &&
-         ca.k_valid == cb.k_valid && a.blocked == b.blocked && a.terminal_mode == b.terminal_mode &&
+         ca.k_valid == cb.k_valid && bitEqual(ca.b_site, cb.b_site) && ca.b_valid == cb.b_valid &&
+         a.blocked == b.blocked && a.terminal_mode == b.terminal_mode &&
          a.xy_latched == b.xy_latched && a.holding == b.holding && a.goal_seq == b.goal_seq &&
          bitEqual(a.limiter.u_prev, b.limiter.u_prev) &&
          a.limiter.cancel_hard == b.limiter.cancel_hard && a.limiter.valid == b.limiter.valid &&

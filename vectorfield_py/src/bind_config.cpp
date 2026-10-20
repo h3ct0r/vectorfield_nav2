@@ -297,6 +297,10 @@ void bindValidation(py::module_ & m)
     "auto_contour_distance", &vf::autoContourDistance, py::arg("radii"),
     py::arg("evaluation_offset"), "The auto contour distance lambda.");
   m.def(
+    "ackermann_auto_contour_distance", &vf::ackermannAutoContourDistance, py::arg("radii"),
+    py::arg("evaluation_offset"), py::arg("min_turning_radius"),
+    "The Ackermann auto contour distance: max(auto lambda, R_min + w_lat + 0.05).");
+  m.def(
     "compute_footprint_radii", &vf::computeFootprintRadii, py::arg("footprint"),
     "FootprintRadii of a FootprintSpec.");
   m.def(
@@ -321,7 +325,7 @@ void bindValidation(py::module_ & m)
     {"CONTOUR_ORDER", vf::issue::kContourOrder},
     {"CONTOUR_BELOW_INSCRIBED", vf::issue::kContourBelowInscribed},
     {"INVALID_LAW", vf::issue::kInvalidLaw},
-    {"ACKERMANN_CONTOUR", vf::issue::kAckermannContour},
+    {"ACKERMANN_CONTOUR_RADIUS", vf::issue::kAckermannContourRadius},
     {"ACKERMANN_RADIUS", vf::issue::kAckermannRadius},
     {"BRAKING_EXCEEDS_WINDOW", vf::issue::kBrakingExceedsWindow},
     {"FL_OFFSET", vf::issue::kFlOffset},
@@ -336,6 +340,10 @@ void bindValidation(py::module_ & m)
     {"ACKERMANN_CURVATURE", vf::issue::kAckermannCurvature},
     {"YAW_RATE_FOR_CURVATURE", vf::issue::kYawRateForCurvature},
     {"FL_PATH_CURVATURE", vf::issue::kFlPathCurvature},
+    {"ACKERMANN_CONTOUR_CURVATURE", vf::issue::kAckermannContourCurvature},
+    {"ACKERMANN_CONTOUR_TURN_IN", vf::issue::kAckermannContourTurnIn},
+    {"ACKERMANN_CONTOUR_LOOKAHEAD", vf::issue::kAckermannContourLookahead},
+    {"ACKERMANN_CONTOUR_WATCHDOG", vf::issue::kAckermannContourWatchdog},
     {"INVALID_VALUE", vf::issue::kInvalidValue},
     {"INVALID_FOOTPRINT", vf::issue::kInvalidFootprint},
     {"INVALID_COSTMAP", vf::issue::kInvalidCostmap},

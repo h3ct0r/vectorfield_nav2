@@ -64,7 +64,7 @@ it, and every other combination is rejected at configure time.
 | Differential drive | `differential` | feedback linearisation at a control point `control_point_offset` (0.2 m) ahead | `heading_tracking` evaluates the field at `base_link` instead |
 | Skid-steer (tracks, four wheels) | `skid_steer` | as differential | set `min_in_place_angular_vel` 0.25 to 0.3 rad/s |
 | Omnidirectional (mecanum, omni wheels) | `omnidirectional` | holonomic: the base velocity is the field | `max_lateral_vel`; yaw from `omni_heading_policy` |
-| Car-like | `ackermann` | heading tracking at the rear axle | `min_turning_radius` > 0; no in-place rotation, no contour |
+| Car-like | `ackermann` | heading tracking at the rear axle | `min_turning_radius` > 0; no in-place rotation; contour with turning-radius distances and a 4 m local costmap ({ref}`ackermann-contour`) |
 
 A robot that drives backwards by design (the sensor head at the rear) sets `drive_backward: true`.
 {doc}`../motion_models` explains the laws and the phases.

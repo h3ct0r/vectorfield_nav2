@@ -74,6 +74,25 @@ def test_warnings_and_auto_values():
     assert vf.final_approach_distance(vf.CoreConfig(), 0.25) == pytest.approx(0.45)
 
 
+def test_ackermann_contour():
+    """Ackermann contour is valid with the turning-radius auto values; a small lambda is not."""
+    config = vf.CoreConfig()
+    config.motion.motion_model = vf.MotionModel.ACKERMANN
+    config.motion.min_turning_radius = 0.5
+    config.obstacles.obstacle_mode = vf.ObstacleMode.CONTOUR
+    assert vf.validate_config(config).ok
+    resolved = vf.resolve_auto_values(config)
+    radii = vf.compute_footprint_radii(config.node.footprint)
+    lam = vf.ackermann_auto_contour_distance(radii, 0.0, 0.5)
+    assert lam == pytest.approx(0.77)
+    assert resolved.obstacles.obstacle_contour_distance == pytest.approx(lam)
+    assert resolved.obstacles.obstacle_blend_start_distance == pytest.approx(lam + 0.7)
+    config.obstacles.obstacle_contour_distance = 0.5
+    report = vf.validate_config(config)
+    assert report.has_error(vf.issue.ACKERMANN_CONTOUR_RADIUS), report.summary()
+    assert report.has_warning(vf.issue.ACKERMANN_CONTOUR_CURVATURE), report.summary()
+
+
 def test_attribute_objects_reference_copy_and_keywords():
     """Nested groups are live references; copy() is deep; keyword constructors set fields."""
     config = vf.CoreConfig()

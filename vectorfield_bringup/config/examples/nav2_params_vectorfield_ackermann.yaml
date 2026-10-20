@@ -18,8 +18,8 @@
 # Copy each block into the section of the same name in your nav2_params.yaml (merge, do not
 # append a second section; replace the goal checker and GridBased blocks whole), then replace the
 # limits and the turning radius with your car's. Keys not listed keep their defaults
-# (docs: Parameters). The values below validate without warnings with the stock 3 m x 3 m local
-# costmap and a TurtleBot-sized footprint.
+# (docs: Parameters). The values below validate without warnings with the 4 m x 4 m local
+# costmap below and a TurtleBot-sized footprint.
 #
 # A car cannot turn in place, so the rest of Nav2 must not ask it to:
 # - the planner returns drivable paths: Smac Hybrid-A* with forward-only Dubins motions and the
@@ -27,8 +27,9 @@
 # - the goal checker checks the position only (there is no rotation to the goal yaw);
 # - the behaviour tree has no Spin (the stock recovery trees and every stock
 #   NavigateThroughPoses tree use it).
-# Obstacle contouring is not supported for Ackermann bases in 0.x: obstacles stop the car and
-# Nav2 replans.
+# Obstacle contouring circulates at least min_turning_radius + w_lat + 0.05 from the obstacle and
+# starts turning in min_turning_radius earlier than for a robot that turns in place; an obstacle
+# the car cannot drive around without reversing stops it, and Nav2 replans.
 #
 # Check the file before deploying:
 #   vf-tune nav2_params.yaml
@@ -72,10 +73,19 @@ controller_server:
       # Goal approach: brake over this path length, at least desired_speed^2 / max_linear_decel.
       terminal_braking_distance: 0.5
       min_approach_speed: 0.05
-      obstacle_mode: "none"
+      # Auto distances (-1) follow min_turning_radius; they need the 4 m local costmap below.
+      obstacle_mode: "contour"
       use_collision_detection: true
       collision_check_horizon: 1.5
       stop_margin: 0.1
+
+# The car's contour band (D'_in = min_turning_radius + lambda + 0.2 = 1.47 m here) must fit half
+# the rolling window: 4 m x 4 m instead of the stock 3 m x 3 m (keep your other keys).
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      width: 4
+      height: 4
 
 planner_server:
   ros__parameters:

@@ -214,8 +214,8 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: 
 
 **Overlay.** `config/controller/ackermann.yaml` sets the turning radius (0.5 m) for the
 controller, the planner and the simulator, switches the planner to Smac Hybrid-A* with
-forward-only `DUBIN` motions, uses `PositionGoalChecker` and runs NavigateToPose with
-`navigate_w_replanning_time.xml`:
+forward-only `DUBIN` motions, uses `PositionGoalChecker`, runs NavigateToPose with
+`navigate_w_replanning_time.xml`, and enables contouring with a 4 m × 4 m local costmap:
 
 ```{literalinclude} ../../vectorfield_bringup/config/controller/ackermann.yaml
 :language: yaml
@@ -228,10 +228,29 @@ it at a positive speed and stops on the goal without turning to the goal yaw; th
 shows `CURV-SAT` whenever the curvature limit binds. A goal behind the car is reached through a
 loop, never a turn in place.
 
-**Tweak.** Contouring is not supported for Ackermann bases (`obstacle_mode: none`): an obstacle
-on the path stops the car (`BLOCKED`), the controller raises `NoValidControl` and Nav2 replans.
-Do not use NavigateThroughPoses or the stock recovery trees with a car: they contain Spin.
-{ref}`ackermann-caveats` lists the rest.
+**Contour an unmapped obstacle.** With `demo_obstacles` the 0.4 m box 2 m ahead is on the plan:
+
+```bash
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py motion_model:=ackermann \
+  scenarios:=demo_obstacles
+```
+
+```bash
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 4.0, y: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+The contour rings are wider than for the differential robot: λ = 0.77 m, and the turn-in band
+reaches $D'_{\mathrm{in}}$ = 1.47 m, one turning radius further out. The gate opens about 0.3 m after
+the start, the car turns at the 0.5 m radius (`CURV-SAT`) until it runs at λ around the box,
+and it rejoins the plan behind it. Move the box closer with
+`ros2 param set /vectorfield_sim box_obstacles "[0.9, 0.0, 0.4, 0.4, 0.0]"` and send the goal
+again: the car starts inside the band, turns at once and passes the box's corner at about 0.35 m,
+as close as the turning radius allows ({ref}`ackermann-contour`).
+
+**Tweak.** With `obstacle_mode: none`, or where the car cannot drive around the obstacle (a gap
+narrower than about λ + the half-width, a dead end), the obstacle stops the car (`BLOCKED`), the
+controller raises `NoValidControl` and Nav2 replans. Do not use NavigateThroughPoses or the stock
+recovery trees with a car: they contain Spin. {ref}`ackermann-caveats` lists the rest.
 
 ## Reversing
 

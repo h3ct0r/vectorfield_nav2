@@ -132,7 +132,10 @@ def test_ackermann_overlay():
     """Dubins Hybrid-A* with the car's radius, a position goal checker and a tree without Spin."""
     merged = _merged('ackermann')
     follow_path = _node(merged, 'controller_server')['FollowPath']
-    assert follow_path['obstacle_mode'] == 'none'
+    # Contour with the car's auto distances, which need a 4 m local costmap (D'_in = 1.47 m).
+    assert follow_path['obstacle_mode'] == 'contour'
+    local = _node(merged['local_costmap'], 'local_costmap')
+    assert local['width'] == local['height'] == 4
     planner = _node(merged, 'planner_server')['GridBased']
     assert planner['plugin'].replace('/', '::') == 'nav2_smac_planner::SmacPlannerHybrid'
     assert planner['motion_model_for_search'] == 'DUBIN'
@@ -355,7 +358,9 @@ def test_ackermann_template():
     (path,) = [p for p in TEMPLATES if _template_model(p) == 'ackermann']
     template = params.load_yaml(str(path))
     follow_path = _node(template, 'controller_server')['FollowPath']
-    assert follow_path['obstacle_mode'] == 'none'
+    assert follow_path['obstacle_mode'] == 'contour'
+    local = _node(template['local_costmap'], 'local_costmap')
+    assert local['width'] == local['height'] == 4
     planner = _node(template, 'planner_server')['GridBased']
     assert planner['plugin'] == 'nav2_smac_planner::SmacPlannerHybrid'
     assert planner['motion_model_for_search'] == 'DUBIN'

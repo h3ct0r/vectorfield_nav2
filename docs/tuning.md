@@ -51,7 +51,7 @@ more for each goal's overrides. The findings, with their codes:
 | `contour_distance_order` | error | not $\lambda < D_{\mathrm{in}} \le D'_{\mathrm{in}}$ | fix the order, or −1 (auto) for all three |
 | `contour_distance_below_inscribed` | error | $\lambda$ too small for the footprint | raise `obstacle_contour_distance`, or auto |
 | `invalid_tracking_law` | error | model and law do not match | `tracking_law: auto` |
-| `ackermann_contour_unsupported` | error | `obstacle_mode: contour` with `ackermann` | `obstacle_mode: none` |
+| `ackermann_contour_distance_below_turning_radius` | error | `ackermann` with contour: $\lambda < R_{\min} + 0.05$ | raise `obstacle_contour_distance`, or auto |
 | `ackermann_min_turning_radius` | error | `min_turning_radius` ≤ 0 with `ackermann` | set the car's turning radius |
 | `braking_distance_exceeds_window` | error | $\sigma_b + d + 0.1$ m exceeds half the local costmap | lower $\sigma_b$ or enlarge the costmap |
 | `fl_control_point_offset` | error | $d$ ≤ 0 with feedback linearisation | $d$ > 0 |
@@ -64,6 +64,10 @@ more for each goal's overrides. The findings, with their codes:
 | `horizon_too_short` | warning | horizon × `max_linear_vel` below the stopping distance plus two cycles, 0.1 s of latency and 0.1 m | raise `collision_check_horizon` |
 | `horizon_exceeds_window` | warning | horizon × `max_linear_vel` > half the costmap − $r_{\mathrm{circ}}$ | lower the horizon or enlarge the costmap |
 | `ackermann_curvature` | warning | $R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1$ | lower $k_f$, or smooth the path |
+| `ackermann_contour_curvature` | warning | `ackermann` with contour: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$, little curvature left during a circulation | raise `obstacle_contour_distance`, or auto |
+| `ackermann_contour_turn_in` | warning | `ackermann` with contour: $D_{\mathrm{in}} < \lambda + R_{\min}$, no room for a quarter turn | raise $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$, or auto |
+| `ackermann_contour_lookahead` | warning | `ackermann` with contour: `obstacle_lookahead` < $D'_{\mathrm{in}}$, the gate opens inside the turn-in band | raise `obstacle_lookahead`, or auto |
+| `ackermann_contour_watchdog` | warning | `ackermann` with contour: `obstacle_max_contour_length` < $D'_{\mathrm{in}} - \lambda + \pi\lambda$ | raise `obstacle_max_contour_length` |
 | `yaw_rate_for_curvature` | warning | $v_r(c_G k_f + \kappa_{\mathrm{path}})$ > `max_angular_vel` | lower $v_r$ or $k_f$ |
 | `fl_path_curvature` | warning, per plan | $\kappa_{\mathrm{path}}\, d > 1$: the control point cuts the path's corners | lower $d$ or smooth the path |
 
@@ -85,7 +89,7 @@ per goal on the received plan. The full rules are in {ref}`sec-math-validation`.
 | Skid-steer runs a steady offset outside curves | wheel slip: only part of the commanded yaw rate is realised, and the centre of rotation is off `base_link` | identify `skid_yaw_rate_efficiency` (measured over commanded yaw rate) and `skid_icr_offset` on the robot ({ref}`skid-slip`) |
 | Slows down near obstacles that are not on the path | the braking cap sees them in the rollout, or the clearance slowdown | shorten `collision_check_horizon` within the warning bounds; `clearance_slowdown_distance: 0` |
 | Contour engages in doorways | `obstacle_activation: always` | use `path_blocked` (default) |
-| Stops in front of a blocking obstacle instead of contouring | `obstacle_mode: none`; neither side passes within the side probe; the goal is inside the obstacle; or Ackermann | expected in a dead end; otherwise enable `contour` ({doc}`obstacle_avoidance`) |
+| Stops in front of a blocking obstacle instead of contouring | `obstacle_mode: none`; neither side passes within the side probe; the goal is inside the obstacle; Ackermann: the gap is narrower than about $\lambda + w_{\mathrm{lat}}$ | expected in a dead end; otherwise enable `contour` ({doc}`obstacle_avoidance`) |
 | `CONTOUR` episodes end in STOPPED | watchdog limits too low for the obstacle size | raise `obstacle_max_contour_length` or `obstacle_max_contour_time` |
 | `A3-CLAMP` with a moving curve | the curve moves almost as fast as $v_r$ | raise `desired_speed` (per goal or parameter) or slow the frame |
 | `CURV-SAT` on an Ackermann base | the field needs more curvature than $1/R_{\min}$ | lower `convergence_gain` (`ackermann_curvature`) |

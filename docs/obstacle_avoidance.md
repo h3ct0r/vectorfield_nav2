@@ -161,6 +161,42 @@ The `contour` markers show the blocked gate samples, $K$'s cells, the closest ob
 the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the side arrow and the watchdog text
 `contour +1 | 1.3/5.0 m | 4/20 s`.
 
+(ackermann-contour)=
+
+### Ackermann (car-like) bases
+
+A car cannot turn tighter than `min_turning_radius` $R_{\min}$ and cannot rotate in place, so the
+contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
+{doc}`design/m7_ackermann_contour`):
+
+- **Larger distances.** The field is evaluated at the rear axle (`reference_point_offset`). Around
+  a convex obstacle corner the circulation is a circle of radius about $\lambda$, so the auto values
+  are
+
+  | Parameter | Ackermann auto value | TB3 footprint, $R_{\min}$ = 0.5 m |
+  |---|---|---|
+  | `obstacle_contour_distance` $\lambda$ | $\max(\text{the value above},\ R_{\min} + w_{\mathrm{lat}} + 0.05)$, with $d = \lvert x_r\rvert$ | 0.77 |
+  | `obstacle_full_switch_distance` $D_{\mathrm{in}}$ | $\lambda + \max(0.15, R_{\min})$: room for a quarter turn | 1.27 |
+  | `obstacle_blend_start_distance` $D'_{\mathrm{in}}$ | $D_{\mathrm{in}} + 0.2$ | 1.47 |
+  | `obstacle_lookahead` | $\max(1.0,\ v_r T_h,\ D'_{\mathrm{in}} + 0.1)$ | 1.57 |
+
+  An explicit $\lambda < R_{\min} + 0.05$ is rejected. The validator warns when $\lambda$, $D_{\mathrm{in}}$,
+  the lookahead or the watchdog length is too small for the turning radius ({doc}`tuning`). The
+  blend band must fit in the local costmap: with $R_{\min}$ = 0.5 m use at least a 4 m × 4 m
+  window, as the shipped `ackermann.yaml` does.
+- **Turning while the field turns.** During an episode the car keeps at least half the field
+  speed and turns at $R_{\min}$ toward the field, even when the field points more than 90° away
+  from its heading. Outside an episode that case is `STATUS_HEADING_INFEASIBLE`. Commands always
+  satisfy $\lvert\omega\rvert \le \lvert v\rvert / R_{\min}$ (`STATUS_CURVATURE_SATURATED`
+  while the turn is at the limit).
+- **Late detection.** An obstacle first seen inside $D_{\mathrm{in}}$ is passed as closely as a turn
+  at $R_{\min}$ allows. A 0.4 m box 0.8 m ahead of a car at rest is passed at 0.35 m from the
+  rear axle, not at $\lambda$.
+- **Blocked instead of contoured.** The side probe rolls out the car's real kinematics. When
+  neither side can be driven, the car stops and Nav2 replans: a gap narrower than about
+  $\lambda + w_{\mathrm{lat}}$, a dead end, or a turn tighter than $R_{\min}$. The contour never
+  reverses: it is off while a reverse plan segment is followed ({ref}`reversing`).
+
 ## Limits
 
 - **Local costmap only.** Contouring and prediction see the rolling local costmap. The blend zone
@@ -170,8 +206,8 @@ the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the side arrow an
 - **Narrow gaps.** Gaps narrower than about $2\lambda$ act as closed for contouring, and obstacles
   closer than twice the inscribed radius merge. A free passage such as a door is not affected,
   because the gate stays closed while the footprint fits along the path.
-- **Ackermann:** `obstacle_mode: contour` is rejected in 0.x. Obstacles stop the car, and Nav2
-  replans.
+- **Ackermann:** the car contours with larger distances ({ref}`ackermann-contour`). An obstacle
+  it cannot drive around without reversing stops it, and Nav2 replans.
 - **Rotation shim:** the shim undoes contour episodes by re-aiming at the path; see
   {doc}`motion_models`.
 - **Global planning still matters.** Contouring handles obstacles the global plan does not know

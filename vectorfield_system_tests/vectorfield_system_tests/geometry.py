@@ -26,6 +26,8 @@ CONTROL_POINT_OFFSET = 0.2
 STOP_MARGIN = 0.10
 #: The stock costmap resolution.
 RESOLUTION = 0.05
+#: The Ackermann overlay's min_turning_radius (config/controller/ackermann.yaml).
+MIN_TURNING_RADIUS = 0.5
 
 
 def evaluation_offset(motion_model):
@@ -42,10 +44,26 @@ def auto_contour_distance(motion_model, radius=ROBOT_RADIUS):
     """Return the controller's auto contour distance λ for a circular footprint.
 
     vectorfield_core's ``autoContourDistance``: max(√((w_lat + 0.10)² + d²), r_circ + d + 0.05),
-    with w_lat = r_circ = ``radius`` for a disc.
+    with w_lat = r_circ = ``radius`` for a disc; for Ackermann ``ackermannAutoContourDistance``,
+    at least min_turning_radius + w_lat + 0.05.
     """
     d = evaluation_offset(motion_model)
-    return max(math.hypot(radius + 0.10, d), radius + d + 0.05)
+    lam = max(math.hypot(radius + 0.10, d), radius + d + 0.05)
+    if motion_model == 'ackermann':
+        lam = max(lam, MIN_TURNING_RADIUS + radius + 0.05)
+    return lam
+
+
+def ackermann_contour_bound(ahead, side, r_min=MIN_TURNING_RADIUS, radius=ROBOT_RADIUS):
+    """Return the Ackermann counterpart of the contour bound λ − d − 0.05 (m).
+
+    A box whose near face is ``ahead`` m in front of the rear axle, with its near corner on the
+    passing side ``side`` m off the path, lies inside the car's turn-in band. The car starting at
+    rest turns at ``r_min`` at once, so its rear axle passes that corner at
+    √(ahead² + (r_min − side)²) − r_min; the bound is the smaller of this and λ, minus 0.05.
+    """
+    turn = math.hypot(ahead, r_min - side) - r_min
+    return min(auto_contour_distance('ackermann', radius), turn) - 0.05
 
 
 def box_distance(x, y, box):

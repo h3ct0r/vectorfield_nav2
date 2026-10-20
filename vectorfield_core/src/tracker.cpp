@@ -312,6 +312,7 @@ void endEpisode(ContourState * contour) noexcept
   contour->travelled_m = 0.0;
   contour->elapsed_s = 0.0;
   contour->k_valid = false;
+  contour->b_valid = false;
 }
 
 /// @brief The curve frame at time t: `T_eval_curve` at the input time, extrapolated with the
@@ -580,9 +581,15 @@ bool pastBlockage(const StepEnv & env, double s_star) noexcept
 /// 0.05\lVert\Phi\rVert\f$ with the nominal \f$\Phi\f$, measured to the blocking set \f$B(s^\star)\f$
 /// in `path_blocked` mode (an empty set means the blocking part is behind: exited) and to K in
 /// `always` mode. Gate closing, K lost and the goal veto are decided by the preparation.
+///
+/// Ackermann (math_spec §6.6 [Design, M7]): with \f$B(s^\star)\f$ empty the direction test is
+/// measured to the episode's last blocking site `contour.b_site` instead of exiting at once (the
+/// wide circulation empties \f$B(s^\star)\f$ while \f$\Phi\f$ still points at the obstacle).
+/// `blocking_out`, if not null, receives the nearest site of \f$B(s^\star)\f$ (invalid when empty).
 bool episodeExits(
   const StepEnv & env, double s_star, const Vec2 & x, const Vec2 & base, const Vec2 & Phi,
-  const ObstacleSample & k_obstacle) noexcept
+  const ObstacleSample & k_obstacle, const ContourState & contour,
+  ObstacleSample * blocking_out) noexcept
 {
   const double d_in_prime = env.model.d_in_prime;
   if (!env.obstacles.use_blocking) {
@@ -590,7 +597,20 @@ bool episodeExits(
   }
   ObstacleSample blocking;
   if (!nearestBlockingSite(env, s_star, x, base, &blocking)) {
-    return true;
+    if (!env.model.kinematics.isAckermann() || !contour.b_valid) {
+      return true;
+    }
+    const ObstacleEnv & obstacles = env.obstacles;
+    const Vec2 v = obstacles.T_grid_eval.apply(x) - contour.b_site;
+    const double norm = v.norm();
+    if (!(norm > 0.0)) {
+      return true;
+    }
+    const Vec2 n = obstacles.T_grid_eval.rotateInverse(Vec2(v / norm));
+    return contourExitCondition(k_obstacle.D_o, n, Phi, d_in_prime);
+  }
+  if (blocking_out != nullptr) {
+    *blocking_out = blocking;
   }
   return contourExitCondition(k_obstacle.D_o, blocking.n_o, Phi, d_in_prime);
 }
@@ -644,7 +664,9 @@ ProbeSample evaluateProbe(
   ObstacleSample obstacle;
   if (st.contour.active && env.obstacles.k_valid) {
     obstacle = queryEpisodeObstacle(env.obstacles, x, pose.p);
-    active = obstacle.valid && !episodeExits(env, query.cp.s_star, x, pose.p, sample.Phi, obstacle);
+    active =
+      obstacle.valid &&
+      !episodeExits(env, query.cp.s_star, x, pose.p, sample.Phi, obstacle, st.contour, nullptr);
     if (active) {
       theta = contourBlendWeight(obstacle.D_o, model.d_in, model.d_in_prime);
     }
@@ -805,11 +827,16 @@ ContourStep continueEpisode(
     return step;  // no usable field: the episode is kept but not applied this step
   }
   step.obstacle = queryEpisodeObstacle(env.obstacles, x, pose.p);
+  ObstacleSample blocking;
   if (
     !step.obstacle.valid ||
-    episodeExits(env, sample.s_star, x, pose.p, sample.Phi, step.obstacle)) {
+    episodeExits(env, sample.s_star, x, pose.p, sample.Phi, step.obstacle, contour, &blocking)) {
     endEpisode(&contour);
     return step;
+  }
+  if (blocking.valid && model.kinematics.isAckermann()) {
+    contour.b_site = blocking.x_o_grid;  // the exit's fallback (math_spec §6.6)
+    contour.b_valid = true;
   }
   step.active = true;
   step.theta = contourBlendWeight(step.obstacle.D_o, model.d_in, model.d_in_prime);
@@ -990,6 +1017,7 @@ Twist2 translationTarget(
   law_input.curve_length = env.closed ? env.length : kInf;
   law_input.vertex_spacing = env.vertex_spacing;
   law_input.time_varying = env.time_varying;
+  law_input.contour_episode = st->contour.active;
 
   const ProbeContext probe{&env, st, pose, t, point.x_ref, result->shaping};
   const LawOutput law = model.law.track(phase, law_input, probe);
@@ -1730,6 +1758,9 @@ void prepareObstacles(StepEnv * env, TrackerState * st, StepScratch * scratch) n
   contour.elapsed_s = 0.0;
   contour.k_seed = obstacle.x_o_grid;
   contour.k_valid = true;
+  // Ackermann: the start's blocking site seeds the direction exit's fallback (math_spec §6.6).
+  contour.b_site = start.x_o_grid;
+  contour.b_valid = model.kinematics.isAckermann() && obstacles.use_blocking;
   obstacles.episode_started = true;
 }
 

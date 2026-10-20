@@ -117,7 +117,8 @@ Each is raised after the last command has been set to zero.
   segment by segment with a stop at each cusp; a reverse segment cannot contour obstacles;
   `drive_backward` drives a whole path backward.
 - Obstacles are taken from the local costmap only, as a static snapshot per cycle.
-- Ackermann: no in-place rotations, no obstacle contouring, and recovery trees must not use Spin.
+- Ackermann: no in-place rotations; obstacle contouring uses distances that grow with
+  `min_turning_radius` (and needs a 4 m local costmap at 0.5 m); recovery trees must not use Spin.
 - With the rotation shim, obstacle contouring is supported only on Jazzy with
   `rotate_to_heading_once: true`.
 - Planar only.

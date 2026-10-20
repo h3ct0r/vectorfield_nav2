@@ -16,9 +16,10 @@
 /// @brief Shipped-configuration validation (plan §5.4 "Tests"): every installed
 /// `vectorfield_bringup/config/controller/*.yaml`, loaded with `--params-file` into a node named
 /// controller_server, passes vectorfield_ros::validateFromNode() with the stock 3 × 3 m / 0.05 m
-/// local costmap and the TB3 footprint in both obstacle modes, without errors or warnings. The
-/// exception is ackermann.yaml with contour, which reports exactly the Ackermann+contour error.
-/// The copy-paste templates `config/examples/nav2_params_vectorfield_<model>.yaml` pass the same
+/// local costmap (or the local costmap size the file sets: the Ackermann files use 4 × 4 m for the
+/// car's contour band) and the TB3 footprint in both obstacle modes, without errors or warnings.
+/// With the stock 3 × 3 m window, the Ackermann files with contour report exactly the
+/// blend-zone warning. The copy-paste templates `config/examples/nav2_params_vectorfield_<model>.yaml` pass the same
 /// checks, as written and in both obstacle modes, and so do the two rotation-shim examples under
 /// their distro's plugin prefix.
 
@@ -27,6 +28,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -80,6 +82,29 @@ vf::CostmapInfo stockCostmap()
   return costmap;
 }
 
+// The local costmap of `file`: the stock one, with the width and height (m) that the file sets
+// for /local_costmap/local_costmap, if any.
+vf::CostmapInfo fileCostmap(const fs::path & file)
+{
+  rclcpp::NodeOptions options;
+  options.use_global_arguments(false);
+  options.arguments({"--ros-args", "--params-file", file.string()});
+  options.automatically_declare_parameters_from_overrides(true);
+  const auto node = std::make_shared<rclcpp::Node>("local_costmap", "local_costmap", options);
+  vf::CostmapInfo costmap = stockCostmap();
+  for (const auto & [name, size] :
+       {std::pair<std::string, double *>{"width", &costmap.width_m},
+        {"height", &costmap.height_m}}) {
+    rclcpp::Parameter value;
+    if (node->get_parameter(name, value)) {
+      *size = value.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER
+                ? static_cast<double>(value.as_int())
+                : value.as_double();
+    }
+  }
+  return costmap;
+}
+
 // The installed YAML files of vectorfield_bringup's `config/<subdirectory>` whose names start
 // with `prefix`, sorted by name.
 std::vector<fs::path> installedConfigs(const std::string & subdirectory, const std::string & prefix)
@@ -116,10 +141,11 @@ std::string templateModel(const fs::path & file)
 }
 
 // Loads `file` as controller_server's parameter file, with `<plugin>.obstacle_mode` overridden
-// unless `mode` is empty, and validates the keys under `plugin`.
+// unless `mode` is empty, and validates the keys under `plugin` with `costmap` (default: the
+// file's local costmap).
 vf::ValidationReport validate(
   const fs::path & file, const std::string & mode, vf::CoreConfig * config,
-  const std::string & plugin = kPlugin)
+  const std::string & plugin = kPlugin, std::optional<vf::CostmapInfo> costmap = std::nullopt)
 {
   rclcpp::NodeOptions options;
   options.use_global_arguments(false);
@@ -128,7 +154,19 @@ vf::ValidationReport validate(
     options.parameter_overrides({rclcpp::Parameter(plugin + ".obstacle_mode", mode)});
   }
   const auto node = std::make_shared<rclcpp::Node>("controller_server", options);
-  return vr::validateFromNode(node, plugin, stockCostmap(), tb3Footprint(), config);
+  return vr::validateFromNode(
+    node, plugin, costmap ? *costmap : fileCostmap(file), tb3Footprint(), config);
+}
+
+// The Ackermann files with contour in the stock 3 x 3 m window: valid, with exactly the
+// blend-zone warning (D'_in = 1.47 m >= 1.5 - 0.2).
+void expectStockWindowWarning(const fs::path & file)
+{
+  vf::CoreConfig config;
+  const vf::ValidationReport report = validate(file, "contour", &config, kPlugin, stockCostmap());
+  EXPECT_TRUE(report.errors.empty()) << report.summary();
+  ASSERT_EQ(report.warnings.size(), 1U) << report.summary();
+  EXPECT_EQ(report.warnings[0].code, vf::issue::kBlendExceedsWindow) << report.summary();
 }
 
 TEST(ShippedConfigs, EveryMotionModelHasAnOverlay)
@@ -153,13 +191,12 @@ TEST(ShippedConfigs, ValidateInBothObstacleModes)
       // The file and the override both reached the node.
       EXPECT_STREQ(vf::toString(config.motion.motion_model), model.c_str());
       EXPECT_STREQ(vf::toString(config.obstacles.obstacle_mode), mode.c_str());
-      if (model == "ackermann" && mode == "contour") {
-        ASSERT_EQ(report.errors.size(), 1U) << report.summary();
-        EXPECT_EQ(report.errors[0].code, vf::issue::kAckermannContour) << report.summary();
-      } else {
-        EXPECT_TRUE(report.errors.empty()) << report.summary();
-      }
+      EXPECT_TRUE(report.errors.empty()) << report.summary();
       EXPECT_TRUE(report.warnings.empty()) << report.summary();
+    }
+    if (model == "ackermann") {
+      SCOPED_TRACE(file.filename().string() + " with contour in the stock window");
+      expectStockWindowWarning(file);
     }
   }
 }
@@ -185,13 +222,12 @@ TEST(ShippedConfigs, TemplatesValidate)
       vf::CoreConfig config;
       const vf::ValidationReport report = validate(file, mode, &config);
       EXPECT_STREQ(vf::toString(config.motion.motion_model), model.c_str());
-      if (model == "ackermann" && mode == "contour") {
-        ASSERT_EQ(report.errors.size(), 1U) << report.summary();
-        EXPECT_EQ(report.errors[0].code, vf::issue::kAckermannContour) << report.summary();
-      } else {
-        EXPECT_TRUE(report.errors.empty()) << report.summary();
-      }
+      EXPECT_TRUE(report.errors.empty()) << report.summary();
       EXPECT_TRUE(report.warnings.empty()) << report.summary();
+    }
+    if (model == "ackermann") {
+      SCOPED_TRACE(file.filename().string() + " with contour in the stock window");
+      expectStockWindowWarning(file);
     }
   }
 }

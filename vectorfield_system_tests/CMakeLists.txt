@@ -106,8 +106,8 @@ if(BUILD_TESTING)
       vf_add_launch_test(test/test_open_loopback.py ${_vf_model})
     endif()
   endforeach()
-  # Obstacle contouring is not supported for Ackermann in 0.x; its blocked
-  # case runs in test_open_kinematic.
+  # Not Ackermann: the corridor test turns around in a 2 m corridor, which a car
+  # cannot; its contour and blocked cases run in test_open_kinematic.
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
   endforeach()

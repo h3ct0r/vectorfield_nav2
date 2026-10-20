@@ -531,27 +531,45 @@ double autoContourDistance(const FootprintRadii & radii, double evaluation_offse
   return std::max(std::sqrt(lateral * lateral + d * d), radii.r_circ + d + 0.05);
 }
 
+double ackermannAutoContourDistance(
+  const FootprintRadii & radii, double evaluation_offset, double min_turning_radius) noexcept
+{
+  return std::max(
+    autoContourDistance(radii, evaluation_offset), min_turning_radius + radii.w_lat + 0.05);
+}
+
 CoreConfig resolveAutoValues(const CoreConfig & config)
 {
   CoreConfig resolved = config;
   resolved.motion.tracking_law =
     resolveTrackingLaw(config.motion.motion_model, config.motion.tracking_law);
 
+  // Ackermann (math_spec §6.6 [Design, M7]): the circulation and the turn-in grow with R_min.
+  const bool ackermann = resolved.motion.motion_model == MotionModel::kAckermann &&
+                         resolved.motion.min_turning_radius > 0.0;
+  const double r_min = ackermann ? resolved.motion.min_turning_radius : 0.0;
   const FootprintRadii radii = computeFootprintRadii(resolved.node.footprint);
   ObstacleConfig & obstacles = resolved.obstacles;
   if (isAuto(obstacles.obstacle_contour_distance)) {
-    obstacles.obstacle_contour_distance = autoContourDistance(radii, evaluationOffset(resolved));
+    obstacles.obstacle_contour_distance =
+      ackermann ? ackermannAutoContourDistance(radii, evaluationOffset(resolved), r_min)
+                : autoContourDistance(radii, evaluationOffset(resolved));
   }
   const double lambda = obstacles.obstacle_contour_distance;
   if (isAuto(obstacles.obstacle_full_switch_distance)) {
-    obstacles.obstacle_full_switch_distance = lambda + 0.15;
+    obstacles.obstacle_full_switch_distance = lambda + std::max(0.15, r_min);
   }
   if (isAuto(obstacles.obstacle_blend_start_distance)) {
-    obstacles.obstacle_blend_start_distance = lambda + 0.35;
+    obstacles.obstacle_blend_start_distance =
+      ackermann ? obstacles.obstacle_full_switch_distance + 0.2 : lambda + 0.35;
   }
   if (isAuto(obstacles.obstacle_lookahead)) {
     obstacles.obstacle_lookahead =
       std::max(1.0, resolved.field.desired_speed * resolved.safety.collision_check_horizon);
+    if (ackermann) {
+      obstacles.obstacle_lookahead =
+        std::max(obstacles.obstacle_lookahead, obstacles.obstacle_blend_start_distance + 0.1);
+    }
   }
   return resolved;
 }
@@ -572,6 +590,53 @@ double finalApproachDistance(const CoreConfig & config, double xy_tol) noexcept
 
 // -----------------------------------------------------------------------------------------------
 // Validators.
+
+namespace
+{
+
+/// @brief The Ackermann contour warnings of math_spec §6.6 [Design, M7] on a resolved config.
+void addAckermannContourWarnings(
+  const CoreConfig & r, const FootprintRadii & radii, std::vector<ValidationIssue> * warnings)
+{
+  const double r_min = r.motion.min_turning_radius;
+  const ObstacleConfig & obstacles = r.obstacles;
+  const double lambda = obstacles.obstacle_contour_distance;
+  const double d_in = obstacles.obstacle_full_switch_distance;
+  const double d_in_prime = obstacles.obstacle_blend_start_distance;
+  if (lambda < r_min + radii.w_lat + 0.05) {
+    addIssue(
+      warnings, issue::kAckermannContourCurvature,
+      "obstacle_contour_distance " + num(lambda) +
+        " < min_turning_radius + w_lat + 0.05 = " + num(r_min + radii.w_lat + 0.05) +
+        ": the circulation leaves little curvature for corrections (kCurvatureSaturated)");
+  }
+  if (d_in < lambda + r_min) {
+    addIssue(
+      warnings, issue::kAckermannContourTurnIn,
+      "obstacle_full_switch_distance " + num(d_in) + " < obstacle_contour_distance + " +
+        "min_turning_radius = " + num(lambda + r_min) +
+        ": a face across the approach is met inside lambda (kCurvatureSaturated)");
+  }
+  if (
+    obstacles.obstacle_activation == ObstacleActivation::kPathBlocked &&
+    obstacles.obstacle_lookahead < d_in_prime) {
+    addIssue(
+      warnings, issue::kAckermannContourLookahead,
+      "obstacle_lookahead " + num(obstacles.obstacle_lookahead) +
+        " < obstacle_blend_start_distance " + num(d_in_prime) +
+        ": the gate can open after the car is inside the turn-in band");
+  }
+  const double half_circulation = d_in_prime - lambda + kPi * lambda;
+  if (obstacles.obstacle_max_contour_length < half_circulation) {
+    addIssue(
+      warnings, issue::kAckermannContourWatchdog,
+      "obstacle_max_contour_length " + num(obstacles.obstacle_max_contour_length) +
+        " < D'_in - lambda + pi lambda = " + num(half_circulation) +
+        ": the watchdog can trip during a plain half circulation");
+  }
+}
+
+}  // namespace
 
 ValidationReport validateConfig(
   const CoreConfig & config, const std::optional<CostmapInfo> & costmap) noexcept
@@ -650,10 +715,11 @@ ValidationReport validateConfig(
         " (diff/skid: feedback_linearization or heading_tracking; "
         "omnidirectional: holonomic; ackermann: heading_tracking)");
   }
-  if (ackermann && contour) {
+  if (ackermann && contour && r_min > 0.0 && lambda < r_min + 0.05) {
     addIssue(
-      errors, issue::kAckermannContour,
-      "obstacle_mode contour is not supported with motion_model ackermann in 0.x");
+      errors, issue::kAckermannContourRadius,
+      "obstacle_contour_distance " + num(lambda) + " < min_turning_radius " + num(r_min) +
+        " + 0.05: the car cannot follow the circulation around a point obstacle");
   }
   if (ackermann && !(r_min > 0.0)) {
     addIssue(
@@ -749,6 +815,9 @@ ValidationReport validateConfig(
       warnings, issue::kYawRateForCurvature,
       "desired_speed * (c_G k_f + kappa_path) = " + num(v_r * curvature) + " > max_angular_vel " +
         num(w_max) + ": the yaw rate needed to follow the integral curves is not available");
+  }
+  if (ackermann && contour && r_min > 0.0) {
+    addAckermannContourWarnings(r, radii, warnings);
   }
   return report;
 }

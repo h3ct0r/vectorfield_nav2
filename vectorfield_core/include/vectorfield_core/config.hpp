@@ -420,8 +420,10 @@ inline constexpr std::string_view kContourOrder = "contour_distance_order";
 inline constexpr std::string_view kContourBelowInscribed = "contour_distance_below_inscribed";
 /// Invalid (motion_model, tracking_law) pair.
 inline constexpr std::string_view kInvalidLaw = "invalid_tracking_law";
-/// Ackermann with obstacle_mode contour (unsupported in 0.x).
-inline constexpr std::string_view kAckermannContour = "ackermann_contour_unsupported";
+/// Ackermann with contour: \f$\lambda < R_{\min} + 0.05\f$, a circulation the car cannot follow
+/// (math_spec §6.6 [Design, M7]).
+inline constexpr std::string_view kAckermannContourRadius =
+  "ackermann_contour_distance_below_turning_radius";
 /// Ackermann with \f$R_{\min} \le 0\f$.
 inline constexpr std::string_view kAckermannRadius = "ackermann_min_turning_radius";
 /// \f$\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)\f$ or > window_limit (costmap).
@@ -453,6 +455,18 @@ inline constexpr std::string_view kHorizonExceedsWindow = "horizon_exceeds_windo
 inline constexpr std::string_view kAckermannCurvature = "ackermann_curvature";
 /// \f$v_r(c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}\f$.
 inline constexpr std::string_view kYawRateForCurvature = "yaw_rate_for_curvature";
+/// Ackermann with contour: \f$\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05\f$, little curvature
+/// left for corrections during a circulation (math_spec §6.6 [Design, M7]).
+inline constexpr std::string_view kAckermannContourCurvature = "ackermann_contour_curvature";
+/// Ackermann with contour: \f$D_{\mathrm{in}} < \lambda + R_{\min}\f$, the turn-in band is shorter
+/// than a quarter turn at \f$R_{\min}\f$ (math_spec §6.6 [Design, M7]).
+inline constexpr std::string_view kAckermannContourTurnIn = "ackermann_contour_turn_in";
+/// Ackermann with contour (`path_blocked`): \f$\ell_{\mathrm{look}} < D'_{\mathrm{in}}\f$, the gate
+/// can open after the car is inside the turn-in band (math_spec §6.6 [Design, M7]).
+inline constexpr std::string_view kAckermannContourLookahead = "ackermann_contour_lookahead";
+/// Ackermann with contour: `obstacle_max_contour_length` \f$< D'_{\mathrm{in}} - \lambda +
+/// \pi\lambda\f$, the watchdog can trip on a plain half circulation (math_spec §6.6 [Design, M7]).
+inline constexpr std::string_view kAckermannContourWatchdog = "ackermann_contour_watchdog";
 /// Per plan (adviseForPlan()): FL with \f$\kappa_{\mathrm{path}}\,d > 1\f$.
 inline constexpr std::string_view kFlPathCurvature = "fl_path_curvature";
 /// @}
@@ -511,11 +525,20 @@ double evaluationOffset(const CoreConfig & config) noexcept;
 /// 0.05\big)\f$ with \f$d\f$ = evaluationOffset() (TB3 with FL: 0.47).
 double autoContourDistance(const FootprintRadii & radii, double evaluation_offset) noexcept;
 
+/// @brief Ackermann auto contour distance (math_spec §6.6 [Design, M7]): \f$\max(\lambda_{\mathrm{auto}},
+/// R_{\min} + w_{\mathrm{lat}} + 0.05)\f$ with \f$\lambda_{\mathrm{auto}}\f$ = autoContourDistance()
+/// at \f$d = \lvert x_r\rvert\f$ (TB3 footprint, \f$R_{\min}\f$ 0.5: 0.77).
+double ackermannAutoContourDistance(
+  const FootprintRadii & radii, double evaluation_offset, double min_turning_radius) noexcept;
+
 /// @brief A copy of `config` with every configure-time auto value filled.
 ///
 /// Fills `tracking_law` (resolveTrackingLaw), \f$\lambda\f$, \f$D_{\mathrm{in}} = \lambda +
 /// 0.15\f$, \f$D'_{\mathrm{in}} = \lambda + 0.35\f$ and `obstacle_lookahead` \f$= \max(1.0, v_r
-/// T_h)\f$, each only when auto (math_spec §11). `final_approach_distance` stays auto: it needs
+/// T_h)\f$, each only when auto (math_spec §11). Ackermann (math_spec §6.6 [Design, M7]):
+/// \f$\lambda\f$ = ackermannAutoContourDistance(), \f$D_{\mathrm{in}} = \lambda + \max(0.15,
+/// R_{\min})\f$, \f$D'_{\mathrm{in}} = D_{\mathrm{in}} + 0.2\f$ and \f$\ell_{\mathrm{look}} =
+/// \max(1.0,\ v_r T_h,\ D'_{\mathrm{in}} + 0.1)\f$. `final_approach_distance` stays auto: it needs
 /// the goal's xy_tol (finalApproachDistance()). The footprint radii come from
 /// computeFootprintRadii(). No validation is done.
 /// @throws std::bad_alloc only (the footprint polygon is copied).

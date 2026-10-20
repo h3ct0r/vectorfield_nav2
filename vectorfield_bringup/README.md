@@ -71,8 +71,8 @@ Overlay rules:
   `max_accel` and `max_decel`, as full `[x, y, θ]` lists at least the controller limits; y is 0
   except for the omnidirectional overlay, which also sets `min_y_velocity_threshold: 0.001`.
   Scenario overlays set only `scale_velocities: true`.
-- The demo overlays use `obstacle_mode: contour`, except Ackermann (`none`; contouring is not
-  supported for car-like bases in 0.x).
+- The demo overlays use `obstacle_mode: contour`. The Ackermann overlay also enlarges the local
+  costmap to 4 m × 4 m, because the car's contour distances grow with its turning radius.
 - The Ackermann overlay switches the planner to Smac Hybrid-A* (`DUBIN`, turning radius 0.5 m,
   as the controller and the simulator), uses `PositionGoalChecker` and runs NavigateToPose with
   `navigate_w_replanning_time.xml`, a stock tree without Spin. The stock recovery trees, and every

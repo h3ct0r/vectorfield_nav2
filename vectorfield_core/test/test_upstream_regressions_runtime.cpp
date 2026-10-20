@@ -115,7 +115,7 @@ struct LimitModel
 // U25 closed-loop part (upstream: no saturation or acceleration limits): 24 seeded closed loops
 // over every (model, law, heading policy) pair, random ellipses, starts, speeds, speed limits
 // (>= 0.3, so the Ackermann floor never binds), a box on the curve in half of the runs, contour in
-// half of the non-Ackermann runs and a cancel after 3 s in a quarter of them: on every cycle the
+// half of the non-Ackermann runs and in two of the four Ackermann runs, and a cancel after 3 s in a quarter of them: on every cycle the
 // final command is finite, |v_x| <= v_max, |v_y| <= v_y,max and ‖v_xy‖ <= v_max (omni; v_y = 0
 // otherwise), |ω| <= ω_max·γ_lim, each axis changes by at most max(a_acc, a_dec)·Δt (ω: α_max·Δt)
 // from the previous command, and Ackermann keeps |ω| <= |v|/R_min (all + 1e-12). FL with d = 0 is
@@ -151,7 +151,9 @@ TEST(UpstreamRegression, U25_CommandsRespectLimits_ClosedLoop)
     if (ackermann) {
       config.motion.min_turning_radius = 0.5;
     }
-    const bool contour = !ackermann && unit(rng) < 0.5;
+    // Ackermann: contour in two of its four runs, without drawing (the other runs keep their
+    // draws).
+    const bool contour = ackermann ? run % 12 == 11 : unit(rng) < 0.5;
     if (contour) {
       config.obstacles.obstacle_mode = vf::ObstacleMode::kContour;
     }

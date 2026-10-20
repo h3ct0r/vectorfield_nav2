@@ -343,14 +343,82 @@ TEST(ConfigReject, InvalidModelLawPair)
   expectOnly(vf::validateConfig(config, stockCostmap()), {issue::kInvalidLaw}, {});
 }
 
-TEST(ConfigReject, AckermannWithContour)
+TEST(Config, AckermannContourAutoValues)
 {
-  // Like the shipped ackermann.yaml with contour: only the Ackermann + contour error.
+  // math_spec §6.6 [Design, M7]: lambda = max(auto, R_min + w_lat + 0.05), D_in = lambda + R_min,
+  // D'_in = D_in + 0.2, lookahead = max(1.0, v_r T_h, D'_in + 0.1). TC footprint: w_lat = 0.22.
   CoreConfig config = ackermann();
   config.obstacles.obstacle_mode = ObstacleMode::kContour;
-  expectOnly(vf::validateConfig(config, stockCostmap()), {issue::kAckermannContour}, {});
+  const CoreConfig half = vf::resolveAutoValues(config);
+  EXPECT_NEAR(half.obstacles.obstacle_contour_distance, 0.77, 1e-12);
+  EXPECT_NEAR(half.obstacles.obstacle_full_switch_distance, 1.27, 1e-12);
+  EXPECT_NEAR(half.obstacles.obstacle_blend_start_distance, 1.47, 1e-12);
+  EXPECT_NEAR(half.obstacles.obstacle_lookahead, 1.57, 1e-12);
+  config.motion.min_turning_radius = 1.0;
+  const CoreConfig one = vf::resolveAutoValues(config);
+  EXPECT_NEAR(one.obstacles.obstacle_contour_distance, 1.27, 1e-12);
+  EXPECT_NEAR(one.obstacles.obstacle_full_switch_distance, 2.27, 1e-12);
+  EXPECT_NEAR(one.obstacles.obstacle_blend_start_distance, 2.47, 1e-12);
+  EXPECT_NEAR(one.obstacles.obstacle_lookahead, 2.57, 1e-12);
+  // The footprint branch wins for a long car evaluated at its rear axle: |x_r| = 0.3,
+  // r_circ = |(0.45, 0.25)| = 0.5148, so lambda = r_circ + 0.3 + 0.05 > 0.5 + 0.25 + 0.05.
+  config.motion.min_turning_radius = 0.5;
+  config.motion.reference_point_offset = -0.3;
+  config.node.footprint.polygon = {
+    Vec2(-0.3, -0.25), Vec2(0.45, -0.25), Vec2(0.45, 0.25), Vec2(-0.3, 0.25)};
+  const vf::FootprintRadii radii = vf::computeFootprintRadii(config.node.footprint);
+  const double lambda = vf::ackermannAutoContourDistance(radii, 0.3, 0.5);
+  EXPECT_NEAR(lambda, std::hypot(0.45, 0.25) + 0.35, 1e-12);
+  EXPECT_NEAR(vf::resolveAutoValues(config).obstacles.obstacle_contour_distance, lambda, 1e-12);
+  // An explicit lambda keeps the Ackermann turn-in band.
+  config.obstacles.obstacle_contour_distance = 0.9;
+  const CoreConfig explicit_lambda = vf::resolveAutoValues(config);
+  EXPECT_NEAR(explicit_lambda.obstacles.obstacle_full_switch_distance, 1.4, 1e-12);
+  EXPECT_NEAR(explicit_lambda.obstacles.obstacle_blend_start_distance, 1.6, 1e-12);
+  // Other models keep their auto values.
+  EXPECT_NEAR(vf::resolveAutoValues(tc()).obstacles.obstacle_lookahead, 1.0, 1e-12);
+}
+
+TEST(ConfigReject, AckermannWithContour)
+{
+  // Like the shipped ackermann.yaml with contour: valid. The stock 3 m window is too small for the
+  // car's blend band (D'_in = 1.47 >= 1.3); a 4 m window fits it.
+  CoreConfig config = ackermann();
+  config.obstacles.obstacle_mode = ObstacleMode::kContour;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {issue::kBlendExceedsWindow});
+  expectOnly(vf::validateConfig(config, CostmapInfo{4.0, 4.0, 0.05, std::nullopt}), {}, {});
   config.obstacles.obstacle_mode = ObstacleMode::kNone;
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+}
+
+TEST(ConfigReject, AckermannContourBelowTurningRadius)
+{
+  // lambda < R_min + 0.05 is an error; up to R_min + w_lat + 0.05 a warning.
+  CoreConfig config = ackermann();
+  config.obstacles.obstacle_mode = ObstacleMode::kContour;
+  for (const double lambda : {0.3, 0.5, 0.549}) {
+    SCOPED_TRACE("lambda " + std::to_string(lambda));
+    config.obstacles.obstacle_contour_distance = lambda;
+    expectOnly(
+      vf::validateConfig(config, std::nullopt), {issue::kAckermannContourRadius},
+      {issue::kAckermannContourCurvature});
+  }
+  for (const double lambda : {0.55, 0.769}) {
+    SCOPED_TRACE("lambda " + std::to_string(lambda));
+    config.obstacles.obstacle_contour_distance = lambda;
+    expectOnly(vf::validateConfig(config, std::nullopt), {}, {issue::kAckermannContourCurvature});
+  }
+  config.obstacles.obstacle_contour_distance = 0.77;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  // Not for the other models, nor without contour.
+  config.obstacles.obstacle_mode = ObstacleMode::kNone;
+  config.obstacles.obstacle_contour_distance = 0.3;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  CoreConfig diff = tc();
+  diff.motion.min_turning_radius = 0.5;
+  diff.obstacles.obstacle_contour_distance = 0.5;
+  expectOnly(vf::validateConfig(diff, std::nullopt), {}, {});
 }
 
 TEST(ConfigReject, AckermannWithoutTurningRadius)
@@ -478,6 +546,30 @@ TEST(ConfigWarn, AckermannCurvature)
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {issue::kAckermannCurvature});
   config.motion.min_turning_radius = 2.5;  // 0.93
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+}
+
+TEST(ConfigWarn, AckermannContour)
+{
+  CoreConfig config = ackermann();
+  config.obstacles.obstacle_mode = ObstacleMode::kContour;
+  // Turn-in band shorter than R_min (the generic auto D_in = lambda + 0.15).
+  config.obstacles.obstacle_full_switch_distance = 0.92;
+  config.obstacles.obstacle_blend_start_distance = 1.12;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {issue::kAckermannContourTurnIn});
+  config.obstacles.obstacle_full_switch_distance = vf::kAutoValue;
+  config.obstacles.obstacle_blend_start_distance = vf::kAutoValue;
+  // Gate lookahead shorter than D'_in = 1.47 (path_blocked only).
+  config.obstacles.obstacle_lookahead = 1.0;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {issue::kAckermannContourLookahead});
+  config.obstacles.obstacle_activation = vf::ObstacleActivation::kAlways;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  config.obstacles.obstacle_activation = vf::ObstacleActivation::kPathBlocked;
+  config.obstacles.obstacle_lookahead = vf::kAutoValue;
+  // Watchdog shorter than D'_in - lambda + pi lambda = 0.7 + 0.77 pi = 3.119.
+  config.obstacles.obstacle_max_contour_length = 3.0;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {issue::kAckermannContourWatchdog});
+  config.obstacles.obstacle_max_contour_length = 3.2;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
 }
 
 TEST(ConfigWarn, YawRateForIntegralCurves)
