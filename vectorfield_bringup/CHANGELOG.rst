@@ -16,3 +16,6 @@ Forthcoming
   overlays; params.merge().
 * Scripts send_curve.py, moving_frame_publisher.py and initial_pose_publisher; RViz, Foxglove and
   PlotJuggler configurations.
+* Ready-to-use Nav2 parameter templates for differential, omnidirectional and Ackermann robots,
+  rotation-shim overlays, and the example scripts follow_curve_client.py and
+  navigate_waypoints.py.
