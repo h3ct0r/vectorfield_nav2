@@ -27,6 +27,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "vectorfield_core/span.hpp"
@@ -135,7 +136,8 @@ void tailCondition(
 void decimateChords(Span<const Vec2> plan, double chord_length, std::vector<Vec2> * out) noexcept;
 
 /// @brief True iff two consecutive chords of a decimated plan have a negative dot product (a
-/// cusp; the plugin then throws InvalidPath until M7).
+/// cusp; the plugin throws InvalidPath unless `allow_reversing`, which splits the plan at it:
+/// segmentPlan()).
 bool hasCusp(Span<const Vec2> decimated) noexcept;
 
 /// @brief Plugin one-pose rule (math_spec §2.8): \f$[p, p_{\mathrm{last}}]\f$, or
@@ -151,6 +153,56 @@ std::array<Vec2, 2> onePoseWindow(const Vec2 & base, const Pose2 & last) noexcep
 /// @param vertices Conditioned window or curve vertices (deduplicated).
 /// @param closed Closed polyline.
 double kappaPath(Span<const Vec2> vertices, bool closed) noexcept;
+
+/// @brief One segment of a raw plan between cusps (math_spec §9.4 [Design, M7]).
+struct PlanSegment
+{
+  /// Raw index of the first pose (0, or the previous segment's cusp).
+  std::size_t first{0};
+  /// Raw index of the last pose: the cusp that ends the segment, or the plan's last pose.
+  std::size_t last{0};
+  /// Drive sign \f$q\f$: +1 body \f$+x\f$ ahead, −1 body \f$-x\f$ ahead.
+  std::int8_t drive_sign{1};
+  /// Path length of the raw poses first..last (m).
+  double length{0.0};
+};
+
+/// @brief Splits a raw plan at its cusps and gives each segment a drive sign (math_spec §2.8,
+/// §9.4 [Design, M7]).
+///
+/// Cusps come from decimateChords() and hasCusp()'s test; each one is moved to the raw pose
+/// between the neighbouring chord vertices with the largest projection on the incoming chord.
+/// The plan *has headings* iff some interior pose has a yaw other than exactly 0 (NavFn, Smac
+/// 2D and Theta* leave interior orientations at the identity; Smac Hybrid and Lattice give the
+/// vehicle yaw). With headings, a segment's sign is that of \f$\sum_k (p_{k+1} - p_k)^\top
+/// \mathbf h(\psi_k)\f$ when its magnitude is at least half the segment length; otherwise, and
+/// without headings, the first segment takes `default_sign` and the sign alternates at cusps.
+/// @param plan Raw plan poses (plan frame).
+/// @param chord_length \f$\ell_c\f$.
+/// @param default_sign Sign of a first segment that headings do not decide (−1 iff
+/// `drive_backward`).
+/// @param work Work buffer (decimated raw indices).
+/// @param out Segments in plan order (cleared first): one for a plan without cusps, none for an
+/// empty plan.
+/// @return True iff the plan has headings.
+bool segmentPlan(
+  Span<const Pose2> plan, double chord_length, int default_sign, std::vector<std::size_t> * work,
+  std::vector<PlanSegment> * out) noexcept;
+
+/// @brief The segment of a new plan of the same goal to start with (math_spec §9.4 replans): 0,
+/// or 1 when segment 0 is shorter than `hysteresis` (\f$2\ell_c\f$) and runs against
+/// `active_sign` while segment 1 runs with it (the robot is at that cusp; a ±1 cell jitter of
+/// the cusp must not flip the direction twice).
+/// @param segments Segments of the new plan.
+/// @param active_sign Drive sign in force (0: none, gives 0).
+/// @param hysteresis Length below which a contrary first segment is skipped (m).
+std::size_t firstActiveSegment(
+  Span<const PlanSegment> segments, int active_sign, double hysteresis) noexcept;
+
+/// @brief True iff the plan turns in place before its last pose: two consecutive poses less than
+/// 0.1 mm apart (the rule of Nav2's `findFirstPathConstraint`) whose yaws differ by more than
+/// 1 mrad, the last pose excluded (planners append the goal yaw there).
+bool hasInPlaceRotation(Span<const Pose2> plan) noexcept;
 
 }  // namespace vectorfield_core
 

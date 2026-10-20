@@ -110,6 +110,10 @@ struct TrackerState
   /// \f$\sigma_{\mathrm{base}} < \mathrm{xy\_tol} + v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})\f$;
   /// goal-scoped).
   bool ackermann_band_lifted{false};
+  /// Drive sign \f$q\f$ of the last step (+1 body \f$+x\f$, −1 body \f$-x\f$; 0 before the
+  /// first). A change resets the direction-scoped state: hint, last tangent, last_psi_d,
+  /// rotate_target, the contour episode and the kBlocked latch (math_spec §9.4 [Design, M7]).
+  std::int8_t drive_sign{0};
 };
 
 static_assert(std::is_trivially_destructible_v<ContourState>, "plan §3.1");
@@ -179,6 +183,11 @@ struct TrackerInput
   bool cancel{false};
   /// Apply the window-end cap \f$\gamma_{\mathrm{ap}}\f$ (plugin: true).
   bool cap_at_curve_end{false};
+  /// Drive sign \f$q\f$ of this cycle: 0 = the configuration's (−1 iff `drive_backward`;
+  /// Ackermann +1), +1 = body \f$+x\f$, −1 = body \f$-x\f$ (plugin: the active plan segment's,
+  /// math_spec §9.4 [Design, M7]). Ignored by the holonomic law. A sign that differs from the
+  /// configuration's turns the obstacle contour off for the cycle.
+  std::int8_t drive_sign{0};
 };
 
 /// @brief Outputs of one control cycle (plan §3.1).
@@ -332,6 +341,12 @@ private:
   GainFunction gain_;
   ControlLaw law_;
   FootprintChecker checker_;
+  /// The kinematics and the law with the drive sign opposite to the configuration's (a reverse
+  /// plan segment, TrackerInput::drive_sign).
+  Kinematics kinematics_flipped_;
+  ControlLaw law_flipped_;
+  /// @brief The cycle's drive sign differs from the configuration's (never for omni).
+  bool flipped(const TrackerInput & input) const noexcept;
 };
 
 /// @brief Requests that the limiter re-seed \f$u_{\mathrm{prev}}\f$ from the measured twist at

@@ -385,6 +385,22 @@ TEST(MarkerBuilder, RotateToHeadingShowsTheGoalYaw)
   EXPECT_FALSE(added(a, Ns::kCommand, legend::id::kCommandArrow));  // rotation in place
 }
 
+TEST(MarkerBuilder, AReverseSegmentFlagsTheStatus)
+{
+  vf::CoreConfig config;
+  config.motion.allow_reversing = true;
+  Scenario s(config, line(Vec2(1.0, 0.0), Vec2(-3.0, 0.0)), Pose2{Vec2(0.0, 0.0), 0.0});
+  s.input().goal = vf_viz_test::goalAt(Vec2(-3.0, 0.0));
+  s.input().drive_sign = -1;
+  s.run(20);
+  MarkerBuilder builder;
+  const MarkerContext c = s.context();
+  expectCycle(builder, c);
+  const MarkerArray & a = builder.markers(c);
+  EXPECT_NE(statusText(a).find(legend::kFlagReverse), std::string::npos);
+  EXPECT_LT(s.output().cmd.vx, 0.0);  // backs up instead of turning around
+}
+
 TEST(MarkerBuilder, CancelStopsAndFlagsTheStatus)
 {
   Scenario s(vf::CoreConfig{}, line(Vec2(-1.0, 0.0), Vec2(4.0, 0.0)), Pose2{Vec2(0.0, 0.0), 0.0});

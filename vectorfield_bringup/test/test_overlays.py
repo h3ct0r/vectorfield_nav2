@@ -34,6 +34,8 @@ CONTROLLER = PACKAGE / 'config' / 'controller'
 SCENARIO = PACKAGE / 'config' / 'scenario'
 TEMPLATE_PREFIX = 'nav2_params_vectorfield_'
 EXAMPLES = PACKAGE / 'config' / 'examples'
+#: Controller keys a scenario may set (behaviour only, merged into the model's FollowPath).
+SCENARIO_CONTROLLER_KEYS = {'allow_reversing', 'cusp_tolerance'}
 TEMPLATES = sorted(EXAMPLES.glob(TEMPLATE_PREFIX + '*.yaml'))
 SHIM = 'nav2_rotation_shim_controller::RotationShimController'
 SHIM_KEYS = {'angular_dist_threshold', 'forward_sampling_distance', 'rotate_to_goal_heading'}
@@ -156,11 +158,15 @@ def test_humble_plugin_names():
 
 @pytest.mark.parametrize('path', sorted(SCENARIO.glob('*.yaml')), ids=lambda p: p.stem)
 def test_scenarios_never_set_smoother_limits(path):
-    """Scenario overlays leave the smoother limits to the motion-model overlays."""
+    """Scenario overlays leave the smoother and controller limits to the motion-model overlays."""
     overlay = params.load_yaml(str(path))
     smoother = overlay.get('velocity_smoother', {}).get('ros__parameters', {})
     assert set(smoother) <= {'scale_velocities'}
-    assert 'controller_server' not in overlay, 'controller parameters belong in config/controller'
+    controller = overlay.get('controller_server', {}).get('ros__parameters', {})
+    assert set(controller) <= {'FollowPath'}, 'controller parameters belong in config/controller'
+    assert set(controller.get('FollowPath', {})) <= SCENARIO_CONTROLLER_KEYS, (
+        'a scenario sets only behaviour keys (no plugin, no limits)'
+    )
 
 
 @pytest.mark.parametrize(

@@ -79,8 +79,10 @@ vectorfield_common_params:
   allow_reversing:
     type: bool
     default_value: false
-    description: "Allow a speed against the drive direction. When false, the command is clamped
-      to the drive direction."
+    description: "Allow a speed against the drive direction, and (controller plugin) follow plans
+      with cusps as segments: stop at each cusp, then drive the next segment in its own direction
+      (from the plan headings; Smac Hybrid or Lattice). When false, the command is clamped to the
+      drive direction and a plan with a cusp is rejected."
   heading_gain:
     type: double
     default_value: 2.0
@@ -226,6 +228,13 @@ vectorfield_common_params:
     type: double
     default_value: 1.0
     description: "Linear deceleration of a cancel (m/s^2)."
+    validation:
+      gt<>: [0.0]
+  cusp_tolerance:
+    type: double
+    default_value: 0.05
+    description: "Controller plugin, with allow_reversing: the robot settles within this distance
+      of a cusp before it drives the next segment (m); the stop's XY tolerance is twice that."
     validation:
       gt<>: [0.0]
 

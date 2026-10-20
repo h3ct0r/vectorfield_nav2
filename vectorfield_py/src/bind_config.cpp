@@ -146,6 +146,7 @@ void bindGroups(py::module_ & m)
     .field("terminal_braking_distance", &PhaseConfig::terminal_braking_distance, "sigma_b (m).")
     .field("min_approach_speed", &PhaseConfig::min_approach_speed, "v_min (m/s).")
     .field("cancel_deceleration", &PhaseConfig::cancel_deceleration, "a_can (m/s^2).")
+    .field("cusp_tolerance", &PhaseConfig::cusp_tolerance, "Cusp settle radius (m).")
     .finish();
 
   using vf::ObstacleConfig;

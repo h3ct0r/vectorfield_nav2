@@ -49,7 +49,7 @@ the code, the shipped RViz configuration and this table.
 
 | Namespace | Marker(s) | Shows | Colour |
 |---|---|---|---|
-| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW \| v 0.38 w 0.12 \| D 0.04 m \| sigma 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
+| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW \| v 0.38 w 0.12 \| D 0.04 m \| sigma 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL`, `REV` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
 | `footprint` | LINE_STRIP at the current pose | robot outline | green normal / orange speed-capped / red blocked |
 | `curve` | LINE_STRIP of the conditioned window (plugin) or the full curve (follower); LINE_LIST dashes for the extension rays; small SPHERE at the virtual tail vertex | exactly the geometry the field uses | teal; rays grey |
 | `closest_point` | SPHERE at $x^*$, ARROW of $T$, LINE from the evaluation point to $x^*$ (length $D$) | projection, tangent, distance | amber |
@@ -58,7 +58,7 @@ the code, the shipped RViz configuration and this table.
 | `command` | ARROW from `base_link` along the commanded body velocity, plus a LINE_STRIP arc of 1 s of motion under the current $(v, \omega)$ | what is actually sent | cyan |
 | `heading` | in rotate phases: ARROW of the target heading and an arc from the current heading to it | the ROTATE_TO_FIELD / ROTATE_TO_HEADING target | amber / blue |
 | `prediction` | LINE_STRIP of the rollout poses (green up to the first collision), CUBE at the first colliding pose, TEXT `s_free 0.42 m` | collision prediction and braking cap | green → red |
-| `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve; $g_{ref}$ and the overlay only once the curve ends at the goal (terminal mode), so a window that stops short of the goal shows neither | terminal field, braking zone, settle radius | white / orange / cyan |
+| `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve; $g_{ref}$ and the overlay only once the curve ends at the goal (terminal mode), so a window that stops short of the goal shows neither; with `allow_reversing` the active cusp of the plan is the goal until the robot settles there | terminal field, braking zone, settle radius | white / orange / cyan |
 | `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (amber); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 \| 1.3/5.0 m \| 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / amber |
 | `curve_info` (follower) | ARROWs every 1 m along the curve (traversal direction), SPHERE at the start, TEXT `lap 2/3 \| rem 7.4 m`; for moving frames, an ARROW of the frame velocity | direction, laps, moving-curve motion | white / blue |
 
@@ -73,6 +73,7 @@ The flags in the `status` text correspond to the `FieldState` status bits:
 | `A3-CLAMP` | `STATUS_ASSUMPTION3_CLAMPED` | The curve moves too fast for the requested speed; the feedforward was clamped (Assumption 3, see {doc}`theory`). |
 | `CURV-SAT` | `STATUS_CURVATURE_SATURATED` | The Ackermann turning-radius limit saturated the angular velocity. |
 | `CANCEL` | — | A cancel is in progress; the robot is decelerating to a stop. |
+| `REV` | — | A reverse plan segment (`allow_reversing`): the robot backs up, drive direction $-x$ ({ref}`reversing`). |
 
 `FieldState.status` also carries `STATUS_NON_FINITE`, `STATUS_AMBIGUOUS_CLOSEST`,
 `STATUS_HAIRPIN`, `STATUS_CONTOUR_WATCHDOG`, `STATUS_HEADING_INFEASIBLE` and

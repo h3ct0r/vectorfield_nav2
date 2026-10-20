@@ -79,9 +79,10 @@ EvaluationPoint evaluationPoint(
   point.x = base.p;
   point.x_ref = 0.0;
   if (kinematics.isAckermann()) {
-    // Heading tracking at the rear axle p_r = p + x_r h(psi), in every phase.
+    // Heading tracking at the rear axle p_r = p + x_r h(psi), in every phase; the reference
+    // shift is the offset along the drive direction q h (math_spec §5.2 [Design, M7]).
     point.x = base.p + kinematics.reference_point_offset * heading(base.yaw);
-    point.x_ref = kinematics.reference_point_offset;
+    point.x_ref = kinematics.driveSign() * kinematics.reference_point_offset;
     return point;
   }
   if (point.law == TrackingLaw::kFeedbackLinearization) {
@@ -319,18 +320,24 @@ EvaluationPoint ControlLaw::evaluationPoint(const Pose2 & base, Phase phase) con
 
 const Kinematics & ControlLaw::kinematics() const noexcept { return kinematics_; }
 
+ControlLaw ControlLaw::withDriveSign(double q) const noexcept
+{
+  ControlLaw law = *this;
+  law.kinematics_.drive_backward = q < 0.0;
+  return law;
+}
+
 LawOutput ControlLaw::track(Phase phase, const LawInput & input, FieldProbe probe) const noexcept
 {
   switch (activeLaw(phase)) {
     case TrackingLaw::kHolonomic:
       return holonomicLaw(input, heading_policy_, k_psi_);
     case TrackingLaw::kHeadingTracking: {
-      // Ackermann is forward only (q = +1) with omega_c = |v|/R_min; diff/skid honour
-      // drive_backward, also when FL hands over in FINAL_APPROACH.
+      // The drive sign q (Ackermann: -1 only in a reverse plan segment, math_spec §7.5), also
+      // when FL hands over in FINAL_APPROACH; Ackermann bounds omega_c = |v|/R_min.
       const bool ackermann = kinematics_.isAckermann();
-      const double q = ackermann ? 1.0 : kinematics_.driveSign();
       const double r_min = ackermann ? kinematics_.min_turning_radius : 0.0;
-      return headingTrackingLaw(input, probe, k_psi_, q, r_min);
+      return headingTrackingLaw(input, probe, k_psi_, kinematics_.driveSign(), r_min);
     }
     case TrackingLaw::kFeedbackLinearization:
     case TrackingLaw::kAuto:

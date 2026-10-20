@@ -123,6 +123,19 @@ def test_follow_path_is_replaced_wholesale(tmp_path, base_file, share):
     assert _params(merged, 'controller_server')['controller_frequency'] == 20.0
 
 
+def test_follow_path_without_a_plugin_merges_key_by_key(tmp_path, base_file, share):
+    """A scenario overlay's controller keys (no plugin) merge into the motion model's block."""
+    first = {'controller_server': {'ros__parameters': {'FollowPath': {'plugin': 'p', 'a': 1}}}}
+    second = {'controller_server': {'ros__parameters': {'FollowPath': {'b': 2}}}}
+    merged = params.merge(
+        [_write(tmp_path, 'first.yaml', first), _write(tmp_path, 'second.yaml', second)],
+        base=base_file,
+        distro='jazzy',
+        share_directory=share,
+    )
+    assert _params(merged, 'controller_server')['FollowPath'] == {'plugin': 'p', 'a': 1, 'b': 2}
+
+
 def test_follow_path_is_replaced_even_with_the_same_plugin(tmp_path, base_file, share):
     """A second overlay that restates FollowPath replaces the first one's block too."""
     first = {'controller_server': {'ros__parameters': {'FollowPath': {'plugin': 'p', 'a': 1}}}}

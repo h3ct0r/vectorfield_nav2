@@ -35,7 +35,10 @@ Kinematics Kinematics::fromConfig(const CoreConfig & config) noexcept
   kinematics.reference_point_offset = motion.reference_point_offset;
   kinematics.min_turning_radius = motion.min_turning_radius;
   kinematics.ackermann_min_speed = motion.ackermann_min_speed;
-  kinematics.drive_backward = motion.drive_backward;
+  // An Ackermann base drives forward by configuration; only plan segments reverse it
+  // (math_spec §7.5, §9.4).
+  kinematics.drive_backward =
+    motion.drive_backward && motion.motion_model != MotionModel::kAckermann;
   kinematics.allow_reversing = motion.allow_reversing;
   kinematics.skid_yaw_rate_efficiency = motion.skid_yaw_rate_efficiency;
   kinematics.skid_icr_offset = motion.skid_icr_offset;

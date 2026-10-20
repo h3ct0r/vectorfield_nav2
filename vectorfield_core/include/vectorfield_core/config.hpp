@@ -177,7 +177,8 @@ struct MotionConfig
   double control_point_offset{0.2};
   /// `drive_backward`: \f$q = -1\f$ (math_spec §1).
   bool drive_backward{false};
-  /// `allow_reversing`: when false, \f$q\,v \ge 0\f$ is enforced (math_spec §9.2 Backstop).
+  /// `allow_reversing`: when false, \f$q\,v \ge 0\f$ is enforced (math_spec §9.2 Backstop);
+  /// when true, the plugin also follows plans with cusps as segments (math_spec §9.4).
   bool allow_reversing{false};
   /// `heading_gain` \f$k_\psi\f$ (1/s).
   double heading_gain{2.0};
@@ -235,6 +236,9 @@ struct PhaseConfig
   double min_approach_speed{0.05};
   /// `cancel_deceleration` \f$a_{\mathrm{can}}\f$ (m/s²).
   double cancel_deceleration{1.0};
+  /// `cusp_tolerance` (m): settle radius \f$\sigma_{\mathrm{stop}}\f$ of an intermediate stop
+  /// at a cusp; its XY tolerance is twice that (plugin only; math_spec §9.4 [Design, M7]).
+  double cusp_tolerance{0.05};
 };
 
 /// @brief Obstacles group of plan §5.4.

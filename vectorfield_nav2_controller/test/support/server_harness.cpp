@@ -395,7 +395,18 @@ struct ServerHarness::Impl
       abortWith(e, record);
       return;
     }
-    if (checker->isGoalReached(pose.pose, window.poses.back().pose, velocity, window)) {
+    // The server checks transformed_end_pose_ (the full plan's last pose at t1), which is
+    // W.back() unless a path constraint truncated the window (lyrical:CS#L966-L979).
+    geometry_msgs::msg::PoseStamped end_in_costmap = window.poses.back();
+    try {
+      const geometry_msgs::msg::TransformStamped transform = tf->lookupTransform(
+        costmap->getGlobalFrameID(), end_pose.header.frame_id, tf2::TimePointZero);
+      tf2::doTransform(end_pose, end_in_costmap, transform);
+    } catch (const tf2::TransformException & e) {
+      abortWith(compat::ControllerTFError(e.what()), record);
+      return;
+    }
+    if (checker->isGoalReached(pose.pose, end_in_costmap.pose, velocity, window)) {
       record->goal_reached = true;
       finish(GoalStatus::kSucceeded, "", "", record);
       return;

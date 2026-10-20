@@ -68,7 +68,8 @@ void bindState(py::module_ & m)
     .field("stopped_status", &TrackerState::stopped_status, "Bits that latched STOPPED.")
     .field(
       "ackermann_band_lifted", &TrackerState::ackermann_band_lifted,
-      "The Ackermann v_ack band is lifted for this goal.");
+      "The Ackermann v_ack band is lifted for this goal.")
+    .field("drive_sign", &TrackerState::drive_sign, "Drive sign of the last step; 0 = none yet.");
   state.cls().def(
     "request_limiter_reseed", [](TrackerState & s) { vf::requestLimiterReseed(&s); },
     "Re-seed the limiter from the measured twist at the next step.");
@@ -171,6 +172,12 @@ void bindInput(py::module_ & m)
       "cap_at_curve_end", [](const TrackerInputBox & b) { return b.input.cap_at_curve_end; },
       [](TrackerInputBox & b, bool v) { b.input.cap_at_curve_end = v; },
       "Apply the window-end approach cap.")
+    .def_property(
+      "drive_sign", [](const TrackerInputBox & b) { return static_cast<int>(b.input.drive_sign); },
+      [](TrackerInputBox & b, int v) {
+        b.input.drive_sign = static_cast<std::int8_t>(v < 0 ? -1 : (v > 0 ? 1 : 0));
+      },
+      "Drive sign of the cycle: 0 configured, +1 body +x, -1 body -x (a reverse plan segment).")
     .def("copy", [](const TrackerInputBox & b) { return b; })
     .def("__copy__", [](const TrackerInputBox & b) { return b; })
     .def("__deepcopy__", [](const TrackerInputBox & b, const py::dict &) { return b; });

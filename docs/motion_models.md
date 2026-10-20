@@ -15,16 +15,55 @@ laws is in {doc}`theory`; the exact definitions, guards and tolerances are in
 | `differential` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | |
 | `skid_steer` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | Set `min_in_place_angular_vel` (0.25 to 0.3 rad/s) to overcome static friction; the shipped overlay uses 0.25. Optional slip compensation, see {ref}`skid-slip`. |
 | `omnidirectional` | $(v_x, v_y, \omega)$ | `holonomic` | — | ROTATE_TO_HEADING | `max_lateral_vel` bounds $v_y$. Nav2's `min_y_velocity_threshold` (0.5 by default) zeroes the measured lateral speed; the shipped overlay sets 0.001. |
-| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` is rejected in 0.x. See {ref}`ackermann-caveats`. |
+| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ (also $v < 0$ in a reverse plan segment) | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` is rejected in 0.x. See {ref}`ackermann-caveats`. |
 
 Any other model and law pair is rejected when the plugin configures, with a message that names
 the valid laws.
 
 `drive_backward` makes $-x$ the drive direction of a differential or skid-steer base; an
-Ackermann base always drives forward. `allow_reversing` (default `false`) clamps the speed of
-these bases to the drive direction, so feedback linearisation never reverses at full speed when
-the field points behind the robot. Plans with reversing segments (cusps) are rejected with `InvalidPath`; use a
-forward-only planner.
+Ackermann base drives forward. With `allow_reversing: false` (the default) the speed of these
+bases is clamped to the drive direction, so feedback linearisation never reverses at full speed
+when the field points behind the robot, and plans with reversing segments (cusps) are rejected
+with `InvalidPath`. With `allow_reversing: true` the controller follows such plans segment by
+segment ({ref}`reversing`).
+
+(reversing)=
+
+### Reversing: plans with cusps
+
+A planner that may back up (Smac Hybrid-A* with `motion_model_for_search: REEDS_SHEPP`, Smac
+Lattice with reverse primitives) returns plans whose poses carry the vehicle heading; where the
+robot backs up, the heading points against the motion. With `allow_reversing: true` the
+controller splits the plan at its cusps (reversals longer than about two costmap cells) and
+drives each segment in its own direction:
+
+- the direction comes from the plan's headings; a plan without headings (NavFn, Smac 2D,
+  Theta\* leave the poses unoriented) starts in the configured direction, or backs up when it
+  starts behind the robot (as Regulated Pure Pursuit does with `allow_reversing`), and alternates
+  at each cusp. A plan that backs up from the start (the goal behind a car) is driven in reverse
+  at once. With `allow_reversing: true` a differential robot on NavFn therefore backs up to a
+  goal behind it instead of turning around;
+- at each cusp the robot stops: the terminal field brings `base_link` to the cusp and it settles
+  within `cusp_tolerance` (0.05 m), then the next segment starts. There is no rotation in place
+  at a cusp, and the cusp is drawn as the `goal` marker; the status text shows `REV` while
+  backing up;
+- in a reverse segment the drive direction is $-x$: feedback linearisation's control point is
+  `control_point_offset` behind `base_link`, heading tracking steers the rear toward the field,
+  and Ackermann tracks with $v < 0$ under the same turning-radius limit. An omnidirectional base
+  has no drive direction; it still stops at each cusp, because the legs of a reversal overlap;
+- obstacle contouring is off while backing up (0.x); collision prediction works in both
+  directions, so an obstacle on a reverse leg stops the robot, and Nav2 replans;
+- both directions use the same speed limits (`desired_speed`, `max_linear_vel`); use a speed
+  filter to back up slower;
+- replans that move a cusp by a cell or two never make the robot change direction twice.
+
+The velocity smoother must allow $v_x < 0$ (the shipped overlays do), and the goal checker sees
+the plan's last pose on every cycle: a plan that passes within the XY tolerance of its own goal
+before its end (a reversal back toward the start) ends there. On Lyrical,
+`SimpleGoalChecker`'s `path_length_tolerance` with the path handler's
+`enforce_path_inversion: true` prevents that. The overlay `config/scenario/reversing.yaml` sets
+up Smac Hybrid-A* with Reeds–Shepp primitives ({doc}`tutorials/scenarios`). Details:
+{doc}`design/m7_reversing`.
 
 (skid-slip)=
 
@@ -198,7 +237,8 @@ A car-like base cannot turn in place, which affects the controller and the rest 
   `CURV-SAT` in the status text shows when it binds.
 - **Planner and goal checker.** The path must be drivable: the Ackermann overlay uses Smac
   Hybrid-A* with `DUBIN` motions and the car's turning radius (0.5 m), and
-  `nav2_controller::PositionGoalChecker`, which ignores yaw.
+  `nav2_controller::PositionGoalChecker`, which ignores yaw. With `REEDS_SHEPP` motions and
+  `allow_reversing: true` the car also backs up and makes three-point turns ({ref}`reversing`).
 - **Behaviour trees.** The stock recovery trees, and every stock NavigateThroughPoses tree, use
   the Spin behaviour, which a car cannot execute. The overlay runs NavigateToPose with the stock
   `navigate_w_replanning_time.xml`, which has no Spin. A custom tree for a car must also leave out

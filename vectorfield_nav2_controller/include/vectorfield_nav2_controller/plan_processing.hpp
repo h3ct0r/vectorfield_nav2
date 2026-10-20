@@ -98,7 +98,8 @@ struct PlanIntake
   /// the one-pose rule).
   bool has_end_tangent{false};
   /// A reversal longer than \f$\ell_c\f$ was found (the caller throws
-  /// `InvalidPath("plan contains reversing segments; use a forward-only planner")` until M7).
+  /// `InvalidPath("plan contains reversing segments; use a forward-only planner")` unless
+  /// `allow_reversing`, which follows the plan as segments: math_spec §9.4).
   bool cusp{false};
   /// Some raw segment is longer than kSparseSegmentLength (warn once per goal).
   bool sparse{false};

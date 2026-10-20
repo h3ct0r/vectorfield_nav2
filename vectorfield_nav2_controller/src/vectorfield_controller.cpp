@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
 #include <memory>
@@ -142,6 +144,31 @@ struct VectorFieldController::Impl
   std::uint32_t computed_goal{0};
   std::uint32_t advised_goal{0};
   std::uint32_t entered_goal{0};
+  /// @}
+
+  /// @name Plan segments (math_spec §9.4 [Design, M7]; control thread)
+  /// @{
+  /// The last raw plan; segment windows are cut from it (`raw_poses` holds its poses).
+  nav_msgs::msg::Path raw_plan;
+  /// The active segment's poses, given to `legacy` in segmented mode.
+  nav_msgs::msg::Path segment_plan;
+  std::vector<vf::PlanSegment> segments;
+  std::vector<std::size_t> segment_work;
+  /// `allow_reversing` and the plan has a cusp or a segment against the configured direction.
+  bool segmented{false};
+  /// Gen C: the window comes from `legacy` (segmented, or an in-place rotation in the plan).
+  bool own_window{false};
+  std::size_t active_segment{0};
+  /// Drive sign of the active segment (0 before the first plan).
+  int drive_sign{0};
+  /// Goal identity passed to the core: a new goal, a segment switch or a stop that moved.
+  std::uint32_t core_goal_seq{0};
+  /// The active stop (plan frame) and whether it is the plan's goal.
+  vf::Vec2 stop{vf::Vec2::Zero()};
+  bool stop_final{true};
+  /// End tangent of an intermediate stop (plan frame).
+  bool stop_has_tangent{false};
+  vf::Vec2 stop_tangent{vf::Vec2::UnitX()};
   /// @}
 
   /// @name Work buffers (no allocation once their capacity suffices)
@@ -288,9 +315,101 @@ struct VectorFieldController::Impl
     }
   }
 
+  /// The sign a plan without headings starts with (math_spec §9.4): the configured one, or its
+  /// opposite when the plan starts behind the robot in that direction (RPP's allow_reversing
+  /// rule; Smac also emits identity orientations along +-x). Too short a plan keeps the active
+  /// sign; no robot pose keeps the configured one.
+  int startSign(int configured)
+  {
+    const vf::Vec2 & start = raw_poses.front().p;
+    const vf::Vec2 * ahead = nullptr;
+    for (const vf::Pose2 & pose : raw_poses) {
+      if ((pose.p - start).norm() >= chordLength()) {
+        ahead = &pose.p;
+        break;
+      }
+    }
+    if (ahead == nullptr) {
+      return drive_sign != 0 ? drive_sign : configured;
+    }
+    geometry_msgs::msg::PoseStamped robot;
+    if (!costmap_ros || !costmap_ros->getRobotPose(robot)) {
+      return configured;
+    }
+    vf::Isometry2 plan_from_robot_frame = vf::Isometry2::identity();
+    if (!raw_frame.empty() && raw_frame != robot.header.frame_id) {
+      try {
+        plan_from_robot_frame = vr::toIsometry2(
+          tf->lookupTransform(raw_frame, robot.header.frame_id, tf2::TimePointZero).transform);
+      } catch (const tf2::TransformException &) {
+        return configured;
+      }
+    }
+    const double yaw = plan_from_robot_frame.apply(vr::toPose2(robot.pose)).yaw;
+    return (*ahead - start).dot(configured * vf::heading(yaw)) >= 0.0 ? configured : -configured;
+  }
+
+  /// The active segment ends at a cusp (an intermediate stop), not at the plan's goal.
+  bool cuspStop() const { return segmented && active_segment + 1 < segments.size(); }
+
+  /// Makes `segments[active_segment]` active: the stop and its identity, the drive sign, the
+  /// stop's end tangent and the window source (math_spec §9.4).
+  void activateSegment(bool same_goal)
+  {
+    const vf::PlanSegment & segment = segments[active_segment];
+    const bool final = active_segment + 1 == segments.size();
+    const vf::Vec2 & next_stop = raw_poses[segment.last].p;
+    const double hysteresis = 2.0 * chordLength();
+    const bool same_stop = same_goal && segment.drive_sign == drive_sign && final == stop_final &&
+                           (final || (next_stop - stop).norm() < hysteresis);
+    if (!same_stop) {
+      ++core_goal_seq;
+    }
+    stop = next_stop;
+    stop_final = final;
+    drive_sign = segment.drive_sign;
+    stop_has_tangent = false;
+    if (!final) {
+      positions.clear();
+      for (std::size_t k = segment.first; k <= segment.last; ++k) {
+        positions.push_back(raw_poses[k].p);
+      }
+      const vf::EndTangent tangent = vf::endTangent(positions, chordLength());
+      stop_has_tangent = tangent.valid;
+      stop_tangent = tangent.valid ? tangent.tangent : vf::Vec2::UnitX();
+    }
+    if (!segmented) {
+      if (!VF_HAS_PATH_HANDLER || own_window) {
+        legacy->setPlan(raw_plan);
+      }
+      return;
+    }
+    segment_plan.header = raw_plan.header;
+    const auto first = raw_plan.poses.begin() + static_cast<std::ptrdiff_t>(segment.first);
+    const auto last = raw_plan.poses.begin() + static_cast<std::ptrdiff_t>(segment.last) + 1;
+    segment_plan.poses.assign(first, last);
+    legacy->setPlan(segment_plan);
+  }
+
+  /// The next segment after the robot settled at a cusp.
+  void switchSegment()
+  {
+    ++active_segment;
+    intake.goal_in_window = false;
+    xy_latch.rearm();
+    activateSegment(false);
+  }
+
   void resetTracking()
   {
     cancelling = false;
+    segments.clear();
+    segmented = false;
+    own_window = false;
+    active_segment = 0;
+    drive_sign = 0;
+    core_goal_seq = 0;
+    stop_final = true;
     state = vf::Tracker::initialState();
     intake = PlanIntakeState{};
     xy_latch.rearm();
@@ -337,6 +456,10 @@ void VectorFieldController::configure(
     legacy_config.reject_unit_path = legacy.reject_unit_path;
     s.legacy = std::make_unique<LegacyPathHandler>(legacy_config, s.tf, s.costmap_ros);
     window_limit = legacy_config.prune_distance;
+  } else {
+    // Gen C: the plugin's own window for segmented plans and in-place rotations (math_spec
+    // §9.4), with FeasiblePathHandler's defaults.
+    s.legacy = std::make_unique<LegacyPathHandler>(LegacyPathConfig{}, s.tf, s.costmap_ros);
   }
 
   s.listener = std::make_shared<vr::CommonParamListener>(parameters, s.logger, s.name);
@@ -449,8 +572,17 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeVelocityCommands(
   nav2_core::GoalChecker * goal_checker, const nav_msgs::msg::Path & transformed_global_plan,
   const geometry_msgs::msg::PoseStamped & global_goal)
 {
+  Impl & s = *impl_;
   try {
-    impl_->plan_to_window_yaw.reset();
+    if (s.own_window) {
+      // A segmented plan or an in-place rotation: the plugin's window (math_spec §9.4), never
+      // the server's truncated or overlapping one.
+      s.legacy->computeWindow(pose, &s.legacy_out);
+      s.plan_to_window_yaw = vr::toIsometry2(s.legacy_out.costmap_from_plan.transform).yaw();
+      return computeCommandImpl(
+        pose, velocity, goal_checker, s.legacy_out.window, s.legacy_out.goal);
+    }
+    s.plan_to_window_yaw.reset();
     return computeCommandImpl(pose, velocity, goal_checker, transformed_global_plan, global_goal);
   } catch (...) {
     impl_->markThrown();
@@ -471,8 +603,7 @@ void VectorFieldController::setPlan(const nav_msgs::msg::Path & path)
       s.resetTracking();
     }
   }
-  processRawPlan(path);
-  s.legacy->setPlan(path);
+  processRawPlan(path);  // also gives LegacyPathHandler the plan or the active segment
   s.xy_latch.rearm();
 }
 
@@ -585,10 +716,12 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   window_input.window = s.window_poses;
   window_input.goal = goal_pose;
   window_input.base = base.p;
-  window_input.has_end_tangent = s.intake.has_end_tangent;
+  // An intermediate stop ends with its segment's tangent (math_spec §9.4).
+  const bool cusp_stop = s.cuspStop();
+  window_input.has_end_tangent = cusp_stop ? s.stop_has_tangent : s.intake.has_end_tangent;
   window_input.chord_length = s.chordLength();
   const bool tail_needed =
-    s.intake.has_end_tangent &&
+    window_input.has_end_tangent &&
     (s.intake.goal_in_window ||
      (s.window_poses.back().p - goal_pose.p).norm() < vf::kWindowAtGoalDistance);
   if (tail_needed) {
@@ -606,7 +739,7 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
           e.what());
       }
     }
-    window_input.end_tangent = vf::rotate(yaw, s.intake.end_tangent);
+    window_input.end_tangent = vf::rotate(yaw, cusp_stop ? s.stop_tangent : s.intake.end_tangent);
   }
   s.plan_to_window_yaw.reset();
   const WindowBuild build = buildWindow(window_input, &s.intake, &s.work, &s.vertices);
@@ -636,8 +769,14 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   goal_info.has_yaw = true;
   goal_info.xy_tol = tolerances.xy;
   goal_info.yaw_tol = tolerances.yaw;
-  goal_info.xy_reached =
-    compat::goal_xy_reached(goal_checker, s.xy_latch, pose, goal, velocity, window, tolerances.xy);
+  if (cusp_stop) {
+    // A cusp: no yaw, the cusp tolerance, the core's XY latch (math_spec §9.4).
+    goal_info.has_yaw = false;
+    goal_info.xy_tol = 2.0 * config.phases.cusp_tolerance;
+  } else {
+    goal_info.xy_reached = compat::goal_xy_reached(
+      goal_checker, s.xy_latch, pose, goal, velocity, window, tolerances.xy);
+  }
 
   // A footprint that already collides gets no command (plan §5.2 step 5).
   if (
@@ -652,7 +791,8 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   input.t = now;
   input.dt = dt;
   input.curve = &s.curve;
-  input.goal_seq = s.intake.goal_seq;
+  input.goal_seq = s.core_goal_seq;
+  input.drive_sign = static_cast<std::int8_t>(s.segmented ? s.drive_sign : 0);
   input.goal = goal_info;
   input.obstacles = obstacles;
   {
@@ -682,6 +822,11 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   diag.window_end_tangent =
     (s.vertices[s.vertices.size() - 1] - s.vertices[s.vertices.size() - 2]).normalized();
   diag.speed_limit_scale = input.speed_limit_scale;
+  diag.segment = s.active_segment;
+  diag.segment_count = std::max<std::size_t>(1, s.segments.size());
+  diag.drive_sign = input.drive_sign;
+  diag.own_window = !VF_HAS_PATH_HANDLER || s.own_window;
+  diag.cusp_stop = cusp_stop;
 
   // The goal entered the window too late to brake on the terminal field: checked once per goal,
   // when the goal first enters a window after the goal's first cycle (a goal that starts within
@@ -720,6 +865,11 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
     diag.visualizer_builder_calls = s.visualizer->builderCalls();
   }
 
+  // Settled at a cusp: the next cycle drives the next segment (math_spec §9.4).
+  if (cusp_stop && output.settled && !s.cancelling) {
+    s.switchSegment();
+  }
+
   // Map the status (never while cancelling).
   const std::string reason = noValidControlReason(output.status, s.cancelling);
   if (!reason.empty()) {
@@ -738,9 +888,39 @@ void VectorFieldController::processRawPlan(const nav_msgs::msg::Path & raw_plan)
     throw compat::InvalidPath("vector field: received an empty plan");
   }
   s.raw_frame = raw_plan.header.frame_id;
-  if (intake.cusp) {
+  const vf::CoreConfig & config = s.tracker->config();
+  if (intake.cusp && !config.motion.allow_reversing) {
     throw compat::InvalidPath("plan contains reversing segments; use a forward-only planner");
   }
+
+  // Plan segments (math_spec §9.4): split at cusps, each with its drive sign; one forward
+  // segment unless allow_reversing and the plan has a cusp or a segment against the configured
+  // direction (omni: no drive direction, only cusps).
+  const vf::Kinematics & kinematics = s.tracker->kinematics();
+  const int configured = kinematics.isHolonomic() ? 1 : static_cast<int>(kinematics.driveSign());
+  const int start_sign = config.motion.allow_reversing && !kinematics.isHolonomic()
+                           ? s.startSign(configured)
+                           : configured;
+  vf::segmentPlan(s.raw_poses, s.chordLength(), start_sign, &s.segment_work, &s.segments);
+  const bool against = std::any_of(
+    s.segments.begin(), s.segments.end(),
+    [configured](const vf::PlanSegment & segment) { return segment.drive_sign != configured; });
+  const bool was_segmented = s.segmented;
+  s.segmented = config.motion.allow_reversing &&
+                (s.segments.size() > 1 || (against && !kinematics.isHolonomic()));
+  if (!s.segmented) {
+    vf::PlanSegment whole;
+    whole.last = s.raw_poses.size() - 1;
+    whole.drive_sign = static_cast<std::int8_t>(configured);
+    s.segments.assign(1, whole);
+  }
+  s.own_window = s.segmented || vf::hasInPlaceRotation(s.raw_poses);
+  s.raw_plan = raw_plan;
+  // The replan hysteresis applies to a moved goal too (a preemption while the robot moves).
+  s.active_segment = was_segmented && s.segmented
+                       ? vf::firstActiveSegment(s.segments, s.drive_sign, 2.0 * s.chordLength())
+                       : 0;
+  s.activateSegment(!intake.new_goal);
   if (intake.new_goal) {
     // The once-per-goal advisories of the raw plan.
     if (intake.sparse) {
@@ -750,7 +930,7 @@ void VectorFieldController::processRawPlan(const nav_msgs::msg::Path & raw_plan)
         "planner's poses, so the path between them is a straight chord",
         s.name.c_str(), intake.max_segment, kSparseSegmentLength);
     }
-    if (intake.unsmoothed) {
+    if (intake.unsmoothed && !s.segmented) {  // a cusp is no corner
       RCLCPP_WARN(
         s.logger,
         "%s: unsmoothed plan: a corner turns by %.0f deg; a smoother (or a smoothing planner) "

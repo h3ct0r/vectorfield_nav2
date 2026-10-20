@@ -111,6 +111,10 @@ if(BUILD_TESTING)
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
   endforeach()
+  # Reversing (M7): Smac Hybrid-A* with Reeds-Shepp and allow_reversing.
+  foreach(_vf_model differential ackermann)
+    vf_add_launch_test(test/test_reversing_kinematic.py ${_vf_model})
+  endforeach()
 
   # The curve follower (M5) on curve_follower_demo, differential only: laps of closed curves,
   # moving frames, open curves and the Nav2 interlock. Minutes of simulated driving each.

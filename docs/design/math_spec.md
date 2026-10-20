@@ -79,7 +79,8 @@ $x_{\mathrm{ref}}$ repeats the plan's symbol table verbatim.
 | $\sigma_{\mathrm{stop}}$ | settle radius, $\mathrm{xy\_tol}/2$ (follower: `goal_tolerance`/2) | — |
 | $\varphi$ | terminal speed profile | — |
 | $d$ | control-point offset | `control_point_offset` 0.2 |
-| $q$ | drive sign, $-1$ iff `drive_backward` | `drive_backward` false |
+| $q$ | drive sign, $-1$ iff `drive_backward` (Ackermann: $+1$); per plan segment under `allow_reversing` [Design, M7] ({ref}`sec-segments`) | `drive_backward` false |
+| $\sigma_{\mathrm{cusp}}$ | settle radius of a stop at a cusp; its XY tolerance is $2\sigma_{\mathrm{cusp}}$ [Design, M7] | `cusp_tolerance` 0.05 |
 | $k_\psi$ | heading gain | `heading_gain` 2.0 |
 | $\gamma$ | speed-shaping scale (the plan's $s$ in §3.4) | — |
 | $\gamma_{\mathrm{lim}}$ | external speed-limit scale | `speed_limit_scale` input, $(0, 1]$ |
@@ -472,8 +473,9 @@ neither is shift-invariant on a re-pruned window; semi-infinite backward and for
 2. Before appending the last pose, pop kept vertices from the end (never the first) while the
    last kept vertex is within $\ell_c$ of the last pose; then append the last pose.
 3. Every chord is now at least $\ell_c$ long, except a final chord that starts at the first pose.
-   A cusp is a negative dot product between consecutive chords and raises
-   `InvalidPath("plan contains reversing segments; use a forward-only planner")` until M7.
+   A cusp is a negative dot product between consecutive chords. Without `allow_reversing` it
+   raises `InvalidPath("plan contains reversing segments; use a forward-only planner")`; with it,
+   the plan is split there into segments [Design, M7] ({ref}`sec-segments`).
 
 Reversals shorter than $\ell_c$ are ignored, including NavFn's `smoothApproachToGoal` hook at the
 goal and its start-cell hook at the robot. Without step 2 the final chord can be the sub-cell hook
@@ -690,9 +692,11 @@ $$
 so $\sigma_{\mathrm{ref}} = \mathrm{dir}\,(s_{\mathrm{goal,ref}} - s^\star(x_{\mathrm{ref}}\ \text{point}))$.
 $g_{\mathrm{ref}} = g_c + x_{\mathrm{ref}} T_{\mathrm{end}}$ whenever $s_{\mathrm{goal,ref}}$ lies on
 the forward ray ($x_{\mathrm{ref}} \ge 0$) or on the last segment
-($\lvert x_{\mathrm{ref}} \rvert \le$ its length). Values: $x_{\mathrm{ref}} = d$ for FL in FOLLOW
-(the control point is $d$ ahead in the drive direction, also with `drive_backward`);
-$x_{\mathrm{ref}}$ = `reference_point_offset` for Ackermann in every phase; 0 otherwise.
+($\lvert x_{\mathrm{ref}} \rvert \le$ its length). $x_{\mathrm{ref}}$ is the offset of the law's
+point along the drive direction $q\mathbf h$ [Design, M7]: $x_{\mathrm{ref}} = d$ for FL in FOLLOW
+(the control point is $d$ ahead in the drive direction, also with `drive_backward` and in a
+reverse segment); $x_{\mathrm{ref}} = q\,x_r$, $x_r$ = `reference_point_offset`, for Ackermann in
+every phase (a rear axle behind base_link leads in reverse); 0 otherwise.
 
 *Why* [Derived]. On an aligned approach the reference point is at station
 $s^\star_{\mathrm{base}} + \mathrm{dir}\,x_{\mathrm{ref}}$, so
@@ -1038,7 +1042,7 @@ Signature: `Twist2 command(const Pose2&, const FieldSample&, FieldProbe, const K
 | FL in FINAL_APPROACH (switches to HT) | $p$ | 0 |
 | HT (diff, skid) | $p$ | 0 |
 | holonomic | $p$ | 0 |
-| Ackermann (HT), every phase | $p_r = p + x_r\, \mathbf h(\psi)$, $x_r$ = `reference_point_offset` | $x_r$ |
+| Ackermann (HT), every phase | $p_r = p + x_r\, \mathbf h(\psi)$, $x_r$ = `reference_point_offset` | $q\,x_r$ [Design, M7] |
 
 Valid combinations: diff and skid with FL (auto) or HT; omni with holonomic; Ackermann with HT.
 Anything else is a ConfigError.
@@ -1132,11 +1136,15 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
 
 ### 7.5 Ackermann
 
-HT at the rear-axle reference point $p_r$ (forward only, $q = +1$), on the field shifted by
-$x_{\mathrm{ref}} = x_r$ ({ref}`sec-terminal-shift`).
+HT at the rear-axle reference point $p_r$, on the field shifted by
+$x_{\mathrm{ref}} = q\,x_r$ ({ref}`sec-terminal-shift`). $q = +1$ (the configured
+`drive_backward` is ignored), except in a reverse plan segment, where $q = -1$ [Design, M7]
+({ref}`sec-segments`): $p_r$ moves with $v\mathbf h$ and no lateral velocity in both directions, so
+the law is HT on a unicycle at $p_r$ with heading $\psi_{\mathrm{dr}}$, and every bound below is
+symmetric in the sign of $v$.
 
-- **Speed band.** In FOLLOW, a positive law speed below $v_{\mathrm{ack}}$ is raised to
-  $v_{\mathrm{ack}}$. Only the braking cap (including kBlocked) and STOPPED (including cancel)
+- **Speed band.** In FOLLOW, a law speed with $0 < q\,v < v_{\mathrm{ack}}$ is raised to
+  $q\,v_{\mathrm{ack}}$. Only the braking cap (including kBlocked) and STOPPED (including cancel)
   command 0. The band is lifted once $\sigma_{\mathrm{base}} < \mathrm{xy\_tol} + v_{\mathrm{ack}}^2/(2 a_{\mathrm{dec}})$.
   It applies before the kinematic box, and not in a cycle where the cap binds [Spec, M1].
   Rounding down instead would deadlock: at $v = 0$, $\lvert\omega\rvert \le \lvert v \rvert / R_{\min} = 0$,
@@ -1427,6 +1435,8 @@ rollout checks the swept rotation.
 
 **Backstop.** `allow_reversing` (false) clamps the drive-direction speed to $q\,v \ge 0$, after the
 kinematic box, for unicycle and Ackermann drives (an omni body $v_x < 0$ is legitimate) [Spec, M1].
+With `allow_reversing` the segment's $q$ is the drive direction, so the clamp never acts in a
+reverse segment [Design, M7].
 
 (sec-phases-follower)=
 
@@ -1439,6 +1449,41 @@ kinematic box, for unicycle and Ackermann drives (an omni body $v_x < 0$ is legi
   $\operatorname{wrap}_1$ into $(-\tfrac12, \tfrac12]$; `laps_completed` = $\lfloor \pi_\ell \rfloor$.
 - `remaining_arc_length`: closed with laps > 0: $(\mathrm{laps} - \pi_\ell)L$; laps = 0: $+\infty$;
   open: $\sigma$.
+
+(sec-segments)=
+
+### 9.4 Plan segments and stops at cusps [Design, M7]
+
+Plugin only, with `allow_reversing` (docs/design/m7_reversing.md).
+
+- **Segments** (`segmentPlan`, once per raw plan, plan frame). The cusps of {ref}`sec-conditioning`
+  split the raw plan; each cusp is moved to the raw pose between its neighbouring chord vertices
+  with the largest projection on the incoming chord. A plan *has headings* iff some interior pose
+  has a yaw other than exactly 0. Segment $[a, b]$ of length $L$ gets
+  $q = \operatorname{sgn} \sum_{k=a}^{b-1} (p_{k+1} - p_k)^\top \mathbf h(\psi_k)$ when the plan has
+  headings and $\lvert\sum\rvert \ge L/2$; otherwise the first segment takes the configured sign
+  $q_0$, or $-q_0$ when the first pose $\ell_c$ from the start lies behind the robot along
+  $q_0\mathbf h(\psi)$ (RPP's rule; a plan shorter than $\ell_c$ keeps the active sign), and the
+  sign alternates at each cusp. Segmented mode: a cusp, or a segment whose $q$ differs from
+  the configured sign (omni: a cusp only; $q$ is ignored by the holonomic law).
+- **Stop.** The window is cut from the active segment only, so it ends at the cusp $c$. The goal is
+  $c$ with no yaw and $\mathrm{xy\_tol} = 2\sigma_{\mathrm{cusp}}$ (so $\sigma_{\mathrm{stop}} = \sigma_{\mathrm{cusp}}$)
+  and the core's XY latch; the end tangent is the segment's ({ref}`sec-conditioning`). The terminal
+  field brings base_link to $c$ ({ref}`sec-terminal-shift`, with $x_{\mathrm{ref}}$ along
+  $q\mathbf h$). When the step reports settled ({ref}`sec-phases-predicates`), the next cycle
+  makes the next segment active: a new goal identity (resetting the goal-scoped state of
+  {ref}`sec-phases-predicates`) and its $q$. There is no ROTATE_TO_HEADING at a cusp.
+- **Direction-scoped state.** When $q$ changes, the core resets the hint, the last tangent,
+  `last_psi_d`, `rotate_target`, ROTATE_TO_FIELD, the contour episode and the kBlocked latch; the
+  limiter is kept, so $v$ passes through 0 within $a_{\mathrm{dec}}$ and $a_{\mathrm{acc}}$.
+- **Contour.** Off while $q$ differs from the configured sign: the gate, the side probes and the
+  circulation assume the drive direction. The collision rollout integrates the signed command, so
+  the cap and kBlocked act on backward motion as on forward motion.
+- **Replans.** A new plan becomes active from its first segment, except that segment 0 is skipped
+  when it is shorter than $2\ell_c$, its $q$ differs from the active one and segment 1's equals
+  it (`firstActiveSegment`): the robot is at that cusp. The goal identity is kept while the stop
+  moves less than $2\ell_c$ with the same $q$ (the final segment: while the goal is the same, as
+  in {ref}`sec-phases-predicates`).
 
 (sec-collision)=
 
@@ -1837,8 +1882,10 @@ there and the predicates defined in this document.
 - **Discretisation.** Costmap distances are to cell centres (errors up to $\mathrm{res}/\sqrt2$, covered
   by the shortcut margins); the rollout uses the nominal plant with no slip; ZOH adds
   $O(\Delta t^2)$ errors to every continuous-time statement.
-- **Cusps and reversing** are rejected until M7; reversals shorter than $\ell_c$ are followed forward
-  with a deviation below $\ell_c$.
+- **Cusps and reversing** are rejected unless `allow_reversing` ({ref}`sec-segments`); reversals
+  shorter than $\ell_c$ are never stops and are followed in the segment's direction with a
+  deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly; a
+  reverse segment cannot contour; both directions share one speed limit [Design, M7].
 
 (sec-math-viz)=
 

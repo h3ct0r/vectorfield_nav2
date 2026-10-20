@@ -83,7 +83,8 @@ unprefixed on the `curve_follower` node.
    upstream published the raw field. Starts and recoveries are slower but continuous.
 5. **No unintended reversing.** Differential and skid-steer robots rotate in place when the field
    points more than 90° away and resume within 45°; upstream's feedback linearisation would
-   reverse.
+   reverse. Backing up is opt-in: `allow_reversing: true` follows planner plans with cusps,
+   segment by segment ({ref}`reversing`).
 6. **Segment-exact tracking.** Sparse plans no longer scallop, and no densification or filtering
    is needed (U13).
 7. **Re-localisation is handled.** After an AMCL jump the follower re-acquires the curve through

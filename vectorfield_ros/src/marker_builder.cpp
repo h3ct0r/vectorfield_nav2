@@ -466,6 +466,9 @@ private:
     if (in_.cancel) {
       flag(legend::kFlagCancel);
     }
+    if (in_.drive_sign < 0) {
+      flag(legend::kFlagReverse);
+    }
     Marker & m = add(Ns::kStatus, legend::id::kStatusText, legend::phaseColor(out_.phase));
     text(&m, in_.pose.p, legend::kStatusTextHeight, text_.view());
   }

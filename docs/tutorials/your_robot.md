@@ -135,7 +135,8 @@ Ackermann template replaces the goal checker block:
 
 A car also needs a planner that returns drivable, forward-only paths and a behaviour tree without
 Spin; the Ackermann template sets both (`planner_server`, `bt_navigator`), and
-{ref}`ackermann-caveats` explains why.
+{ref}`ackermann-caveats` explains why. To let it back up and make three-point turns, add
+`allow_reversing: true` and Smac's `REEDS_SHEPP` motions ({ref}`reversing`).
 
 ## 7. Behind the rotation shim
 
@@ -219,7 +220,7 @@ The codes are explained in {doc}`../tuning` ("Validator findings").
 | It stops near obstacles that are not on the path | The braking cap sees them in the rollout, the clearance slowdown, or the collision monitor's approach polygon | Shorten `collision_check_horizon` within the validator's bounds; `clearance_slowdown_distance: 0`; check the monitor's polygons |
 | It stops in front of an obstacle on the path, status `BLOCKED` | `obstacle_mode: none`, or no side passes the obstacle; the controller raises `NoValidControl` and Nav2 replans | Expected with `none`; set `obstacle_mode: contour` to drive around obstacles ({doc}`../obstacle_avoidance`) |
 | Nav2 logs `NoValidControl` with `vector field: …` | The reason follows the prefix: `no free path ahead` (blocked), `the robot footprint is in collision` (localization or footprint), `the goal heading cannot be reached` (Ackermann), `parameters rejected: …` (an invalid configuration after a change) | Fix the cause named; for parameters, `vf-tune` on the current values |
-| `InvalidPath`: `plan contains reversing segments; use a forward-only planner` | The planner returned a path with cusps (for example Smac with Reeds-Shepp motions); the controller never reverses along a plan | Use a forward-only planner: NavFn, Smac 2D, or Smac Hybrid-A* with `DUBIN` |
+| `InvalidPath`: `plan contains reversing segments; use a forward-only planner` | The planner returned a path with cusps (for example Smac with Reeds-Shepp motions) and `allow_reversing` is false | Set `allow_reversing: true` to follow it segment by segment ({ref}`reversing`), or use a forward-only planner: NavFn, Smac 2D, or Smac Hybrid-A* with `DUBIN` |
 | Slow, creeping approach at the goal | `min_approach_speed` too low, a long `terminal_braking_distance`, or the braking cap binds near a wall at the goal | Raise `min_approach_speed`; keep `terminal_braking_distance` near `desired_speed²/max_linear_decel`; check `stop_margin` |
 | It overshoots the goal | `terminal_braking_distance` below `desired_speed²/max_linear_decel` (`terminal_braking_too_short`) | Raise `terminal_braking_distance` or `max_linear_decel` |
 | A car stops with `the goal heading cannot be reached` | The goal yaw or the plan needs a turn tighter than `min_turning_radius` | Use `PositionGoalChecker`, a `DUBIN` planner with the same radius, and goals the car can reach |

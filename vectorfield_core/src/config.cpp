@@ -249,6 +249,7 @@ void checkDomain(const CoreConfig & config, ValidationReport * report)
   check.positive("terminal_braking_distance", phases.terminal_braking_distance);
   check.nonNegative("min_approach_speed", phases.min_approach_speed);
   check.positive("cancel_deceleration", phases.cancel_deceleration);
+  check.positive("cusp_tolerance", phases.cusp_tolerance);
 
   const ObstacleConfig & obstacles = config.obstacles;
   check.autoOrPositive("obstacle_contour_distance", obstacles.obstacle_contour_distance);

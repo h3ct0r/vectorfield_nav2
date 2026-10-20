@@ -69,9 +69,9 @@ struct EvaluationPoint
 {
   /// Evaluation point \f$x\f$ (evaluation frame).
   Vec2 x{Vec2::Zero()};
-  /// Body-x offset \f$x_{\mathrm{ref}}\f$ of the point from base_link (signed; FL: \f$d\f$,
-  /// with \f$x = p + q\,d\,\mathbf h\f$; Ackermann: \f$x_r\f$; otherwise 0). The terminal-field
-  /// shift uses it (math_spec §5.2).
+  /// Offset \f$x_{\mathrm{ref}}\f$ of the point from base_link along the drive direction
+  /// \f$q\,\mathbf h\f$ (signed; FL: \f$d\f$, with \f$x = p + q\,d\,\mathbf h\f$; Ackermann:
+  /// \f$q\,x_r\f$; otherwise 0). The terminal-field shift uses it (math_spec §5.2).
   double x_ref{0.0};
   /// The law that runs in this phase (FL becomes heading tracking in FINAL_APPROACH).
   TrackingLaw law{TrackingLaw::kFeedbackLinearization};
@@ -231,6 +231,10 @@ public:
   EvaluationPoint evaluationPoint(const Pose2 & base, Phase phase) const noexcept;
   /// @brief The kinematics.
   const Kinematics & kinematics() const noexcept;
+
+  /// @brief This law with the drive sign \f$q\f$ (−1: body \f$-x\f$) in place of the
+  /// configured one: a reverse plan segment (math_spec §9.4 [Design, M7]); for any model.
+  ControlLaw withDriveSign(double q) const noexcept;
 
   /// @brief Translation law of a phase (FOLLOW or FINAL_APPROACH).
   LawOutput track(Phase phase, const LawInput & input, FieldProbe probe) const noexcept;

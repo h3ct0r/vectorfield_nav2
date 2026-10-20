@@ -126,6 +126,7 @@ constexpr CommonParamRow kRows[] = {
   VF_CORE_ROW(phases, terminal_braking_distance),
   VF_CORE_ROW(phases, min_approach_speed),
   VF_CORE_ROW(phases, cancel_deceleration),
+  VF_CORE_ROW(phases, cusp_tolerance),
   // Obstacles
   VF_CORE_ROW(obstacles, obstacle_mode),
   VF_CORE_ROW(obstacles, obstacle_activation),

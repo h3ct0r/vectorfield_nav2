@@ -233,6 +233,44 @@ on the path stops the car (`BLOCKED`), the controller raises `NoValidControl` an
 Do not use NavigateThroughPoses or the stock recovery trees with a car: they contain Spin.
 {ref}`ackermann-caveats` lists the rest.
 
+## Reversing
+
+**Goal.** Plans that back up: a goal behind the robot, a three-point turn in a corridor. Smac
+Hybrid-A* searches Reeds–Shepp motions, and the controller follows the plan segment by segment
+with a stop at every cusp ({ref}`reversing`). For a differential, skid-steer or Ackermann base:
+
+```bash
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py motion_model:=ackermann \
+  map:=corridor_door scenarios:=reversing initial_pose_x:=3.5
+```
+
+```bash
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 2.0, y: 0.0}, orientation: {w: 1.0}}}}"
+```
+
+**Overlay.** `config/scenario/reversing.yaml` turns on `allow_reversing` and switches the planner
+to Smac Hybrid-A* with `REEDS_SHEPP` motions; reversing costs twice as much as driving forward
+(`reverse_penalty`):
+
+```{literalinclude} ../../vectorfield_bringup/config/scenario/reversing.yaml
+:language: yaml
+:start-at: "controller_server:"
+```
+
+**In RViz.** The goal 1.5 m behind the car is reached by backing up in a straight line, since a
+turn in the corridor costs more: the status text shows `REV`, and the car never turns around.
+When a plan has a cusp, the `goal` marker sits on the cusp with its two rings (the stop's XY
+tolerance and the `cusp_tolerance` settle radius); the robot stops inside the inner ring, then
+the marker moves to the next cusp or the goal. `vectorfield_system_tests` runs this scenario for
+the differential and the Ackermann base.
+
+**Tweak.** `cusp_tolerance` (0.05 m) sets how close to a cusp the robot stops. Obstacle
+contouring is off while backing up, so an obstacle on a reverse leg stops the robot and Nav2
+replans. A goal checker succeeds as soon as the robot is within its tolerance of the plan's last
+pose, even before the plan's end: avoid goals that the plan passes earlier. On Lyrical the path
+handler's `enforce_path_inversion: true` with `SimpleGoalChecker`'s `path_length_tolerance`
+prevents it; the controller builds its own window either way.
+
 ## Rotation shim
 
 **Goal.** Run the controller as the primary controller of Nav2's `RotationShimController`, which

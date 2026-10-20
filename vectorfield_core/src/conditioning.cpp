@@ -22,6 +22,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <vector>
 
 namespace vectorfield_core
@@ -340,6 +341,115 @@ double kappaPath(Span<const Vec2> vertices, bool closed) noexcept
     kappa = std::max(kappa, theta / mean_length);
   }
   return kappa;
+}
+
+bool segmentPlan(
+  Span<const Pose2> plan, double chord_length, int default_sign, std::vector<std::size_t> * work,
+  std::vector<PlanSegment> * out) noexcept
+{
+  out->clear();
+  work->clear();
+  const std::size_t count = plan.size();
+  if (count == 0) {
+    return false;
+  }
+  // Chord decimation by index: the rule of decimateChords().
+  std::vector<std::size_t> & kept = *work;
+  kept.push_back(0);
+  for (std::size_t i = 1; i + 1 < count; ++i) {
+    if ((plan[i].p - plan[kept.back()].p).norm() >= chord_length) {
+      kept.push_back(i);
+    }
+  }
+  if (count > 1) {
+    while (kept.size() > 1 && (plan[kept.back()].p - plan[count - 1].p).norm() < chord_length) {
+      kept.pop_back();
+    }
+    kept.push_back(count - 1);
+  }
+
+  // Cusps, each moved to the raw pose of largest projection on the incoming chord.
+  PlanSegment segment;
+  for (std::size_t j = 1; j + 1 < kept.size(); ++j) {
+    const Vec2 & a = plan[kept[j - 1]].p;
+    const Vec2 before = plan[kept[j]].p - a;
+    const Vec2 after = plan[kept[j + 1]].p - plan[kept[j]].p;
+    if (!(before.dot(after) < 0.0)) {
+      continue;
+    }
+    const Vec2 u = before.normalized();
+    std::size_t cusp = kept[j];
+    double best = -kInf;
+    for (std::size_t k = kept[j - 1]; k <= kept[j + 1]; ++k) {
+      const double projection = (plan[k].p - a).dot(u);
+      if (projection > best) {
+        best = projection;
+        cusp = k;
+      }
+    }
+    if (cusp > segment.first && cusp + 1 < count) {
+      segment.last = cusp;
+      out->push_back(segment);
+      segment.first = cusp;
+    }
+  }
+  segment.last = count - 1;
+  out->push_back(segment);
+
+  bool headings = false;
+  for (std::size_t i = 1; i + 1 < count; ++i) {
+    if (plan[i].yaw != 0.0) {
+      headings = true;
+      break;
+    }
+  }
+  int previous = 0;
+  for (PlanSegment & s : *out) {
+    double along = 0.0;
+    double length = 0.0;
+    for (std::size_t k = s.first; k < s.last; ++k) {
+      const Vec2 step = plan[k + 1].p - plan[k].p;
+      length += step.norm();
+      along += step.dot(heading(plan[k].yaw));
+    }
+    s.length = length;
+    int sign = 0;
+    if (headings && length > 0.0 && std::abs(along) >= 0.5 * length) {
+      sign = along < 0.0 ? -1 : 1;
+    } else if (previous != 0) {
+      sign = -previous;
+    } else {
+      sign = default_sign < 0 ? -1 : 1;
+    }
+    s.drive_sign = static_cast<std::int8_t>(sign);
+    previous = sign;
+  }
+  return headings;
+}
+
+std::size_t firstActiveSegment(
+  Span<const PlanSegment> segments, int active_sign, double hysteresis) noexcept
+{
+  if (
+    active_sign != 0 && segments.size() > 1 && segments[0].length < hysteresis &&
+    segments[0].drive_sign != active_sign && segments[1].drive_sign == active_sign) {
+    return 1;
+  }
+  return 0;
+}
+
+bool hasInPlaceRotation(Span<const Pose2> plan) noexcept
+{
+  constexpr double kInPlaceDistance = 1.0e-4;
+  constexpr double kInPlaceYaw = 1.0e-3;
+  for (std::size_t i = 0; i + 2 < plan.size(); ++i) {
+    if (
+      (plan[i + 1].p - plan[i].p).norm() < kInPlaceDistance &&
+      std::abs(wrapAngle(plan[i + 1].yaw - plan[i].yaw)) > kInPlaceYaw) {
+      return true;
+    }
+  }
+  return false;
 }
 
 }  // namespace vectorfield_core

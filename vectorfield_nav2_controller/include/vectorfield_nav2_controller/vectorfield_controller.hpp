@@ -76,6 +76,17 @@ struct CycleDiagnostics
   double speed_limit_scale{1.0};
   /// FieldVisualizer::builderCalls() (layer-2 test: 0 without subscribers).
   std::size_t visualizer_builder_calls{0};
+  /// Index of the plan segment this cycle followed, and the number of segments (math_spec §9.4;
+  /// 1 unless `allow_reversing` and the plan has a cusp or a reverse segment).
+  std::size_t segment{0};
+  std::size_t segment_count{1};
+  /// `TrackerInput::drive_sign` of the cycle (0: the configured direction).
+  int drive_sign{0};
+  /// The window came from the plugin's own LegacyPathHandler on Gen C (a segmented plan, or a
+  /// plan with an in-place rotation); always true on Gen A/B.
+  bool own_window{false};
+  /// The cycle's goal was an intermediate stop (a cusp), not the plan's goal.
+  bool cusp_stop{false};
 };
 
 /// @brief The vector-field path follower as a Nav2 controller plugin (plan §5).
@@ -146,7 +157,8 @@ public:
 #if VF_HAS_PATH_HANDLER  // Gen C (Lyrical, Rolling)
   /// @brief A new raw global plan (goal start and every replan): processRawPlan(). Cheap; keeps
   /// the tracking state.
-  /// @throws vectorfield_ros::compat::InvalidPath for an empty plan or a cusp.
+  /// @throws vectorfield_ros::compat::InvalidPath for an empty plan, or a cusp without
+  /// `allow_reversing`.
   void newPathReceived(const nav_msgs::msg::Path & raw_global_path) override;
 
   /// @brief One control cycle on the server's window: computeCommandImpl(pose, velocity,
@@ -159,7 +171,8 @@ public:
   /// @brief A new raw global plan (goal start and every replan): processRawPlan(), then the
   /// LegacyPathHandler's setPlan() and the re-arm of the emulated XY latch. On Humble (no
   /// reset() from the server) a full reset first when resetDue() (plan §5.1).
-  /// @throws vectorfield_ros::compat::InvalidPath for an empty plan or a cusp.
+  /// @throws vectorfield_ros::compat::InvalidPath for an empty plan, or a cusp without
+  /// `allow_reversing`.
   void setPlan(const nav_msgs::msg::Path & path) override;
 
   /// @brief One control cycle: the LegacyPathHandler's window and goal, then
@@ -208,7 +221,9 @@ private:
     const geometry_msgs::msg::PoseStamped & goal);
 
   /// @brief The distro-free raw-plan intake: intakePlan() on the plan's poses with
-  /// \f$\ell_c\f$ = chordLength(costmap resolution); empty or cusp → InvalidPath; sparse and
+  /// \f$\ell_c\f$ = chordLength(costmap resolution); empty → InvalidPath; a cusp →
+  /// InvalidPath unless `allow_reversing`, which splits the plan into segments
+  /// (vectorfield_core::segmentPlan, math_spec §9.4) and picks the active one; sparse and
   /// unsmoothed plans warn once per goal.
   void processRawPlan(const nav_msgs::msg::Path & raw_plan);
 

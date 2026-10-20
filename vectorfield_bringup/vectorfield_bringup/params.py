@@ -22,8 +22,10 @@ configuration its own launch file expects, and deep-merge small overlays onto it
   except ``bt_navigator.plugin_lib_names``, whose overlay entries are appended to the base list
   (Humble's stock file lists every Nav2 behaviour-tree plugin there; later distros list only
   custom ones);
-- ``controller_server.FollowPath`` is replaced wholesale, so no key of the stock controller
-  (DWB or MPPI) leaks into ours, and so is any block whose ``plugin`` changes (for example the
+- ``controller_server.FollowPath`` is replaced wholesale when the overlay names its ``plugin``
+  (the motion-model overlays), so no key of the stock controller (DWB or MPPI) leaks into ours;
+  without a ``plugin`` (a scenario's controller keys, e.g. ``reversing.yaml``) it merges key by
+  key; any other block is replaced wholesale when its ``plugin`` changes (for example the
   Ackermann overlay's goal checker and planner);
 - the stock placeholders of :data:`STOCK_PLACEHOLDERS` get their launch-default values;
 - a behaviour-tree file name without a directory (``default_nav_to_pose_bt_xml`` and
@@ -91,7 +93,7 @@ def load_yaml(path):
 
 
 def _replaces_wholesale(path, base, overlay):
-    if any(path[-len(key) :] == key for key in WHOLESALE_KEYS):
+    if any(path[-len(key) :] == key for key in WHOLESALE_KEYS) and 'plugin' in overlay:
         return True
     return 'plugin' in base and 'plugin' in overlay and base['plugin'] != overlay['plugin']
 
@@ -101,7 +103,8 @@ def deep_merge(base, overlay, _path=()):
 
     Dictionaries merge recursively. A list at an :data:`APPEND_KEYS` path is appended to the base
     list, without repeating an entry. Every other overlay value replaces the base value, and so
-    does a dictionary at a :data:`WHOLESALE_KEYS` path or one that names a different ``plugin``.
+    does a dictionary at a :data:`WHOLESALE_KEYS` path that names a ``plugin``, or one that names
+    a different ``plugin``.
     """
     merged = copy.deepcopy(base)
     for key, value in overlay.items():

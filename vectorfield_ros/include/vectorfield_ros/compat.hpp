@@ -617,7 +617,7 @@ using ControllerException = nav2_core::ControllerException;
 /// @brief No valid command this cycle (transient: kBlocked, kNonFinite, kContourWatchdog,
 /// kHeadingInfeasible, a colliding footprint, a rejected parameter rebuild).
 using NoValidControl = nav2_core::NoValidControl;
-/// @brief The plan cannot be followed (empty plan or window, a cusp before M7).
+/// @brief The plan cannot be followed (empty plan or window, a cusp without `allow_reversing`).
 using InvalidPath = nav2_core::InvalidPath;
 /// @brief A transform needed this cycle is unavailable.
 using ControllerTFError = nav2_core::ControllerTFError;

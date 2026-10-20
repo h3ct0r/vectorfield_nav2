@@ -103,8 +103,8 @@ using CommonParamListener = vectorfield_common_params::ParamListener;
 using CommonParamRow = CoreParamRow<CommonParams>;
 
 /// @brief Number of rows of kCommonCoreParams: every key of vectorfield_common_params.yaml except
-/// the Visualization group (Field 3, Motion 19, Phases 9, Obstacles 13, Safety 3).
-inline constexpr std::size_t kCommonCoreParamCount = 47;
+/// the Visualization group (Field 3, Motion 19, Phases 10, Obstacles 13, Safety 3).
+inline constexpr std::size_t kCommonCoreParamCount = 48;
 
 /// @brief The binding table of vectorfield_common_params (plan §4), in YAML order.
 extern const std::array<CommonParamRow, kCommonCoreParamCount> kCommonCoreParams;

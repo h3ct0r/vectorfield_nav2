@@ -356,6 +356,8 @@ inline constexpr std::string_view kFlagAssumption3 = "A3-CLAMP";
 inline constexpr std::string_view kFlagCurvature = "CURV-SAT";
 /// A cancel in progress.
 inline constexpr std::string_view kFlagCancel = "CANCEL";
+/// A reverse plan segment: `TrackerInput::drive_sign` is −1 (math_spec §9.4).
+inline constexpr std::string_view kFlagReverse = "REV";
 /// @}
 
 /// @brief Height of the status text above base_link (m).

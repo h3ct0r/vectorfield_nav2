@@ -113,8 +113,9 @@ Each is raised after the last command has been set to zero.
 
 ## Limitations
 
-- Forward-only plans: reversing segments are rejected; `drive_backward` drives a whole path
-  backward.
+- Reversing segments (cusps) are rejected unless `allow_reversing: true`, which follows them
+  segment by segment with a stop at each cusp; a reverse segment cannot contour obstacles;
+  `drive_backward` drives a whole path backward.
 - Obstacles are taken from the local costmap only, as a static snapshot per cycle.
 - Ackermann: no in-place rotations, no obstacle contouring, and recovery trees must not use Spin.
 - With the rotation shim, obstacle contouring is supported only on Jazzy with
