@@ -184,7 +184,8 @@ struct TrackerInput
 /// @brief Outputs of one control cycle (plan §3.1).
 struct TrackerOutput
 {
-  /// Final command: body twist at base_link (FieldState.cmd).
+  /// Final command: body twist at base_link (FieldState.cmd), after the skid slip compensation
+  /// (Kinematics::slipCompensated(); the identity unless `skid_yaw_rate_efficiency` < 1).
   Twist2 cmd;
   /// Target after the kinematic box, before the CommandLimiter (FieldState.cmd_raw).
   Twist2 cmd_target;

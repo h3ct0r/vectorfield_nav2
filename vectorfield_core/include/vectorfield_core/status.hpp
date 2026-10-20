@@ -63,7 +63,8 @@ struct Status final
   static constexpr std::uint32_t kAmbiguousClosest = 4U;
   /// The closest point lies in a hairpin wedge (exact reversal; math_spec §2.3).
   static constexpr std::uint32_t kHairpin = 8U;
-  /// The Ackermann curvature clamp acted (math_spec §8.4).
+  /// The Ackermann curvature clamp, or the \f$\omega_{\max}\f$ clamp of the skid slip
+  /// compensation, acted (math_spec §8.4).
   static constexpr std::uint32_t kCurvatureSaturated = 16U;
   /// A contour episode exceeded its length or time limit; enters STOPPED (math_spec §6.4).
   static constexpr std::uint32_t kContourWatchdog = 32U;

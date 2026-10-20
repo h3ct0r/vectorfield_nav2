@@ -91,7 +91,8 @@ def _launch_setup(context, distro):
     motion_model = LaunchConfiguration('motion_model').perform(context)
     scenarios = [SCENARIO] + demo.split_list(LaunchConfiguration('scenarios').perform(context))
     map_yaml = demo.resolve_config(LaunchConfiguration('map').perform(context), 'maps')
-    params_file = demo.merged_params_file(motion_model, scenarios)
+    # skid_steer: the controller compensates the simulator's slip (same values for both).
+    params_file = params.write_params(demo.kinematic_sim_params(motion_model, scenarios))
     composed = IfCondition(LaunchConfiguration('use_composition')).evaluate(context)
     pose = {
         axis: ParameterValue(LaunchConfiguration(f'initial_pose_{axis}'), value_type=float)

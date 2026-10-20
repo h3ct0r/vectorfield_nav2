@@ -120,6 +120,12 @@ void bindGroups(py::module_ & m)
     .field(
       "reference_point_offset", &MotionConfig::reference_point_offset,
       "Ackermann rear-axle x_r (m; negative = behind base_link).")
+    .field(
+      "skid_yaw_rate_efficiency", &MotionConfig::skid_yaw_rate_efficiency,
+      "Skid slip compensation eta_psi in (0, 1]: omega is divided by it (1 = off).")
+    .field(
+      "skid_icr_offset", &MotionConfig::skid_icr_offset,
+      "Skid slip compensation: body-x of the centre of rotation x_ICR (m; 0 = off).")
     .finish();
 
   using vf::PhaseConfig;

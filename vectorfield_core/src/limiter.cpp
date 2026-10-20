@@ -251,8 +251,8 @@ BoxResult etaBox(
 
 Twist2 CommandLimiter::limit(
   const Twist2 & target, const LimiterState & in, LimiterState * out, double dt,
-  const Kinematics & kinematics, bool stopped_cancel, std::uint32_t * status,
-  double * alpha) const noexcept
+  const Kinematics & kinematics, bool stopped_cancel, std::uint32_t * status, double * alpha,
+  bool brake_translation) const noexcept
 {
   // `out` may alias `in`.
   const LimiterState previous = in;
@@ -280,15 +280,20 @@ Twist2 CommandLimiter::limit(
       used_alpha = 1.0;
     } else if (dt > 0.0) {
       // 1. Acceleration: the largest alpha in [0, 1] meeting every axis bound; all axes move
-      //    along the straight line from u_prev to the target.
-      double a = 1.0;
-      a = axisAlpha(
-        a, linearBound(from.vx, dx, kinematics, stopped_cancel, previous.cancel_hard), dt, dx);
-      a = axisAlpha(
-        a, linearBound(from.vy, dy, kinematics, stopped_cancel, previous.cancel_hard), dt, dy);
-      a = axisAlpha(a, kinematics.max_angular_accel, dt, dw);
+      //    along the straight line from u_prev to the target. When the phase brakes the
+      //    translation (rotation phases, STOPPED), the translational axes get their own alpha,
+      //    so omega's alpha_max ramp does not slow the stop [Design, 0.1.1].
+      double a_lin = 1.0;
+      a_lin = axisAlpha(
+        a_lin, linearBound(from.vx, dx, kinematics, stopped_cancel, previous.cancel_hard), dt, dx);
+      a_lin = axisAlpha(
+        a_lin, linearBound(from.vy, dy, kinematics, stopped_cancel, previous.cancel_hard), dt, dy);
+      const double a_ang = axisAlpha(1.0, kinematics.max_angular_accel, dt, dw);
+      const double a = std::min(a_lin, a_ang);
+      const double a_trans = brake_translation ? a_lin : a;
+      const double a_rot = brake_translation ? a_ang : a;
       used_alpha = a;
-      u = Twist2{from.vx + a * dx, from.vy + a * dy, from.wz + a * dw};
+      u = Twist2{from.vx + a_trans * dx, from.vy + a_trans * dy, from.wz + a_rot * dw};
     }
   }
 

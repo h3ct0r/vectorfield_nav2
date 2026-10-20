@@ -82,6 +82,7 @@ per goal on the received plan. The full rules are in {ref}`sec-math-validation`.
 | Stops short of the goal, then creeps | `min_approach_speed` too low, or the cap binds near a wall | raise `min_approach_speed`; check `stop_margin` and the footprint |
 | Overshoots the goal | `terminal_braking_distance` below $v_r^2/a_{\mathrm{dec}}$ | raise `terminal_braking_distance` or `max_linear_decel` |
 | Skid-steer stalls in rotations | static friction | `min_in_place_angular_vel` 0.25 to 0.3 rad/s |
+| Skid-steer runs a steady offset outside curves | wheel slip: only part of the commanded yaw rate is realised, and the centre of rotation is off `base_link` | identify `skid_yaw_rate_efficiency` (measured over commanded yaw rate) and `skid_icr_offset` on the robot ({ref}`skid-slip`) |
 | Slows down near obstacles that are not on the path | the braking cap sees them in the rollout, or the clearance slowdown | shorten `collision_check_horizon` within the warning bounds; `clearance_slowdown_distance: 0` |
 | Contour engages in doorways | `obstacle_activation: always` | use `path_blocked` (default) |
 | Stops in front of a blocking obstacle instead of contouring | `obstacle_mode: none`; neither side passes within the side probe; the goal is inside the obstacle; or Ackermann | expected in a dead end; otherwise enable `contour` ({doc}`obstacle_avoidance`) |

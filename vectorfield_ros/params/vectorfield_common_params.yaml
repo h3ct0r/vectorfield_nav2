@@ -154,6 +154,22 @@ vectorfield_common_params:
     default_value: 0.0
     description: "Ackermann: body-x position of the rear-axle centre relative to base_link (m);
       negative is behind base_link."
+  skid_yaw_rate_efficiency:
+    type: double
+    default_value: 1.0
+    description: "skid_steer: slip compensation, the fraction of the commanded yaw rate the robot
+      realises (eta_psi). The commanded angular velocity is divided by it, then clamped to
+      max_angular_vel. 1.0 is off; identify it on the robot (realised / commanded yaw rate)."
+    validation:
+      gt<>: [0.0]
+      lt_eq<>: [1.0]
+  skid_icr_offset:
+    type: double
+    default_value: 0.0
+    description: "skid_steer: slip compensation, body-x position of the instantaneous centre of
+      rotation relative to base_link (m). Under feedback_linearization the yaw rate is scaled by
+      d / (d - skid_icr_offset) so the control point moves as planned. 0.0 is off; its magnitude
+      must stay below control_point_offset / 2."
 
   # --- Phases ----------------------------------------------------------------------------------
   use_rotate_to_field:

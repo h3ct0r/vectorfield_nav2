@@ -60,6 +60,10 @@ struct Kinematics
   bool drive_backward{false};
   /// Allow \f$q\,v < 0\f$.
   bool allow_reversing{false};
+  /// Skid steer slip compensation: yaw-rate efficiency \f$\hat\eta_\psi \in (0, 1]\f$ (1 = off).
+  double skid_yaw_rate_efficiency{1.0};
+  /// Skid steer slip compensation: ICR body-x \f$\hat x_{\mathrm{ICR}}\f$ (m; 0 = off).
+  double skid_icr_offset{0.0};
 
   /// @brief The kinematics of a configuration (Motion group, plus `cancel_deceleration`).
   static Kinematics fromConfig(const CoreConfig & config) noexcept;
@@ -81,6 +85,20 @@ struct Kinematics
   {
     return max_angular_vel * speed_limit_scale;
   }
+  /// @brief Skid steer slip compensation of the command sent to the robot (math_spec §8.4
+  /// [Design, 0.1.1]): \f$\omega_{\mathrm{cmd}} = \operatorname{clamp}(\lambda\omega/
+  /// \hat\eta_\psi, \pm\omega_{\max})\f$ with \f$\lambda = s/(s - \hat x_{\mathrm{ICR}})\f$ for
+  /// a steered point at body-x \f$s \ne 0\f$, else 1. A plant that realises
+  /// \f$\eta_\psi\omega_{\mathrm{cmd}}\f$ and the lateral slip \f$-x_{\mathrm{ICR}}\omega'\f$ with
+  /// the identified values then moves that point (or, for \f$s = 0\f$, turns) as planned. The
+  /// identity for the other models and for \f$\hat\eta_\psi = 1\f$,
+  /// \f$\hat x_{\mathrm{ICR}} = 0\f$.
+  /// @param command Limited command (the realised twist the Tracker plans with).
+  /// @param lever \f$s = q d\f$ when the command steers the FL control point (FOLLOW under FL),
+  /// else 0 (rotation, heading tracking, STOPPED).
+  /// @param saturated If not null, set to true iff the \f$\omega_{\max}\f$ clamp acted.
+  Twist2 slipCompensated(
+    const Twist2 & command, double lever = 0.0, bool * saturated = nullptr) const noexcept;
 };
 
 /// @brief Integration helpers used by the CollisionPredictor, the ClosedLoopSimulator and

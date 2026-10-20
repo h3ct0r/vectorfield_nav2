@@ -13,7 +13,8 @@
 // limitations under the License.
 
 // Closed-loop limiter oracles (math_spec §7.7, §8.2–§8.3, §12.7): O45 η-box keeps Ḋ <= 0,
-// O46 omni on a translating circle, O47 contour with a moving curve.
+// O46 omni on a translating circle, O47 contour with a moving curve; translation braking at a
+// rotation-phase entry (§8.4 [Design, 0.1.1]).
 //
 // The translating circle: a built-in circle of radius 1.5 m in a curve frame translating at
 // u = (0.1, 0) m/s (FRAME_MOVING, twist in the frame), so the field is time-varying with
@@ -21,7 +22,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -157,4 +160,47 @@ TEST(OracleLimiter, O47_ContourWithMovingCurveStaysInBox)
     }
     EXPECT_GT(active, 10) << "no contour episode on the moving curve";
   }
+}
+
+// Translation stops at a_dec when a rotation phase starts (math_spec §8.4 [Design, 0.1.1]): FL
+// on a straight path to a goal with yaw pi/2 enters ROTATE_TO_HEADING with residual forward speed
+// v0; the linear axis no longer waits for omega's alpha_max ramp, so the base travels at most
+// v0^2 / (2 a_dec) plus one cycle's travel v0 dt during the rotation, and v reaches zero within
+// ceil(v0 / (a_dec dt)) cycles.
+TEST(OracleLimiter, RotateToHeadingEntryBrakesTranslationAtTheDeceleration)
+{
+  const auto curve = makePolyline({Vec2(-1.0, 0.0), Vec2(3.0, 0.0)}, false);
+  vf::sim::SimulationOptions options;
+  options.stop_when_settled = false;
+  Runner runner(tcConfig(), options);
+  runner.reset(Pose2{Vec2(0.0, 0.0), 0.0});
+  runner.input().curve = curve.get();
+  runner.input().goal = goalAt(Vec2(3.0, 0.0), vf::kHalfPi, true);
+  runner.run(25.0);
+
+  const std::vector<Cycle> & cycles = runner.cycles();
+  std::size_t entry = cycles.size();
+  for (std::size_t k = 0; k < cycles.size(); ++k) {
+    if (cycles[k].out.phase == Phase::kRotateToHeading) {
+      entry = k;
+      break;
+    }
+  }
+  ASSERT_LT(entry, cycles.size()) << "no ROTATE_TO_HEADING";
+  const double v0 = cycles[entry].rec.measured.vx;
+  const Vec2 p0 = cycles[entry].rec.pose.p;
+  double travel = 0.0;
+  std::size_t stopped_after = 0;
+  for (std::size_t k = entry; k < cycles.size(); ++k) {
+    ASSERT_EQ(cycles[k].out.phase, Phase::kRotateToHeading) << "t = " << cycles[k].rec.t;
+    travel = std::max(travel, (cycles[k].pose_after.p - p0).norm());
+    if (stopped_after == 0 && cycles[k].rec.cmd.vx == 0.0) {
+      stopped_after = k - entry + 1;
+    }
+  }
+  EXPECT_GT(v0, 0.05) << "the approach must end with residual speed";
+  EXPECT_LE(travel, v0 * v0 / (2.0 * kAccel) + v0 * kPeriod);
+  EXPECT_GE(stopped_after, 1U);
+  EXPECT_LE(stopped_after, static_cast<std::size_t>(std::ceil(v0 / (kAccel * kPeriod) - 1e-9)));
+  EXPECT_NEAR(vf::wrapAngle(runner.pose().yaw - vf::kHalfPi), 0.0, kYawTol);
 }

@@ -130,6 +130,45 @@ TEST(Kinematics, FromConfigCopiesTheMotionGroup)
   EXPECT_FALSE(k.isHolonomic());
   EXPECT_FALSE(k.isUnicycle());
   EXPECT_DOUBLE_EQ(k.angularLimit(0.5), 0.55);
+  EXPECT_DOUBLE_EQ(k.skid_yaw_rate_efficiency, 1.0);
+  EXPECT_DOUBLE_EQ(k.skid_icr_offset, 0.0);
+
+  config.motion.skid_yaw_rate_efficiency = 0.8;
+  config.motion.skid_icr_offset = 0.04;
+  EXPECT_DOUBLE_EQ(Kinematics::fromConfig(config).skid_yaw_rate_efficiency, 0.8);
+  EXPECT_DOUBLE_EQ(Kinematics::fromConfig(config).skid_icr_offset, 0.04);
+}
+
+// math_spec §8.4 [Design, 0.1.1]: omega_cmd = clamp(lambda omega / eta, +-omega_max), lambda =
+// s / (s - x_ICR) for a steered point s != 0; the identity off skid steer or when off.
+TEST(Kinematics, SkidSlipCompensation)
+{
+  Kinematics skid;
+  skid.type = MotionModel::kSkidSteer;
+  skid.max_angular_vel = 1.5;
+  bool saturated = true;
+  const vf::Twist2 u{0.3, 0.0, 0.6};
+  vf::Twist2 c = skid.slipCompensated(u, 0.2, &saturated);
+  EXPECT_DOUBLE_EQ(c.wz, 0.6) << "off by default";
+  EXPECT_FALSE(saturated);
+  skid.skid_yaw_rate_efficiency = 0.75;
+  c = skid.slipCompensated(u, 0.0, &saturated);
+  EXPECT_DOUBLE_EQ(c.vx, 0.3);
+  EXPECT_DOUBLE_EQ(c.wz, 0.8);
+  EXPECT_FALSE(saturated);
+  skid.skid_icr_offset = 0.05;
+  EXPECT_DOUBLE_EQ(skid.slipCompensated(u, 0.0).wz, 0.8) << "no steered point: eta only";
+  EXPECT_DOUBLE_EQ(skid.slipCompensated(u, 0.2).wz, 0.6 * (0.2 / 0.15) / 0.75);
+  EXPECT_DOUBLE_EQ(skid.slipCompensated(u, -0.2).wz, 0.6 * (0.2 / 0.25) / 0.75) << "q = -1";
+  c = skid.slipCompensated(vf::Twist2{0.0, 0.0, -1.4}, 0.0, &saturated);
+  EXPECT_DOUBLE_EQ(c.wz, -1.5) << "clamped to omega_max";
+  EXPECT_TRUE(saturated);
+
+  Kinematics diff = skid;
+  diff.type = MotionModel::kDifferential;
+  c = diff.slipCompensated(u, 0.2, &saturated);
+  EXPECT_DOUBLE_EQ(c.wz, 0.6);
+  EXPECT_FALSE(saturated);
 }
 
 // math_spec §10.2 and Appendix B: the exact SE(2) step agrees with a 2e5-step quadrature.

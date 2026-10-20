@@ -1284,18 +1284,54 @@ $$
 
 $A_i$ is $a_{\mathrm{dec}}$ when $u_{\mathrm{prev},i}\Delta_i < 0$ and $a_{\mathrm{acc}}$ otherwise for the
 linear axes (omni lateral uses the same values) [Spec on the sign rule], and $\alpha_{\max}$ for
-$\omega$. All axes move together along a straight line in command space, so the FL control-point
-direction is kept; for FL this is a first-order lag of $\dot p_c$. In STOPPED: for a cancel, the
+$\omega$. Outside translation braking (below), all axes move together along a straight line in
+command space, so the FL control-point direction is kept; for FL this is a first-order lag of
+$\dot p_c$. In STOPPED: for a cancel, the
 linear bound is $a_{\mathrm{can}}$, raised to $\max(a_{\mathrm{can}}, a_{\mathrm{dec}})$ for the rest
 of the cancel once a rollout finds a collision, and the angular bound is $\alpha_{\max}$; otherwise
 the maximum decelerations. The cycle in which a cancel rollout first finds a collision is re-run with
 the raised bound, STATUS_COLLISION_AHEAD is set while that bound applies, and it clears when the
 cancel ends [Spec, M1].
 
+**Translation braking** [Design, 0.1.1]. In ROTATE_TO_FIELD, ROTATE_TO_HEADING and STOPPED the
+translational target is zero, and the translational axes ($x$, omni $y$) and $\omega$ each take
+their own scale:
+
+$$
+\alpha_{\mathrm{lin}} = \min\!\Big(1,\ \min_{i \in \{x, y\}:\Delta_i \ne 0} \frac{A_i\,\Delta t}{\lvert\Delta_i\rvert}\Big),
+\qquad
+\alpha_\omega = \min\!\Big(1,\ \frac{\alpha_{\max}\Delta t}{\lvert\Delta_\omega\rvert}\Big),
+$$
+
+$v_{x,y} = (1 - \alpha_{\mathrm{lin}})\,v_{\mathrm{prev},x,y}$ and
+$\omega = \omega_{\mathrm{prev}} + \alpha_\omega\Delta_\omega$, with the same $A_i$ as above
+($a_{\mathrm{dec}}$; $a_{\mathrm{can}}$ or $\max(a_{\mathrm{can}}, a_{\mathrm{dec}})$ in a cancel).
+The translation still brakes along its own direction, so a residual speed $v_0$ stops within
+$\lceil v_0/(A\,\Delta t)\rceil$ cycles after at most $v_0^2/(2A) + v_0\Delta t$ of travel.
+`limiter_scale` reports $\min(\alpha_{\mathrm{lin}}, \alpha_\omega)$. In FOLLOW and FINAL_APPROACH
+the single $\alpha$ stays. *Rationale*: with one $\alpha$ the $\omega$ ramp from 0 to the rotate
+speed (about $\omega_{\mathrm{rot}}/(\alpha_{\max}\Delta t)$ cycles) also sets the pace of the
+linear stop, so a rotation phase entered at 0.1 m/s crept about 2 cm in about ten cycles instead
+of turning in place. Keeping the command direction matters in translation phases, where it is
+the FL control-point direction; with a zero translational target there is no direction to keep.
+
 **Ackermann curvature clamp**: if $\lvert\omega\rvert > \lvert v\rvert/R_{\min}$, set
 $\omega := \operatorname{sgn}(\omega)\lvert v\rvert/R_{\min}$ and kCurvatureSaturated.
 
 **NaN guard**: any non-finite component gives $u = 0$ and kNonFinite.
+
+**Skid slip compensation** [Design, 0.1.1]. For `skid_steer`, the limited command $u$ is the twist
+the robot should realise; the command sent is
+$\omega_{\mathrm{cmd}} = \operatorname{clamp}(\lambda\,\omega/\hat\eta_\psi,\ \pm\omega_{\max})$
+(kCurvatureSaturated when the clamp acts), with $\hat\eta_\psi$ = `skid_yaw_rate_efficiency`
+$\in (0, 1]$ and, in FOLLOW under FL, $\lambda = s/(s - \hat x_{\mathrm{ICR}})$, $s = q\,d$,
+$\hat x_{\mathrm{ICR}}$ = `skid_icr_offset` ($\lvert\hat x_{\mathrm{ICR}}\rvert < d/2$); elsewhere
+$\lambda = 1$. For the slip model of `sim::integrate` ($\omega' = \eta_\psi\omega_{\mathrm{cmd}}$,
+$v_y' = -x_{\mathrm{ICR}}\omega'$) the lateral velocity of the point at body $x = s$ is
+$(s - x_{\mathrm{ICR}})\,\omega'$, so the identified values give back $\omega$ in rotations and
+$\dot p_c$ under FL. $u_{\mathrm{prev}}$, the rollouts and `cmd_target` stay in realised terms; the
+defaults ($1$, $0$) are the identity. *Rationale*: under that slip a skid-steer robot on a
+$R = 1$ m circle settles about 8 cm off with no compensation and 4 cm with $\hat\eta_\psi$ alone.
 
 **$u_{\mathrm{prev}}$ re-seeding**: from the measured twist after any throw, on reset or cancel
 completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` change does not re-seed.
@@ -1741,6 +1777,9 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   kAssumption3Clamped.
 - **O48 Acceleration stage.** Random $u^\ast$, $u_{\mathrm{prev}}$: every axis change is within its
   bound ($10^{-12}$) and $u - u_{\mathrm{prev}}$ is parallel to $u^\ast - u_{\mathrm{prev}}$ ($10^{-12}$).
+  With translation braking (target $(0, 0, \omega^\ast)$): every axis within its bound, the
+  translation is $(1 - \alpha_{\mathrm{lin}})$ times its previous value with the largest admissible
+  $\alpha_{\mathrm{lin}}$, and $\omega$ takes the largest admissible step on its own [0.1.1].
 
 ### 12.8 Phases, cancel and collision
 

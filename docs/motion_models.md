@@ -13,7 +13,7 @@ laws is in {doc}`theory`; the exact definitions, guards and tolerances are in
 | `motion_model` | Command | `auto` law | Other valid laws | In-place phases | Notes |
 |---|---|---|---|---|---|
 | `differential` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | |
-| `skid_steer` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | Set `min_in_place_angular_vel` (0.25 to 0.3 rad/s) to overcome static friction; the shipped overlay uses 0.25. |
+| `skid_steer` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | Set `min_in_place_angular_vel` (0.25 to 0.3 rad/s) to overcome static friction; the shipped overlay uses 0.25. Optional slip compensation, see {ref}`skid-slip`. |
 | `omnidirectional` | $(v_x, v_y, \omega)$ | `holonomic` | — | ROTATE_TO_HEADING | `max_lateral_vel` bounds $v_y$. Nav2's `min_y_velocity_threshold` (0.5 by default) zeroes the measured lateral speed; the shipped overlay sets 0.001. |
 | `ackermann` | $(v, 0, \omega)$, $v \ge 0$ | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` is rejected in 0.x. See {ref}`ackermann-caveats`. |
 
@@ -25,6 +25,34 @@ Ackermann base always drives forward. `allow_reversing` (default `false`) clamps
 these bases to the drive direction, so feedback linearisation never reverses at full speed when
 the field points behind the robot. Plans with reversing segments (cusps) are rejected with `InvalidPath`; use a
 forward-only planner.
+
+(skid-slip)=
+
+### Skid-steer slip compensation
+
+Skidding wheels realise only part of the commanded yaw rate, and the robot turns about a point
+that is not `base_link`. Feedback linearisation does not model either, so a skid-steer base
+runs a constant offset outside curves: with `vectorfield_sim`'s slip ($\eta_\psi = 0.75$,
+$x_{\mathrm{ICR}} = 0.05$ m) about 8 cm on a 1 m circle. Two optional parameters compensate it
+(`skid_steer` only; the defaults turn it off):
+
+- `skid_yaw_rate_efficiency` $\hat\eta_\psi \in (0, 1]$: the commanded $\omega$ is divided by
+  it, then clamped to `max_angular_vel` (`CURV-SAT` when the clamp acts).
+- `skid_icr_offset` $\hat x_{\mathrm{ICR}}$ (m, body x of the centre of rotation, magnitude
+  below `control_point_offset / 2`): while feedback linearisation steers its control point
+  (FOLLOW), $\omega$ is also scaled by $d/(d - \hat x_{\mathrm{ICR}})$, so the control point moves
+  as planned. Rotations in place and heading tracking use $\hat\eta_\psi$ only.
+
+With both set to the slip values the offset on that circle vanishes; $\hat\eta_\psi$ alone halves
+it. Over-compensation is as bad: on a plant without slip the same values put the robot about
+7 cm inside the circle. The shipped `skid_steer.yaml` overlay therefore leaves both off (1.0
+and 0.0); the loopback demo, whose simulator has no slip, uses it as is.
+`kinematic_sim_demo` and `curve_follower_demo` turn them on for `skid_steer`, set to
+`vectorfield_sim`'s own `slip_eta_psi` and `slip_x_icr` (0.75, 0.05). On a real robot identify
+them before setting them: $\hat\eta_\psi$ as the measured over the commanded yaw rate on a
+slow in-place turn (from the IMU or a motion-capture system, not wheel odometry), and
+$\hat x_{\mathrm{ICR}}$ from the lateral drift of `base_link` during a turn,
+$v_y = -x_{\mathrm{ICR}}\,\omega$. The rule is in {ref}`sec-limiter-accel`.
 
 ## Tracking laws
 

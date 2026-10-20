@@ -62,7 +62,8 @@ def _launch_setup(context):
         launch_arguments=arguments.items(),
     )
 
-    merged = params.merge(demo.overlay_paths(motion_model, ['kinematic_sim'] + scenarios))
+    # As kinematic_sim_demo: skid_steer compensates the simulator's slip.
+    merged = demo.kinematic_sim_params(motion_model, ['kinematic_sim'] + scenarios)
     follower_file = params.write_params(
         {demo.FOLLOWER: {'ros__parameters': demo.follower_parameters(merged)}}
     )

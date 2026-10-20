@@ -20,6 +20,7 @@ templates of ``config/examples`` follow the same rules. The controller validatio
 and template (validateFromNode) runs in vectorfield_system_tests.
 """
 
+import re
 from pathlib import Path
 
 import pytest
@@ -172,6 +173,47 @@ def test_scenarios_never_set_smoother_limits(path):
 def test_overlays_never_set_stamped_cmd_vel(path):
     """enable_stamped_cmd_vel stays at each node's distro default (plan section 8)."""
     assert 'enable_stamped_cmd_vel' not in path.read_text(encoding='utf-8')
+
+
+@pytest.mark.parametrize('model', demo.MOTION_MODELS)
+def test_vectorfield_sim_demos_compensate_the_skid_slip(model):
+    """Overlays leave the slip compensation off; the sim demos set it to the sim's slip."""
+    follow_path = _node(_merged(model), 'controller_server')['FollowPath']
+    assert follow_path.get('skid_yaw_rate_efficiency', 1.0) == 1.0
+    assert follow_path.get('skid_icr_offset', 0.0) == 0.0
+    merged = demo.kinematic_sim_params(model, ['kinematic_sim'], str(PACKAGE))
+    if model != 'skid_steer':
+        assert merged == _merged(model)
+        return
+    follow_path = _node(merged, 'controller_server')['FollowPath']
+    sim = _node(merged, demo.SIM)
+    assert (sim['slip_eta_psi'], sim['slip_x_icr']) == demo.SIM_SKID_SLIP
+    assert follow_path['skid_yaw_rate_efficiency'] == sim['slip_eta_psi']
+    assert follow_path['skid_icr_offset'] == sim['slip_x_icr']
+
+
+def test_kinematic_sim_params_follow_a_changed_sim_slip(tmp_path):
+    """A scenario that changes vectorfield_sim's slip changes the compensation with it."""
+    scenario = tmp_path / 'slip.yaml'
+    scenario.write_text(
+        yaml.safe_dump({demo.SIM: {'ros__parameters': {'slip_eta_psi': 0.9}}}), encoding='utf-8'
+    )
+    merged = demo.kinematic_sim_params(
+        'skid_steer', ['kinematic_sim', str(scenario)], str(PACKAGE)
+    )
+    follow_path = _node(merged, 'controller_server')['FollowPath']
+    assert follow_path['skid_yaw_rate_efficiency'] == 0.9
+    assert follow_path['skid_icr_offset'] == demo.SIM_SKID_SLIP[1]
+
+
+def test_sim_skid_slip_matches_vectorfield_sim():
+    """demo.SIM_SKID_SLIP restates kSkidSteerSlip of vectorfield_sim/plant.hpp."""
+    header = REPOSITORY / 'vectorfield_sim' / 'include' / 'vectorfield_sim' / 'plant.hpp'
+    if not header.is_file():
+        pytest.skip(f'{header} is not available')
+    match = re.search(r'kSkidSteerSlip\{([^,}]+),([^}]+)\}', header.read_text(encoding='utf-8'))
+    assert match, 'kSkidSteerSlip not found'
+    assert (float(match.group(1)), float(match.group(2))) == demo.SIM_SKID_SLIP
 
 
 @pytest.mark.parametrize('model', demo.MOTION_MODELS)

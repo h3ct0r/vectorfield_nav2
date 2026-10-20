@@ -119,6 +119,8 @@ TEST(Config, DefaultsAreThePlanDefaults)
   EXPECT_DOUBLE_EQ(config.motion.min_turning_radius, 0.0);
   EXPECT_DOUBLE_EQ(config.motion.ackermann_min_speed, 0.05);
   EXPECT_DOUBLE_EQ(config.motion.reference_point_offset, 0.0);
+  EXPECT_DOUBLE_EQ(config.motion.skid_yaw_rate_efficiency, 1.0);
+  EXPECT_DOUBLE_EQ(config.motion.skid_icr_offset, 0.0);
   EXPECT_TRUE(config.phases.use_rotate_to_field);
   EXPECT_DOUBLE_EQ(config.phases.rotate_to_field_angle, 1.57);
   EXPECT_DOUBLE_EQ(config.phases.rotate_to_field_release_angle, 0.785);
@@ -536,6 +538,22 @@ TEST(Config, DomainErrorsSuppressTheRules)
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->node.controller_frequency = 0.0; }));
   EXPECT_FALSE(rejects([](CoreConfig * c) { c->phases.final_approach_distance = 0.0; }));
   EXPECT_FALSE(rejects([](CoreConfig * c) { c->obstacles.obstacle_lookahead = -5.0; }));  // auto
+  // Skid slip compensation: eta in (0, 1]; |x_ICR| < d / 2 on skid steer only.
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->motion.skid_yaw_rate_efficiency = 0.0; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->motion.skid_yaw_rate_efficiency = 1.2; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->motion.skid_yaw_rate_efficiency = vf::kNaN; }));
+  EXPECT_FALSE(rejects([](CoreConfig * c) { c->motion.skid_yaw_rate_efficiency = 1.0; }));
+  EXPECT_FALSE(rejects([](CoreConfig * c) { c->motion.skid_yaw_rate_efficiency = 0.75; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->motion.skid_icr_offset = vf::kInf; }));
+  EXPECT_FALSE(rejects([](CoreConfig * c) { c->motion.skid_icr_offset = 0.15; }));  // diff
+  EXPECT_TRUE(rejects([](CoreConfig * c) {
+    c->motion.motion_model = MotionModel::kSkidSteer;
+    c->motion.skid_icr_offset = -0.1;  // d / 2 = 0.1
+  }));
+  EXPECT_FALSE(rejects([](CoreConfig * c) {
+    c->motion.motion_model = MotionModel::kSkidSteer;
+    c->motion.skid_icr_offset = 0.05;
+  }));
 
   CoreConfig bad_footprint = tc();
   bad_footprint.node.footprint.polygon = {Vec2(0.0, 0.0), Vec2(1.0, 0.0), Vec2(2.0, 0.0)};

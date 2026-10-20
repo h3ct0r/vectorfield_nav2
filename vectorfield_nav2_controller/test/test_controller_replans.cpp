@@ -158,14 +158,17 @@ TEST_P(SettleThenRotate, MapToOdomStepsAndReplansNeverUndoTheRotation)
   EXPECT_EQ(steps, 3U) << "the goal ended before the three steps";
   EXPECT_EQ(countThrows(harness), 0U);
 
-  // No translation while rotating: the rotation starts with the approach's residual speed, which
-  // the limiter (all axes on one line, math_spec §8.4) only brings down; once zero it stays zero
-  // through every step and replan.
+  // No translation while rotating: the rotation starts with the approach's residual speed v0,
+  // which the limiter brakes at a_dec independently of the omega ramp (math_spec §8.4 translation
+  // braking), so the travel is at most v0^2 / (2 a_dec) + v0 dt; once zero it stays zero through
+  // every step and replan.
   const double xy_tol = options.xy_goal_tolerance;
   const double period = 1.0 / options.controller_frequency;
+  const double a_dec = harness.controller()->appliedConfig().motion.max_linear_decel;
   bool rotating = false;
   bool stopped = false;
   double previous_speed = vf::kInf;
+  double entry_speed = 0.0;
   double travelled = 0.0;
   for (const CycleRecord & record : harness.history()) {
     if (!record.computed) {
@@ -178,6 +181,7 @@ TEST_P(SettleThenRotate, MapToOdomStepsAndReplansNeverUndoTheRotation)
         << "rotation started at " << record.pose_map.p.transpose();
     }
     if (!rotating) {
+      entry_speed = std::hypot(record.published.linear.x, record.published.linear.y);
       continue;
     }
     EXPECT_NE(phase, vf::Phase::kFollow) << "FOLLOW re-entered at t = " << record.t;
@@ -194,7 +198,8 @@ TEST_P(SettleThenRotate, MapToOdomStepsAndReplansNeverUndoTheRotation)
   }
   EXPECT_TRUE(rotating) << "ROTATE_TO_HEADING never started";
   EXPECT_TRUE(stopped) << "the linear command never reached zero while rotating";
-  EXPECT_LE(travelled, 0.03);
+  EXPECT_LE(travelled, entry_speed * entry_speed / (2.0 * a_dec) + entry_speed * period + 1e-9)
+    << "entry speed " << entry_speed;
 }
 
 INSTANTIATE_TEST_SUITE_P(

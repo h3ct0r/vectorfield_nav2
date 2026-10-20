@@ -46,7 +46,13 @@ void bindKinematics(py::module_ & m, py::module_ & sim)
     .field("min_turning_radius", &Kinematics::min_turning_radius, "Ackermann R_min (m).")
     .field("ackermann_min_speed", &Kinematics::ackermann_min_speed, "v_ack (m/s).")
     .field("drive_backward", &Kinematics::drive_backward, "q = -1.")
-    .field("allow_reversing", &Kinematics::allow_reversing, "Allow q v < 0.");
+    .field("allow_reversing", &Kinematics::allow_reversing, "Allow q v < 0.")
+    .field(
+      "skid_yaw_rate_efficiency", &Kinematics::skid_yaw_rate_efficiency,
+      "Skid slip compensation eta_psi (1 = off).")
+    .field(
+      "skid_icr_offset", &Kinematics::skid_icr_offset,
+      "Skid slip compensation x_ICR (m; 0 = off).");
   k.cls()
     .def_static(
       "from_config", &Kinematics::fromConfig, py::arg("config"), "The kinematics of a CoreConfig.")
@@ -56,7 +62,17 @@ void bindKinematics(py::module_ & m, py::module_ & sim)
     .def_property_readonly("is_unicycle", &Kinematics::isUnicycle, "Differential or skid steer.")
     .def(
       "angular_limit", &Kinematics::angularLimit, py::arg("speed_limit_scale") = 1.0,
-      "omega_max times the speed-limit scale.");
+      "omega_max times the speed-limit scale.")
+    .def(
+      "slip_compensated",
+      [](const Kinematics & self, const vf::Twist2 & command, double lever) {
+        bool saturated = false;
+        const vf::Twist2 sent = self.slipCompensated(command, lever, &saturated);
+        return py::make_tuple(sent, saturated);
+      },
+      py::arg("command"), py::arg("lever") = 0.0,
+      "Skid slip compensation of a command: (sent twist, omega_max clamp acted). lever is the "
+      "body-x q d of the FL control point it steers, else 0.");
   k.finish();
 
   using vf::sim::SlipParams;
@@ -291,17 +307,18 @@ void bindLimiter(py::module_ & m)
       "limit",
       [](
         const vf::CommandLimiter & limiter, const vf::Twist2 & target, const LimiterState & state,
-        double dt, const vf::Kinematics & kinematics, bool stopped_cancel) {
+        double dt, const vf::Kinematics & kinematics, bool stopped_cancel, bool brake_translation) {
         LimiterState next;
         std::uint32_t status = vf::Status::kNone;
         double alpha = 1.0;
-        const vf::Twist2 cmd =
-          limiter.limit(target, state, &next, dt, kinematics, stopped_cancel, &status, &alpha);
+        const vf::Twist2 cmd = limiter.limit(
+          target, state, &next, dt, kinematics, stopped_cancel, &status, &alpha, brake_translation);
         return py::make_tuple(cmd, next, status, alpha);
       },
       py::arg("target"), py::arg("state"), py::arg("dt"), py::arg("kinematics"),
-      py::arg("stopped_cancel") = false,
-      "Limits a target twist: (cmd, next_state, status_bits, alpha).");
+      py::arg("stopped_cancel") = false, py::arg("brake_translation") = false,
+      "Limits a target twist: (cmd, next_state, status_bits, alpha). brake_translation: the "
+      "translation brakes at its own bound, independently of omega (rotation phases, STOPPED).");
 }
 
 }  // namespace

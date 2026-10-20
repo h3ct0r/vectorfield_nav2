@@ -751,6 +751,45 @@ TEST(LimiterCommand, O48AccelerationStage)
   EXPECT_LE(worst_parallel, 1e-12);
 }
 
+// O48 with brake_translation (math_spec §8.4 [Design, 0.1.1]): random u_prev, target (0, 0, w*):
+// every axis change is within its bound, the translation moves along its own straight line with
+// the largest admissible alpha, and omega takes the largest admissible step on its own.
+TEST(LimiterCommand, O48AccelerationStageBrakingTranslation)
+{
+  const CommandLimiter limiter;
+  Rng rng(4848);
+  for (int i = 0; i < 20000; ++i) {
+    Kinematics k = omniKinematics();
+    k.max_linear_accel = rng.uniform(0.1, 3.0);
+    k.max_linear_decel = rng.uniform(0.1, 3.0);
+    k.max_angular_accel = rng.uniform(0.2, 6.0);
+    k.cancel_deceleration = rng.uniform(0.1, 3.0);
+    const bool cancel = rng.chance(0.2);
+    LimiterState state;
+    state.cancel_hard = rng.coin();
+    state.u_prev = Twist2{rng.uniform(-1.0, 1.0), rng.uniform(-1.0, 1.0), rng.uniform(-2.0, 2.0)};
+    const Twist2 target{0.0, 0.0, cancel ? 0.0 : rng.uniform(-2.0, 2.0)};
+    const double dt = rng.uniform(0.01, 0.2);
+    double alpha = -1.0;
+    const Twist2 u = limiter.limit(target, state, nullptr, dt, k, cancel, nullptr, &alpha, true);
+    const AxisBounds bounds = expectedBounds(state.u_prev, target, k, cancel, state.cancel_hard);
+    const Twist2 & p = state.u_prev;
+    ASSERT_LE(std::abs(u.vx - p.vx), bounds.x * dt + 1e-12);
+    ASSERT_LE(std::abs(u.vy - p.vy), bounds.y * dt + 1e-12);
+    ASSERT_LE(std::abs(u.wz - p.wz), bounds.w * dt + 1e-12);
+    // Translation: u = (1 - a) u_prev (towards zero, parallel), a the largest admissible.
+    const double a_lin =
+      std::min({1.0, bounds.x * dt / std::abs(p.vx), bounds.y * dt / std::abs(p.vy)});
+    ASSERT_NEAR(u.vx, (1.0 - a_lin) * p.vx, 4e-15);
+    ASSERT_NEAR(u.vy, (1.0 - a_lin) * p.vy, 4e-15);
+    // Omega: the largest admissible step, whatever the translation does.
+    const double dw = target.wz - p.wz;
+    ASSERT_NEAR(u.wz, p.wz + vf::sgn(dw) * std::min(std::abs(dw), bounds.w * dt), 4e-15);
+    ASSERT_GE(alpha, 0.0);
+    ASSERT_LE(alpha, 1.0);
+  }
+}
+
 // Appendix C item 11: a_dec when u_prev,i Delta_i < 0, else a_acc (also across zero); alpha_max for
 // omega; all axes share alpha.
 TEST(LimiterCommand, BoundSelectionBySign)
@@ -779,6 +818,52 @@ TEST(LimiterCommand, BoundSelectionBySign)
   const Twist2 u = limiter.limit(Twist2{0.04, 0.0, 2.0}, state, nullptr, dt, k, false, nullptr);
   EXPECT_DOUBLE_EQ(u.wz, 0.4);
   EXPECT_DOUBLE_EQ(u.vx, 0.04 * 0.2);
+}
+
+// math_spec §8.4 [Design, 0.1.1]: entering a rotation phase at v = 0.09 m/s with the target
+// (0, 0, 1.5), the translation brakes at a_dec on its own (v = 0 within ceil(v / (a_dec dt))
+// cycles) while omega ramps at alpha_max; the shared alpha would hold v for ~9 cycles.
+TEST(LimiterCommand, BrakeTranslationDecouplesTheLinearStopFromTheOmegaRamp)
+{
+  const CommandLimiter limiter;
+  Kinematics k;
+  k.max_linear_decel = 1.0;
+  k.max_angular_accel = 3.2;
+  const Twist2 target{0.0, 0.0, 1.5};
+  const double v0 = 0.09;
+  LimiterState state;
+  state.u_prev = Twist2{v0, 0.0, 0.0};
+  int cycles = 0;
+  for (; state.u_prev.vx > 0.0 && cycles < 100; ++cycles) {
+    const double v = state.u_prev.vx;
+    const double w = state.u_prev.wz;
+    double alpha = -1.0;
+    limiter.limit(target, state, &state, kDt, k, false, nullptr, &alpha, true);
+    EXPECT_DOUBLE_EQ(state.u_prev.vx, std::max(0.0, v - k.max_linear_decel * kDt));
+    EXPECT_DOUBLE_EQ(state.u_prev.wz, std::min(1.5, w + k.max_angular_accel * kDt));
+    EXPECT_LT(alpha, 1.0);
+  }
+  EXPECT_LE(cycles, static_cast<int>(std::ceil(v0 / (k.max_linear_decel * kDt))));
+
+  // Without the flag the axes share omega's alpha and v decays only geometrically.
+  state = LimiterState{};
+  state.u_prev = Twist2{v0, 0.0, 0.0};
+  cycles = 0;
+  for (; state.u_prev.vx >= vf::kStopLinearSpeed && cycles < 100; ++cycles) {
+    limiter.limit(target, state, &state, kDt, k, false, nullptr);
+  }
+  EXPECT_GT(cycles, static_cast<int>(std::ceil(v0 / (k.max_linear_decel * kDt))));
+
+  // A cancel brakes at a_can on its own; omni lateral shares the translational alpha.
+  Kinematics omni;
+  omni.type = MotionModel::kOmnidirectional;
+  omni.cancel_deceleration = 0.4;
+  state = LimiterState{};
+  state.u_prev = Twist2{0.06, 0.08, 1.0};
+  const Twist2 u = limiter.limit(Twist2{}, state, nullptr, kDt, omni, true, nullptr, nullptr, true);
+  EXPECT_NEAR(u.vy, 0.08 - 0.4 * kDt, 1e-15) << "a_can on the binding (lateral) axis";
+  EXPECT_NEAR(u.vx * 0.08 - u.vy * 0.06, 0.0, 1e-15) << "translation keeps its direction";
+  EXPECT_DOUBLE_EQ(u.wz, 1.0 - omni.max_angular_accel * kDt);
 }
 
 TEST(LimiterCommand, StoppedAndCancelDecelerations)

@@ -186,13 +186,18 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: 
 
 **Overlay.** `config/controller/skid_steer.yaml`: the differential settings plus
 `min_in_place_angular_vel: 0.25`, a floor for in-place rotations that overcomes the static
-friction of skidding wheels. The simulator adds its slip model (`slip_eta_psi`, `slip_x_icr`).
+friction of skidding wheels. The overlay leaves the slip compensation off
+(`skid_yaw_rate_efficiency: 1.0`, `skid_icr_offset: 0.0`). The simulator adds its slip model
+(`slip_eta_psi` 0.75, `slip_x_icr` 0.05), and this demo sets the controller's compensation to
+those same values ({ref}`skid-slip`).
 
 **In RViz.** The same phases as the differential base; the rotations in place never creep below
 0.25 rad/s.
 
 **Tweak.** Real skid-steer bases usually need 0.25 to 0.3 rad/s for `min_in_place_angular_vel`;
-it must not exceed `rotate_to_heading_angular_vel`.
+it must not exceed `rotate_to_heading_angular_vel`. On a real base, identify the two slip values
+before setting them in your copy of the overlay ({ref}`skid-slip`); the demo's values are the
+simulator's.
 
 ## Ackermann (car-like) base
 

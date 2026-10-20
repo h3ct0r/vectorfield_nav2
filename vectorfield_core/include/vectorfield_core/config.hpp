@@ -204,6 +204,14 @@ struct MotionConfig
   /// `reference_point_offset` \f$x_r\f$ (m): body-x of the rear-axle centre relative to
   /// base_link; negative = behind.
   double reference_point_offset{0.0};
+  /// `skid_yaw_rate_efficiency` \f$\hat\eta_\psi \in (0, 1]\f$: skid steer only, the commanded
+  /// \f$\omega\f$ is divided by it before the \f$\omega_{\max}\f$ clamp (slip compensation,
+  /// math_spec §8.4); 1 = off.
+  double skid_yaw_rate_efficiency{1.0};
+  /// `skid_icr_offset` \f$\hat x_{\mathrm{ICR}}\f$ (m): skid steer only, body-x of the
+  /// instantaneous centre of rotation; the FL control point's slip compensation (math_spec §8.4);
+  /// 0 = off.
+  double skid_icr_offset{0.0};
 };
 
 /// @brief Phases group of plan §5.4.

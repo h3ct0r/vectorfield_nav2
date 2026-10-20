@@ -1159,11 +1159,14 @@ NominalResult stepNominal(
     st->limiter.valid = true;
   }
   const bool stopped_cancel = phase == Phase::kStopped && env.input.cancel;
+  // Rotation phases and STOPPED have a zero translational target: the translation brakes at its
+  // own bound instead of waiting for omega's ramp (math_spec §8.4 [Design, 0.1.1]).
+  const bool brake_translation = phase == Phase::kStopped || isRotationPhase(phase);
   const CommandLimiter limiter;
   result.target = isFinite(target) ? target : Twist2{};  // a non-finite target reports as 0
   result.cmd = limiter.limit(
     target, st->limiter, &st->limiter, params.dt, kinematics, stopped_cancel, &result.status,
-    &result.alpha);
+    &result.alpha, brake_translation);
 
   if (result.shaping.collisionAhead()) {
     result.status |= Status::kCollisionAhead;
@@ -1977,11 +1980,19 @@ TrackerOutput Tracker::step(
   if (input.cancel && final_state.limiter.cancel_hard) {
     extra_status |= Status::kCollisionAhead;
   }
-  output.cmd = final_result.cmd;
+  // Skid slip compensation maps the limited (realised) twist to the sent command; the limiter
+  // state and the rollouts keep the realised twist (math_spec §8.4 [Design, 0.1.1]). The ICR
+  // term applies where FL steers its control point (x_ref = d in a translation phase).
+  const double lever = isTranslationPhase(final_result.phase)
+                         ? kinematics_.driveSign() * final_result.sample.x_ref
+                         : 0.0;
+  bool omega_saturated = false;
+  output.cmd = kinematics_.slipCompensated(final_result.cmd, lever, &omega_saturated);
   output.cmd_target = final_result.target;
   output.field = final_result.sample;
   output.phase = final_result.phase;
-  output.status = final_result.status | extra_status | (blocked ? Status::kBlocked : 0U);
+  output.status = final_result.status | extra_status | (blocked ? Status::kBlocked : 0U) |
+                  (omega_saturated ? Status::kCurvatureSaturated : 0U);
   output.settled = final_result.settled;
   output.s_free = s_free;
   output.cap = cap;

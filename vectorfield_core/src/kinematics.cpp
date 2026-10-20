@@ -37,7 +37,29 @@ Kinematics Kinematics::fromConfig(const CoreConfig & config) noexcept
   kinematics.ackermann_min_speed = motion.ackermann_min_speed;
   kinematics.drive_backward = motion.drive_backward;
   kinematics.allow_reversing = motion.allow_reversing;
+  kinematics.skid_yaw_rate_efficiency = motion.skid_yaw_rate_efficiency;
+  kinematics.skid_icr_offset = motion.skid_icr_offset;
   return kinematics;
+}
+
+Twist2 Kinematics::slipCompensated(
+  const Twist2 & command, double lever, bool * saturated) const noexcept
+{
+  Twist2 compensated = command;
+  bool clamped = false;
+  // validateConfig() keeps eta in (0, 1] and |x_ICR| < d / 2; eta = 1, x_ICR = 0 is the identity.
+  const double eta = skid_yaw_rate_efficiency;
+  const double arm = lever - skid_icr_offset;
+  const bool icr = lever != 0.0 && skid_icr_offset != 0.0 && lever * arm > 0.0;
+  if (type == MotionModel::kSkidSteer && eta > 0.0 && (eta < 1.0 || icr)) {
+    const double omega = command.wz * (icr ? lever / arm : 1.0) / eta;
+    clamped = std::abs(omega) > max_angular_vel;
+    compensated.wz = clamp(omega, -max_angular_vel, max_angular_vel);
+  }
+  if (saturated != nullptr) {
+    *saturated = clamped;
+  }
+  return compensated;
 }
 
 namespace sim

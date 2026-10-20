@@ -114,6 +114,8 @@ constexpr CommonParamRow kRows[] = {
   VF_CORE_ROW(motion, min_turning_radius),
   VF_CORE_ROW(motion, ackermann_min_speed),
   VF_CORE_ROW(motion, reference_point_offset),
+  VF_CORE_ROW(motion, skid_yaw_rate_efficiency),
+  VF_CORE_ROW(motion, skid_icr_offset),
   // Phases
   VF_CORE_ROW(phases, use_rotate_to_field),
   VF_CORE_ROW(phases, rotate_to_field_angle),

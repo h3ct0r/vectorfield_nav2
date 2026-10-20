@@ -142,6 +142,35 @@ def test_command_limiter_bounds_acceleration():
     assert nxt.u_prev.vx == cmd.vx
 
 
+def test_command_limiter_brakes_translation_on_its_own():
+    """brake_translation: v brakes at a_dec while omega ramps at alpha_max."""
+    kin = vf.Kinematics.from_config(vf.CoreConfig())
+    state = vf.LimiterState(valid=True, u_prev=vf.Twist2(0.09, 0.0, 0.0))
+    target = vf.Twist2(0.0, 0.0, 1.5)
+    shared = vf.CommandLimiter().limit(target, state, 0.05, kin)[0]
+    cmd = vf.CommandLimiter().limit(target, state, 0.05, kin, brake_translation=True)[0]
+    assert cmd.vx == pytest.approx(0.09 - kin.max_linear_decel * 0.05, abs=1e-15)
+    assert cmd.wz == pytest.approx(kin.max_angular_accel * 0.05, abs=1e-15)
+    assert shared.vx > cmd.vx
+
+
+def test_skid_slip_compensation():
+    """skid_yaw_rate_efficiency and skid_icr_offset: CoreConfig fields, Kinematics compensation."""
+    config = vf.CoreConfig()
+    assert config.motion.skid_yaw_rate_efficiency == 1.0 and config.motion.skid_icr_offset == 0.0
+    config.motion.motion_model = 'skid_steer'
+    config.motion.skid_yaw_rate_efficiency = 0.75
+    config.motion.skid_icr_offset = 0.05
+    kin = vf.Kinematics.from_config(config)
+    assert kin.skid_yaw_rate_efficiency == 0.75 and kin.skid_icr_offset == 0.05
+    sent, saturated = kin.slip_compensated(vf.Twist2(0.3, 0.0, 0.6))
+    assert sent.wz == pytest.approx(0.8) and not saturated
+    sent, _ = kin.slip_compensated(vf.Twist2(0.3, 0.0, 0.6), lever=0.2)
+    assert sent.wz == pytest.approx(0.6 * 0.2 / 0.15 / 0.75)
+    sent, saturated = kin.slip_compensated(vf.Twist2(0.0, 0.0, 1.4))
+    assert sent.wz == kin.max_angular_vel and saturated
+
+
 def test_integrate_exact_arc():
     """sim.integrate follows the exact arc of a constant twist."""
     pose = vf.sim.integrate(vf.Kinematics(), (0.0, 0.0, 0.0), (0.5, 0.0, 0.5), math.pi)

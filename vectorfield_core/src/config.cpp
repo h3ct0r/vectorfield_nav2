@@ -169,6 +169,13 @@ public:
     }
   }
 
+  void halfOpenUnitInterval(const char * name, double value)
+  {
+    if (!finite(value) || !(value > 0.0) || !(value <= 1.0)) {
+      fail(name, value, "must be in (0, 1]");
+    }
+  }
+
   void angle(const char * name, double value)
   {
     if (!finite(value) || !(value > 0.0) || !(value <= kPi)) {
@@ -219,6 +226,15 @@ void checkDomain(const CoreConfig & config, ValidationReport * report)
   check.finiteValue("min_turning_radius", motion.min_turning_radius);
   check.nonNegative("ackermann_min_speed", motion.ackermann_min_speed);
   check.finiteValue("reference_point_offset", motion.reference_point_offset);
+  check.halfOpenUnitInterval("skid_yaw_rate_efficiency", motion.skid_yaw_rate_efficiency);
+  check.finiteValue("skid_icr_offset", motion.skid_icr_offset);
+  // The compensation scales omega by s / (s - x_ICR), s = q d: keep it within (2/3, 2).
+  check.require(
+    motion.motion_model != MotionModel::kSkidSteer || motion.skid_icr_offset == 0.0 ||
+      std::abs(motion.skid_icr_offset) < 0.5 * std::abs(motion.control_point_offset),
+    "skid_icr_offset = " + num(motion.skid_icr_offset) +
+      " must be below control_point_offset / 2 = " +
+      num(0.5 * std::abs(motion.control_point_offset)) + " in magnitude");
 
   const PhaseConfig & phases = config.phases;
   check.angle("rotate_to_field_angle", phases.rotate_to_field_angle);

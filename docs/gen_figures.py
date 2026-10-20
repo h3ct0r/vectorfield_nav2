@@ -169,6 +169,10 @@ def models_convergence(plt):
     for color, model in zip(plotting.SERIES, simulation.MODELS):
         config = vf.CoreConfig()
         simulation.configure(config, model=model)
+        if model == 'skid_steer':
+            # As kinematic_sim_demo: slip compensation set to the simulator's slip.
+            motion = config.motion
+            motion.skid_yaw_rate_efficiency, motion.skid_icr_offset = simulation.SKID_STEER_SLIP
         scenario = simulation.Scenario(
             config, circle, (2.5, 0.0, math.pi / 2), 40.0, slip=simulation.default_slip(config)
         )
@@ -192,17 +196,13 @@ def models_convergence(plt):
         # The earliest group is labelled on its left, the later ones on their right.
         side = (-6, 'right') if k == 0 else (6, 'left')
         ax.annotate(
-            ', '.join(models),
+            '\n'.join(models),
             (t, 1e-3),
             xytext=(side[0], 0),
             textcoords='offset points',
             ha=side[1],
             va='center',
         )
-    ax.axhline(0.05, color=plotting.INK_SECONDARY, lw=0.8, ls='--')
-    ax.annotate(
-        '0.05 m', (40.0, 0.05), xytext=(0, -10), textcoords='offset points', ha='right', fontsize=8
-    )
     ax.set_ylim(plotting.D_FLOOR, 2.0)
     ax.set_xlim(0.0, 40.0)
     ax.set_xlabel('t (s)')

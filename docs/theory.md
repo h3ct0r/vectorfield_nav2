@@ -144,14 +144,16 @@ drives aerial robots through an acceleration-level controller {cite:p}`rezende20
 this project targets ground robots.
 
 :::{figure} _static/figures/models_convergence.svg
-:alt: Distance to a circle over 40 seconds on a log scale for four motion models; three decay exponentially, skid-steer levels off near 6 cm.
+:alt: Distance to a circle over 40 seconds on a log scale for four motion models; all four decay exponentially, Ackermann about a second behind the others.
 :width: 85%
 
 Closed-loop $\lvert D \rvert$ of the four motion models on a circle of radius 1.5 m, starting
 1 m outside it at $v_r = 0.4$ m/s with the default limits (`vf-sim`). Near the curve the decay
 rate is about $G'(0)\, v_r$. The skid-steer plant has `vectorfield_sim`'s slip
 ($\eta_\psi = 0.75$, $x_{\mathrm{ICR}} = 0.05$), which feedback linearisation does not model;
-it settles about 6 cm off the curve.
+the controller compensates it, as `kinematic_sim_demo` does, with `skid_yaw_rate_efficiency`
+0.75 and `skid_icr_offset` 0.05. Without compensation it settles about 6 cm off the curve
+({ref}`skid-slip`).
 :::
 
 ## Open paths: the terminal field

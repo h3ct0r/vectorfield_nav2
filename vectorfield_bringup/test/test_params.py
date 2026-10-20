@@ -333,6 +333,20 @@ def test_require_distro():
     assert 'kinematic_sim_demo' not in str(unset.value)
 
 
+def test_with_slip_compensation_sets_follow_path():
+    """The two compensation keys are set in FollowPath; nothing else changes."""
+    follow = {'motion_model': 'skid_steer', 'skid_icr_offset': 0.0}
+    merged = {'controller_server': {'ros__parameters': {'FollowPath': follow}}, 'other': {}}
+    result = demo.with_slip_compensation(merged, 0.8, -0.02)
+    assert _params(result, 'controller_server')['FollowPath'] == {
+        'motion_model': 'skid_steer',
+        'skid_yaw_rate_efficiency': 0.8,
+        'skid_icr_offset': -0.02,
+    }
+    assert result['other'] == {}
+    assert follow == {'motion_model': 'skid_steer', 'skid_icr_offset': 0.0}, 'not modified'
+
+
 def test_split_list():
     """Launch list arguments accept commas and spaces."""
     assert demo.split_list('') == []

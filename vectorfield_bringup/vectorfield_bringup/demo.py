@@ -14,6 +14,7 @@
 
 """Shared pieces of the demo launch files: distro checks, overlay and map lookup, RViz."""
 
+import copy
 import os
 
 from vectorfield_bringup import params
@@ -127,6 +128,45 @@ def overlay_paths(motion_model, scenarios, share_dir=None):
 def merged_params_file(motion_model, scenarios):
     """Merge the overlays onto nav2_bringup's parameters and return the written file."""
     return params.write_params(params.merge(overlay_paths(motion_model, scenarios)))
+
+
+#: vectorfield_sim's node name and its skid-steer slip defaults (``slip_eta_psi``,
+#: ``slip_x_icr``; ``kSkidSteerSlip`` in vectorfield_sim/plant.hpp).
+SIM = 'vectorfield_sim'
+SIM_SKID_SLIP = (0.75, 0.05)
+
+
+def with_slip_compensation(merged, eta, x_icr):
+    """Return a copy of ``merged`` whose FollowPath compensates a skid slip (``eta``, ``x_icr``).
+
+    Sets ``skid_yaw_rate_efficiency`` and ``skid_icr_offset`` (motion_models.md, skid-slip).
+    """
+    result = copy.deepcopy(merged)
+    controller = result.setdefault('controller_server', {}).setdefault('ros__parameters', {})
+    follow = controller.setdefault('FollowPath', {})
+    follow['skid_yaw_rate_efficiency'] = float(eta)
+    follow['skid_icr_offset'] = float(x_icr)
+    return result
+
+
+def kinematic_sim_params(motion_model, scenarios, share_dir=None):
+    """Merge the overlays for a vectorfield_sim demo; a skid-steer controller compensates its slip.
+
+    For ``skid_steer`` the slip is the merged ``vectorfield_sim`` section's ``slip_eta_psi`` and
+    ``slip_x_icr`` (:data:`SIM_SKID_SLIP` when unset). Both are written to that section and,
+    through :func:`with_slip_compensation`, to FollowPath, so the simulated plant and the
+    controller use the same values. Other models are merged unchanged. ``share_dir`` as in
+    :func:`overlay_paths`.
+    """
+    merged = params.merge(overlay_paths(motion_model, scenarios, share_dir))
+    if motion_model != 'skid_steer':
+        return merged
+    sim = merged.setdefault(SIM, {}).setdefault('ros__parameters', {})
+    eta = float(sim.get('slip_eta_psi', SIM_SKID_SLIP[0]))
+    x_icr = float(sim.get('slip_x_icr', SIM_SKID_SLIP[1]))
+    sim['slip_eta_psi'] = eta
+    sim['slip_x_icr'] = x_icr
+    return with_slip_compensation(merged, eta, x_icr)
 
 
 def follower_parameters(merged):

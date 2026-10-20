@@ -193,7 +193,9 @@ public:
   ///    \f$a_{\mathrm{acc}}\f$ (Appendix C item 11); \f$\alpha_{\max}\f$ for \f$\omega\f$. All axes
   ///    move along one straight line (oracle O48). For a cancel (`stopped_cancel`) the linear
   ///    bound is \f$a_{\mathrm{can}}\f$, or \f$\max(a_{\mathrm{can}}, a_{\mathrm{dec}})\f$ when
-  ///    `in.cancel_hard`.
+  ///    `in.cancel_hard`. With `brake_translation` the translational axes (x, omni y) and
+  ///    \f$\omega\f$ each take their own \f$\alpha\f$, so the translation brakes at its own bound
+  ///    while \f$\omega\f$ ramps (math_spec §8.4 [Design, 0.1.1]).
   /// 2. Ackermann curvature clamp: \f$\lvert\omega\rvert \le \lvert v\rvert/R_{\min}\f$, else
   ///    Status::kCurvatureSaturated.
   /// 3. Non-finite guard: any non-finite component gives \f$u = 0\f$ and Status::kNonFinite.
@@ -206,12 +208,16 @@ public:
   /// @param kinematics Limits and model.
   /// @param stopped_cancel STOPPED because of a cancel.
   /// @param status Status bits are OR-ed into it (may be null).
-  /// @param alpha If not null, receives \f$\alpha\f$ (FieldState.limiter_scale).
+  /// @param alpha If not null, receives \f$\alpha\f$ (FieldState.limiter_scale); with
+  /// `brake_translation`, the smaller of the translational and the angular \f$\alpha\f$.
+  /// @param brake_translation The phase's translational target is zero (ROTATE_TO_FIELD,
+  /// ROTATE_TO_HEADING, STOPPED): the translational axes decelerate at their own bound,
+  /// independently of \f$\omega\f$, instead of sharing \f$\omega\f$'s \f$\alpha\f$.
   /// @return The limited command.
   Twist2 limit(
     const Twist2 & target, const LimiterState & in, LimiterState * out, double dt,
     const Kinematics & kinematics, bool stopped_cancel, std::uint32_t * status,
-    double * alpha = nullptr) const noexcept;
+    double * alpha = nullptr, bool brake_translation = false) const noexcept;
 };
 
 static_assert(std::is_trivially_destructible_v<LimiterState>, "LimiterState is TrackerState data");

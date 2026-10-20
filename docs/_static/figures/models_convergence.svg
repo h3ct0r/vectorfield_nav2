@@ -562,36 +562,21 @@ L 255.487333 232.896
    </g>
    <g id="line2d_63">
     <path d="M 48.390078 20.241455 
-L 50.175678 20.397972 
-L 51.514878 20.721725 
-L 53.746878 21.622664 
-L 56.425278 22.93183 
-L 59.550078 24.71279 
-L 63.121278 27.020406 
-L 67.138878 29.90895 
-L 71.156478 33.068589 
-L 75.620478 36.85265 
-L 81.423678 42.093382 
-L 95.262078 54.754833 
-L 99.279678 58.075626 
-L 102.850878 60.771103 
-L 106.422078 63.186845 
-L 109.546878 65.055151 
-L 112.671678 66.691174 
-L 115.796478 68.101149 
-L 119.367678 69.453274 
-L 122.938878 70.555939 
-L 126.956478 71.53892 
-L 130.974078 72.295175 
-L 135.884478 72.976489 
-L 141.241278 73.49169 
-L 147.937278 73.905327 
-L 156.865278 74.212245 
-L 169.810878 74.40675 
-L 193.470078 74.49947 
-L 291.231678 74.51621 
-L 405.063678 74.516218 
-L 405.063678 74.516218 
+L 49.729278 20.415479 
+L 51.068478 20.88109 
+L 52.407678 21.556202 
+L 55.086078 23.300092 
+L 59.996478 26.737176 
+L 64.460478 30.140456 
+L 68.924478 33.82538 
+L 73.834878 38.191063 
+L 79.191678 43.277692 
+L 85.441278 49.536481 
+L 93.922878 58.376689 
+L 107.761278 73.171338 
+L 147.937278 116.584102 
+L 255.461201 232.896 
+L 255.461201 232.896 
 " clip-path="url(#pac8c88c20f)" style="fill: none; stroke: #eb6834; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
    <g id="line2d_64">
@@ -644,11 +629,6 @@ L 274.365011 232.896
 L 274.365011 232.896 
 " clip-path="url(#pac8c88c20f)" style="fill: none; stroke: #eda100; stroke-width: 1.6; stroke-linecap: square"/>
    </g>
-   <g id="line2d_66">
-    <path d="M 48.390078 77.411531 
-L 405.510078 77.411531 
-" clip-path="url(#pac8c88c20f)" style="fill: none; stroke-dasharray: 2.96,1.28; stroke-dashoffset: 0; stroke: #52514e; stroke-width: 0.8"/>
-   </g>
    <g id="patch_3">
     <path d="M 48.390078 195.696 
 L 48.390078 7.2 
@@ -660,52 +640,48 @@ L 405.510078 195.696
 " style="fill: none; stroke: #52514e; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
    </g>
    <g id="text_17">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end" x="405.510078" y="69.516218" transform="rotate(-0 405.510078 69.516218)">skid_steer</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(102.358259 143.406)">omnidirectional</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(123.553259 154.208461)">differential</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif" transform="translate(126.686384 165.010922)">skid_steer</text>
    </g>
    <g id="text_18">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end" x="172.292478" y="154.208461" transform="rotate(-0 172.292478 154.208461)">omnidirectional, differential</text>
-   </g>
-   <g id="text_19">
     <text style="font-size: 9px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="195.452478" y="154.208461" transform="rotate(-0 195.452478 154.208461)">ackermann</text>
    </g>
-   <g id="text_20">
-    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: end" x="405.510078" y="87.411531" transform="rotate(-0 405.510078 87.411531)">0.05 m</text>
-   </g>
    <g id="legend_1">
-    <g id="line2d_67">
+    <g id="line2d_66">
      <path d="M 313.746328 82.7255 
 L 321.746328 82.7255 
 L 329.746328 82.7255 
 " style="fill: none; stroke: #2a78d6; stroke-width: 1.6; stroke-linecap: square"/>
     </g>
-    <g id="text_21">
+    <g id="text_19">
      <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="336.146328" y="85.5255" transform="rotate(-0 336.146328 85.5255)">differential</text>
     </g>
-    <g id="line2d_68">
+    <g id="line2d_67">
      <path d="M 313.746328 94.726125 
 L 321.746328 94.726125 
 L 329.746328 94.726125 
 " style="fill: none; stroke: #eb6834; stroke-width: 1.6; stroke-linecap: square"/>
     </g>
-    <g id="text_22">
+    <g id="text_20">
      <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="336.146328" y="97.526125" transform="rotate(-0 336.146328 97.526125)">skid_steer</text>
     </g>
-    <g id="line2d_69">
+    <g id="line2d_68">
      <path d="M 313.746328 106.72675 
 L 321.746328 106.72675 
 L 329.746328 106.72675 
 " style="fill: none; stroke: #1baf7a; stroke-width: 1.6; stroke-linecap: square"/>
     </g>
-    <g id="text_23">
+    <g id="text_21">
      <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="336.146328" y="109.52675" transform="rotate(-0 336.146328 109.52675)">omnidirectional</text>
     </g>
-    <g id="line2d_70">
+    <g id="line2d_69">
      <path d="M 313.746328 118.727375 
 L 321.746328 118.727375 
 L 329.746328 118.727375 
 " style="fill: none; stroke: #eda100; stroke-width: 1.6; stroke-linecap: square"/>
     </g>
-    <g id="text_24">
+    <g id="text_22">
      <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start" x="336.146328" y="121.527375" transform="rotate(-0 336.146328 121.527375)">ackermann</text>
     </g>
    </g>

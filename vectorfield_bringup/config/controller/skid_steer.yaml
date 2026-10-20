@@ -34,6 +34,13 @@ controller_server:
       max_angular_accel: 3.2
       # Floor of in-place rotations, to overcome the static friction of skidding wheels.
       min_in_place_angular_vel: 0.25
+      # Slip compensation, off. Identify both on the real robot before setting them: the
+      # measured over the commanded yaw rate of a slow in-place turn (IMU, not wheel odometry),
+      # and the body-x of the centre of rotation from base_link's lateral drift in a turn
+      # (docs/motion_models.md, "Skid-steer slip compensation"). Wrong values over-steer.
+      # kinematic_sim_demo sets them to vectorfield_sim's slip (0.75, 0.05).
+      skid_yaw_rate_efficiency: 1.0
+      skid_icr_offset: 0.0
 
 # Only the motion-model overlays set these, as full [x, y, theta] lists: x and theta at least the
 # controller limits (decelerations negative), y zero for a base without lateral motion.
