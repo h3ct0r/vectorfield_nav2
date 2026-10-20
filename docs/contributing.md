@@ -32,3 +32,9 @@ sphinx-build -W --keep-going -b html docs docs/_build/html
 The figures in `docs/_static/figures/` are committed, because the docs job does not build the
 C++ bindings: after changing the field, the tracker or the plotting helpers, regenerate them with
 `pip install './vectorfield_py[tools]' && python docs/gen_figures.py` and commit the result.
+
+The RViz screenshots and the demo GIF in `docs/_static/screenshots/` are captures of
+`kinematic_sim_demo` with the shipped `rviz/vectorfield.rviz`, taken on Jazzy under a virtual X
+server (Xvfb) with software rendering. Retake them when the markers, their colours or the RViz
+configuration change; {doc}`visualization` lists the scenario of each. Keep each PNG under
+300 KB and the GIF under 3 MB. The pre-commit hooks skip both image directories.

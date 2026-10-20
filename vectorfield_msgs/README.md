@@ -2,9 +2,8 @@
 
 ROS 2 interface definitions for the vectorfield_nav2 stack.
 
-**Status:** complete at M0 (version 0.x). The definitions can still change until they are
-frozen: `FieldState` at M2, `Curve` and `FollowCurve` at M5. Once released into a distro they
-evolve only by adding new types.
+**Status:** complete; `FieldState` was frozen at M2, `Curve` and `FollowCurve` at M5. Once
+released into a distro, the definitions evolve only by adding new types.
 
 ## Interfaces
 
@@ -63,8 +62,8 @@ Feedback: `distance_to_curve`, `arc_length`, `remaining_arc_length` (+Inf when `
 - All vectors are expressed in `header.frame_id`. `distance_to_end` is NaN for closed curves;
   `obstacle_distance` and `free_arc_length` are +Inf when there is no obstacle or collision.
 
-From M2, the phase and status constants are checked at compile time (`static_assert`) against
-the enums in `vectorfield_core`.
+The phase and status constants are checked at compile time (`static_assert`) against the enums
+in `vectorfield_core`.
 
 See the [documentation](https://h3ct0r.github.io/vectorfield_nav2/) for the theory behind the
 field quantities (`g`, `h`, `eta`, `feedforward`, `field`).

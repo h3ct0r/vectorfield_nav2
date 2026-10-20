@@ -29,26 +29,29 @@ upstream defects that motivated this decision is in the design documents
 
 ## Features
 
-Each feature lists the milestone that delivers it (see the {doc}`roadmap`).
-
-- **Field** (M1): the static and time-varying field $\Phi = \eta\Phi_S + \Phi_T$, with `atan` or
-  `rational` gain functions. A terminal field brings the robot to a stop at the end of an open
-  path.
-- **Motion models** (M1–M2): differential, skid-steer, omnidirectional and Ackermann. Feedback
-  linearisation, heading tracking and holonomic tracking laws, with rotate-to-field,
-  final-approach and rotate-to-heading phases.
-- **Safety** (M1–M2): velocity limits that scale the field instead of clipping single axes, an
+- **Field:** the static and time-varying field $\Phi = \eta\Phi_S + \Phi_T$, with `atan` or
+  `rational` gain functions. A terminal field brakes the robot to a stop at the end of an open
+  path instead of cutting the speed at the last sample.
+- **Motion models:** differential, skid-steer, omnidirectional and Ackermann, with feedback
+  linearisation, heading tracking and holonomic tracking laws, and the rotate-to-field,
+  final-approach and rotate-to-heading phases ({doc}`motion_models`).
+- **Safety:** velocity limits that scale the field instead of clipping single axes, an
   acceleration limiter, and collision prediction by rollout on the local costmap with a braking
-  cap.
-- **Obstacle contouring** (M1–M3): the obstacle extension of the thesis (§3.4) on the costmap,
-  gated so that it engages only when the path is blocked, with a latched side and a watchdog.
-- **Visualization** (M2): RViz and Foxglove markers that show the phase, the field components,
-  the prediction and the obstacle state. See {doc}`visualization`.
-- **Curve follower** (M5): polylines, muParser expressions, built-in shapes (ellipse,
-  lemniscates, superellipse, Lissajous, rounded rectangle, regular polygon) and moving frames.
-- **Python** (M4): the `vectorfield` bindings and the `vf-plot`, `vf-sim`, `vf-tune` and
-  `vf-curve` command-line tools.
-- **Distros:** Humble, Jazzy and Lyrical, with Rolling built nightly. See {doc}`distro_matrix`.
+  cap. A blocked robot raises `NoValidControl`, so Nav2 replans or recovers.
+- **Obstacle contouring:** the obstacle extension of the thesis (§3.4) on the costmap, gated so
+  that it engages only when the path ahead is blocked, with a latched circulation side and a
+  watchdog ({doc}`obstacle_avoidance`).
+- **Visualization:** RViz and Foxglove markers that show the phase, the field components, the
+  command, the prediction and the obstacle state ({doc}`visualization`).
+- **Curve follower:** polylines, muParser expressions $r(s, t)$, built-in shapes (ellipse,
+  lemniscates, superellipse, Lissajous, rounded rectangle, regular polygon), laps, moving curve
+  frames and an interlock with Nav2's own actions ({doc}`curve_follower`).
+- **Python:** the `vectorfield` bindings and the `vf-plot`, `vf-sim`, `vf-tune` and `vf-curve`
+  command-line tools, installable with pip from a checkout, without ROS.
+- **Distros:** Humble, Jazzy and Lyrical, with Rolling built nightly ({doc}`distro_matrix`).
+
+Milestones M0 to M5 are complete; M6 (documentation and the 0.1.0 release) is in progress. The
+{doc}`roadmap` lists what each milestone delivers, and {doc}`quickstart` runs the demos.
 
 ## Packages
 

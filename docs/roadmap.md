@@ -4,6 +4,8 @@ Development is split into milestones. A milestone is done when its exit criteria
 green on Humble, Jazzy (amd64 and arm64) and Lyrical. Rolling builds nightly without gating
 releases; its failures become issues.
 
+Status: M0 to M5 are done; M6 is in progress; M7 is optional.
+
 | Milestone | Delivers | Exit criteria |
 |---|---|---|
 | **M0** | Design documents (math specification, upstream audit, Nav2 API matrix); repository scaffolding, community files and changelogs; devcontainers, pre-commit and the CI skeleton; `vectorfield_msgs`; this documentation skeleton | Packages build on the CI matrix; the documentation deploys. |

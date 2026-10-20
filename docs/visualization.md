@@ -9,9 +9,14 @@ see, without reading logs:
 - what it **predicts**;
 - what is **blocking** it.
 
-:::{note}
-The markers ship with the controller in M2 and the curve follower in M5. Annotated RViz
-screenshots of each phase and a demo GIF are planned for M6.
+:::{figure} _static/screenshots/demo.gif
+:alt: RViz top view of a differential robot that follows a straight plan, circulates around a box that blocks it, rejoins the plan and stops at the goal.
+:width: 100%
+
+`kinematic_sim_demo` on Jazzy with the shipped `rviz/vectorfield.rviz`, 14 s: the robot follows
+the plan (green status), meets an unmapped box on it, contours it on side +1 (`CONTOUR +1`, red
+`contour` text and markers), rejoins the plan, brakes in FINAL_APPROACH (cyan) and stops; the
+markers are cleared when the goal ends. The scenario is the one of {ref}`viz-contour`.
 :::
 
 ## Topics
@@ -28,7 +33,7 @@ same topics under its private namespace (`~/markers`, and so on), plus `~/curve`
 | `<ns>/window` | `nav_msgs/Path` | The conditioned path window the field is built on. |
 | `<ns>/field_state` | `vectorfield_msgs/FieldState` | Every per-cycle value, for plotting. |
 | `<ns>/obstacle_distance` | `nav_msgs/OccupancyGrid` | The obstacle distance transform, scaled 0–100 up to $D'_{\mathrm{in}}$ + 0.5 m. Only with `publish_obstacle_distance`. |
-| `~/curve` (follower only) | defined in M5 | The active curve, published transient local. |
+| `~/curve` (follower only) | `vectorfield_msgs/Curve` | The active curve, published transient local. |
 
 Everything is gated by the `visualize` parameter (default `true`) **and** by each topic's
 subscriber count, so nothing is computed when no viewer is connected. Markers are published from
@@ -87,7 +92,7 @@ hint, obstacle component and gate, so it includes any active contour.
 
 ## Shipped viewer configurations
 
-`vectorfield_bringup` ships, with the M3 demos:
+`vectorfield_bringup` ships:
 
 - `rviz/vectorfield.rviz`: the map, both costmaps, the global plan, the robot model and TF,
   every `markers` namespace, `field_grid`, `window` and `predicted_path`, coloured per the legend.
@@ -111,3 +116,102 @@ In a running demo:
 During an obstacle-contour episode, the `contour` namespace shows the red gate samples, the
 highlighted obstacle cells, the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the
 circulation-side arrow and the watchdog text, and the status reads `CONTOUR +1` or `CONTOUR -1`.
+
+## Screenshots
+
+These are RViz 2 captures of `kinematic_sim_demo` (differential drive, `open_10x10`) on Jazzy,
+with the shipped `rviz/vectorfield.rviz`; only the camera (zoom, centre and angle) differs. In
+some views the camera is turned by 45°, so the robot drives up the screen and the map's border
+appears as a diagonal band. RViz 2 draws each space of a text marker at a fixed width of about
+0.6 m, whatever the text size, so the status line spans several metres at this zoom; the
+words read left to right as in the legend.
+
+### FOLLOW
+
+:::{figure} _static/screenshots/follow.png
+:alt: Robot slightly to the left of a straight plan, with red, green and white field arrows at its control point and a cyan command arrow.
+:width: 100%
+
+FOLLOW (green status: `FOLLOW | v 0.38 w -0.48 | D 0.45 m`). Goal (4, 0) from the origin;
+while the robot drove, a simulated localization jump of 0.45 m to the side
+(`/vectorfield_sim/step_map_to_odom`) moved it off the plan, so the convergence term is large
+enough to see. At the magenta control point: the red convergence arrow toward the path, the
+green circulation arrow along it and the white resulting field. The cyan arrow is the command;
+the yellow sphere, line and arrow are the closest point, the distance $D$ and the tangent; the
+short green line is the predicted path. On the right, the goal with its two cyan rings and the
+cyan goal-yaw arrow; the orange segment is the last `terminal_braking_distance` of the plan
+window. The thin green circle is Nav2's footprint display, still drawn at the pre-jump pose.
+:::
+
+### ROTATE_TO_FIELD
+
+:::{figure} _static/screenshots/rotate_to_field.png
+:alt: Robot turning in place at the top of the view, with a yellow heading arrow and arc; the goal is at the lower left.
+:width: 100%
+
+ROTATE_TO_FIELD (yellow status: `v 0.00 w -1.50`). The goal (−2.5, −2.5) lies behind the robot,
+which starts at the origin facing +x. The robot turns in place: the yellow `heading` arrow is the
+target heading (the direction of the field at the control point) and the yellow arc runs from
+the current heading to it. There is no command arrow, because the linear speed is zero. The
+phase ends once the heading error is below 45°.
+:::
+
+### FINAL_APPROACH
+
+:::{figure} _static/screenshots/final_approach.png
+:alt: Robot on a straight plan just short of the goal, with the goal rings around the goal point and the cyan status text.
+:width: 100%
+
+FINAL_APPROACH (cyan status: `v 0.35 w 0.02 | D 0.00 m | sigma 0.44 m`). Start (1.8, −1.8)
+facing the origin, goal at the origin (view turned by 45°). With 0.44 m of path left, the robot
+tracks the terminal field at `base_link` and brakes toward `min_approach_speed`. The goal shows
+its XY-tolerance and settle rings ($\sigma_{\mathrm{stop}}$), the goal-yaw arrow and the small
+$g_{\mathrm{ref}}$ sphere.
+:::
+
+### ROTATE_TO_HEADING
+
+:::{figure} _static/screenshots/rotate_to_heading.png
+:alt: Robot on the goal turning in place, with a blue target-heading arrow and arc.
+:width: 100%
+
+ROTATE_TO_HEADING (blue status: `v 0.00 w 1.50 | D 0.00 m`). After the previous goal, a second
+goal at the same position with a yaw 90° to the left. The robot is settled, so it only turns in
+place: the blue arrow is the goal yaw and the blue arc the rotation still to do; the cyan arrow is
+the goal-yaw marker of the `goal` namespace.
+:::
+
+(viz-contour)=
+
+### Contour episode
+
+:::{figure} _static/screenshots/contour.png
+:alt: Robot circulating around a box that sits on its plan, with the obstacle cells highlighted, translucent distance discs and red contour text.
+:width: 100%
+
+A contour episode (`obstacle_mode: contour`). Launched with
+`scenarios:=demo_obstacles,<file>` where the file removes the global obstacle layer (see
+{doc}`quickstart`), with a 0.4 m box set at run time on the plan between the start (1.6, −1.6)
+and the goal (−1.6, 1.6). The status reads `CONTOUR +1`, and the red text
+`contour +1 | 0.8/5.0 m | 2/20 s` is the watchdog progress (path length and time of the
+episode against their limits). The `contour` namespace shows the blocking obstacle's cells, the
+path samples that opened the gate (red), the closest obstacle point (red sphere) with its line
+to the evaluation point, the $\lambda$ (orange), $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (yellow)
+rings, drawn as translucent discs, and the orange circulation-side arrow.
+:::
+
+### Blocked
+
+:::{figure} _static/screenshots/blocked.png
+:alt: Robot stopped in front of a wall across its plan, with a red footprint, a red collision cube and the BLOCKED flag in the status text.
+:width: 100%
+
+`BLOCKED` with `obstacle_mode: none`. A wall across the map (an unmapped box 13 m long) blocks
+the plan, and the global obstacle layer is off, so the planner keeps the plan through it. The
+robot has stopped with 0.09 m of free path left, less than `stop_margin`: the status reads
+`v 0.00 w 0.00 | D 0.01 m | BLOCKED` (`STATUS_BLOCKED` and `STATUS_COLLISION_AHEAD`), the
+footprint is red, and the `prediction` namespace shows the colliding pose (red cube) and
+`s_free 0.09 m`. Each blocked cycle raises `NoValidControl`, so Nav2 replans or recovers. With
+`obstacle_mode: contour` the gate opens here but no episode starts, because neither side gets
+past the wall (the dead-end rule of {doc}`obstacle_avoidance`).
+:::

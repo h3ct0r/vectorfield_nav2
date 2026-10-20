@@ -4,31 +4,9 @@ The ROS 2 layer shared by `vectorfield_nav2_controller`, `vectorfield_curve_foll
 `vectorfield_sim`. It connects the ROS-free `vectorfield_core` library to Nav2 on every supported
 distro (Humble, Jazzy, Lyrical; Rolling nightly).
 
-**Status:** skeleton — implemented in M2. At M0 the package resolves its dependencies and ships
-the `vf_link_ament_deps()` CMake helper.
+**Status:** complete (M2). It is a library for those packages and has no node of its own.
 
-## CMake helper: `vf_link_ament_deps()`
-
-`ament_target_dependencies()` is deprecated in Kilted and removed in Lyrical, and on Humble and
-Jazzy some Nav2 packages (for example `nav2_core`) export include directories but no CMake
-target. `vf_link_ament_deps()` covers both cases. For each package it links the imported targets
-in `<pkg>_TARGETS`; when there are none it uses `<pkg>_INCLUDE_DIRS` (as `SYSTEM` includes),
-`<pkg>_LIBRARIES` and `<pkg>_DEFINITIONS`.
-
-```cmake
-find_package(vectorfield_ros REQUIRED)  # also defines vf_link_ament_deps()
-find_package(nav2_core REQUIRED)
-find_package(rclcpp REQUIRED)
-
-add_library(my_plugin SHARED src/my_plugin.cpp)
-vf_link_ament_deps(my_plugin PUBLIC rclcpp nav2_core)
-```
-
-The signature is `vf_link_ament_deps(<target> <PUBLIC|PRIVATE|INTERFACE> <pkg>...)`. Every
-package must already have been found with `find_package()`. The helper is installed to
-`share/vectorfield_ros/cmake` and loaded through `ament_package(CONFIG_EXTRAS ...)`.
-
-## Planned contents (M2)
+## Features
 
 - **`compat.hpp`**: header probes (`VF_HAS_ROS_COMMON`, `VF_HAS_PATH_HANDLER`,
   `VF_HAS_CONTROLLER_EXCEPTIONS`), `VF_CANCEL_RESET_OVERRIDE`, `compat::LifecycleNode`, a
@@ -43,7 +21,7 @@ package must already have been found with `find_package()`. The helper is instal
   `visualization_msgs/MarkerArray`, and `FieldVisualizer`, which publishes them at the end of
   every control cycle.
 
-## Visualization (planned, M2)
+## Visualization
 
 The goal is that anyone watching RViz or Foxglove can tell, without reading logs, which phase
 the robot is in and why, what the field commands, where the robot is heading, what it predicts
@@ -82,3 +60,38 @@ controller, and `~/` in the curve follower.
 
 The colours form one legend shared by the code, the RViz configuration in
 `vectorfield_bringup` and the documentation.
+
+## CMake helper: `vf_link_ament_deps()`
+
+`ament_target_dependencies()` is deprecated in Kilted and removed in Lyrical, and on Humble and
+Jazzy some Nav2 packages (for example `nav2_core`) export include directories but no CMake
+target. `vf_link_ament_deps()` covers both cases. For each package it links the imported targets
+in `<pkg>_TARGETS`; when there are none it uses `<pkg>_INCLUDE_DIRS` (as `SYSTEM` includes),
+`<pkg>_LIBRARIES` and `<pkg>_DEFINITIONS`.
+
+```cmake
+find_package(vectorfield_ros REQUIRED)  # also defines vf_link_ament_deps()
+find_package(nav2_core REQUIRED)
+find_package(rclcpp REQUIRED)
+
+add_library(my_plugin SHARED src/my_plugin.cpp)
+vf_link_ament_deps(my_plugin PUBLIC rclcpp nav2_core)
+```
+
+The signature is `vf_link_ament_deps(<target> <PUBLIC|PRIVATE|INTERFACE> <pkg>...)`. Every
+package must already have been found with `find_package()`. The helper is installed to
+`share/vectorfield_ros/cmake` and loaded through `ament_package(CONFIG_EXTRAS ...)`.
+
+## Parameters
+
+[`params/vectorfield_common_params.yaml`](params/vectorfield_common_params.yaml) defines the keys
+shared by the controller plugin (prefixed with its plugin name) and the curve follower
+(unprefixed). The generated reference is on the
+[parameters page](https://h3ct0r.github.io/vectorfield_nav2/parameters.html) of the
+documentation.
+
+## Benchmarks
+
+`bench/bench_marker_builder.cpp` (non-gating; `-DVF_BUILD_BENCHMARKS=ON` with google-benchmark
+installed) times one full `markers` array (target < 0.2 ms) and the field grid. The reference
+numbers are on the [benchmarks page](https://h3ct0r.github.io/vectorfield_nav2/benchmarks.html).

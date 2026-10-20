@@ -45,3 +45,10 @@ named `vectorfield_sim`. Launch it through `kinematic_sim_demo.launch.py` in
 
 Every parameter except the two obstacle lists is read-only. The pure parts (`KinematicPlant`,
 `RayCaster`, the obstacle parsers) are in the ROS-free library `vectorfield_sim`.
+
+## Limitations
+
+The simulator is kinematic: no dynamics, no wheel or motor model, and noise-free odometry and
+laser (skid-steer slip aside). The laser sees only `/map` and the obstacle lists. It is meant for
+demos and launch tests on every distro; use the Gazebo demos of `vectorfield_bringup` (Jazzy and
+later) for a physics simulation.

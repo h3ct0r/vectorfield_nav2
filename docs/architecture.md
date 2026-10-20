@@ -124,6 +124,43 @@ Obstacle preparation runs once per call, before the rollout: the obstacle compon
 flood-filled on the grid and its distance transform built. Both stay frozen for the rest of the
 cycle, so every rollout step and every field probe sees the same obstacle.
 
+## Tracker phases
+
+`TrackerState` carries the phase from one cycle to the next. The transitions are evaluated in a
+fixed order at the start of each `step`: a new goal resets the goal-scoped state; a cancel or a
+STOPPED-entry status enters STOPPED; settled enters ROTATE_TO_HEADING or goal hold; the
+ROTATE_TO_HEADING exit when XY is lost; the FINAL_APPROACH entry; the ROTATE_TO_FIELD entry and
+exit. {doc}`motion_models` gives the entry and exit conditions in full.
+
+```{graphviz}
+:caption: Tracker phases. STOPPED is latched until the next goal or a reset; BLOCKED is a per-cycle status, not a phase.
+
+digraph phases {
+  rankdir=LR;
+  nodesep=0.35;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11];
+  edge [color="#555555", fontname="Helvetica", fontsize=10, arrowsize=0.7];
+
+  rtf [label="ROTATE_TO_FIELD", fillcolor="#fff6c8"];
+  follow [label="FOLLOW", fillcolor="#e3f4e3"];
+  fa [label="FINAL_APPROACH", fillcolor="#e0f6f8"];
+  rth [label="ROTATE_TO_HEADING", fillcolor="#e3e9f8"];
+  hold [label="goal hold\n(FOLLOW or FINAL_APPROACH,\nzero command)", fillcolor="#f5f5f5"];
+  stopped [label="STOPPED", fillcolor="#f8e3e3"];
+
+  follow -> rtf [label="|e| > π/2"];
+  rtf -> follow [label="|e| < π/4"];
+  follow -> fa [label="σ < final_approach_distance"];
+  fa -> rth [label="settled, yaw checked"];
+  fa -> hold [label="settled, no rotation"];
+  rth -> fa [label="XY lost"];
+  hold -> fa [label="XY lost"];
+  rtf -> fa [label="|e| < π/4, near the goal"];
+  any [label="any phase", shape=plaintext, style=""];
+  any -> stopped [style=dashed, label="cancel, contour watchdog,\nheading infeasible"];
+}
+```
+
 ## State, ownership and threads
 
 - **The `Tracker` owns only configuration.** `Tracker::step` is `const noexcept` and takes the

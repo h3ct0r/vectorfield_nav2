@@ -46,7 +46,10 @@ The common groups (Field, Motion, Phases, Obstacles, Safety, Visualization) come
 are unused. The follower's own keys are in
 [`params/vectorfield_follower_params.yaml`](params/vectorfield_follower_params.yaml): loop rate
 and frames, input timeouts, curve intake limits, moving-frame estimation, the progress watchdog
-and the Nav2 interlock.
+and the Nav2 interlock. The generated
+[parameter reference](https://h3ct0r.github.io/vectorfield_nav2/parameters/follower.html) lists
+every key, and the [curve follower guide](https://h3ct0r.github.io/vectorfield_nav2/curve_follower.html)
+documents the action, the failure table and a keepout-zone recipe.
 
 ## Behaviour
 
@@ -70,3 +73,15 @@ and the Nav2 interlock.
   `vectorfield_msgs`: stale inputs (`STALE_INPUT`) and an untransformable curve frame
   (`TF_ERROR`) after `stale_abort_timeout`, a persistent block or no progress (`BLOCKED`), a curve
   moving faster than Assumption 3 allows (`ASSUMPTION3_VIOLATED`), `max_duration` (`TIMEOUT`).
+
+## Limitations
+
+- No planner: nothing checks the curve against the map. Only obstacles in the local costmap stop
+  the robot; add the static layer (as the bringup overlay does) or a keepout filter for mapped
+  hazards.
+- Open time-varying curves are not supported (`UNSUPPORTED`).
+- The curve must move slower than the robot (Assumption 3), or the goal ends with
+  `ASSUMPTION3_VIOLATED`.
+- No goal yaw: open curves end when the robot settles at the end point.
+- Ackermann bases: no obstacle contouring, as for the controller plugin.
+- Planar only.

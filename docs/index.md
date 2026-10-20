@@ -9,11 +9,12 @@ code is a clean-room C++ implementation of the equations in Rezende's PhD thesis
 {cite:p}`rezende2022thesis`. It targets differential, skid-steer, omnidirectional and Ackermann
 robots on Humble, Jazzy and Lyrical.
 
-:::{admonition} Project status: milestone M0
-:class: warning
+:::{admonition} Project status: 0.1.0 in preparation
+:class: note
 
-The repository holds scaffolding, message definitions, design documents and this site. The core
-library lands in M1, the Nav2 controller in M2 and the curve follower in M5. The
+The core library, the Nav2 controller, the simulator and demos, the Python tools and the curve
+follower are complete (milestones M0 to M5). M6, this documentation and the 0.1.0 release, is
+in progress; until the binary packages are released, build from source ({doc}`quickstart`). The
 {doc}`roadmap` lists what each milestone delivers.
 :::
 

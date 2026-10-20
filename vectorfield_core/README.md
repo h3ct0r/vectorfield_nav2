@@ -6,22 +6,38 @@ Pimenta (IEEE T-RO 38(2), 2022). The Nav2 controller plugin (`vectorfield_nav2_c
 curve follower (`vectorfield_curve_follower`) and the Python bindings (`vectorfield_py`) all
 call the same core code.
 
-**Status: M0 skeleton.** The library exposes only its version. The build, test, sanitizer,
-benchmark and fuzzer mechanics are complete, so M1 adds sources only. M1 adds:
+**Status:** complete (M1); used by every other package. Version 0.x; the C++ API is
+experimental until 1.0.
 
-- curves: polylines, parametric and expression curves, built-in shapes;
-- gain functions and the distance and terminal fields;
-- obstacle contouring on an occupancy grid with a Euclidean distance transform;
-- footprint checks and collision prediction;
-- tracking laws, the command limiter, the `Tracker` and the kinematic simulator.
+## Features
 
-The design is in [`docs/design/math_spec.md`](../docs/design/math_spec.md).
+- **Curves:** polylines with exact segment projection, parametric and muParser expression curves
+  $r(s, t)$, and built-in shapes (ellipse, lemniscates, superellipse, Lissajous, rounded
+  rectangle, regular polygon), with regularity and closure checks.
+- **Fields:** the `atan` and `rational` gain functions, the static and time-varying distance
+  field with the $\eta$ normalisation, and the terminal field that stops at the end of an open
+  curve.
+- **Tracking laws:** feedback linearisation, heading tracking (also for Ackermann) and holonomic,
+  with the rotate-to-field, final-approach and rotate-to-heading phases.
+- **Limits:** a kinematic box that scales the field, and the `CommandLimiter` (acceleration,
+  Ackermann curvature, non-finite guard).
+- **Obstacles:** an occupancy grid with a Euclidean distance and feature transform, footprint
+  checks, collision prediction by rollout with a braking cap, and gated obstacle contouring.
+- **`Tracker`:** one control cycle, `const noexcept`, with the cross-cycle state passed in and
+  out explicitly and caller-owned scratch buffers, so a steady-state cycle does not allocate.
+- **Validation:** `validateConfig()` and the per-plan advisor, with stable issue codes.
+- **Simulation:** exact-arc integration of the four motion models, used by `vectorfield_sim` and
+  the Python `ClosedLoopSimulator`.
+
+The equations, guards and tolerances are specified in
+[`docs/design/math_spec.md`](../docs/design/math_spec.md); the API reference is in the
+[documentation](https://h3ct0r.github.io/vectorfield_nav2/api.html).
 
 ## ROS-free by design
 
 - The only dependency is Eigen 3.4 or newer. Tests use GoogleTest; benchmarks use
   google-benchmark.
-- muParser is vendored under `third_party/` (from M1) and never exposed in public headers.
+- muParser is vendored under `third_party/` and never exposed in public headers.
 - No ROS header, type or library is used. `ament_cmake` is optional and only adds install and
   export rules.
 - Everything is 2D (`Eigen::Vector2d` based). The core and Python APIs are experimental in 0.x.
@@ -55,8 +71,8 @@ same checkout with colcon later. The standalone build defines no install rules.
 | `BUILD_SHARED_LIBS` | `ON` | Shared core. The Python wheel build forces a static core. |
 | `BUILD_TESTING` | `ON` | GoogleTest suite, registered with `gtest_discover_tests`. JUnit files go to `<build>/test_results/vectorfield_core/`. |
 | `VF_WERROR` | `OFF` | Adds `-Werror` to vectorfield_core targets only, never to dependencies. |
-| `VF_BUILD_BENCHMARKS` | `OFF` | google-benchmark targets (non-gating; added in M1). |
-| `VF_BUILD_FUZZERS` | `OFF` | libFuzzer targets (LLVM clang only; added in M1). Combine with the `asan` preset. |
+| `VF_BUILD_BENCHMARKS` | `OFF` | google-benchmark targets `bench_field`, `bench_edt` and `bench_tracker` (non-gating). |
+| `VF_BUILD_FUZZERS` | `OFF` | libFuzzer targets (LLVM clang only). Combine with the `asan` preset. |
 
 ## Build with colcon
 
@@ -82,9 +98,21 @@ target_link_libraries(my_target PRIVATE vectorfield_core::vectorfield_core)
 ```cpp
 #include "vectorfield_core/vectorfield_core.hpp"
 
-static_assert(vectorfield_core::versionAtLeast(0, 0, 1));
-const char * v = vectorfield_core::version();  // "MAJOR.MINOR.PATCH" from package.xml
+namespace vf = vectorfield_core;
+
+vf::CoreConfig config;                       // defaults; validated by the constructor
+config.motion.motion_model = vf::MotionModel::kDifferential;
+const vf::Tracker tracker(config);           // throws vf::ConfigError if invalid
+
+vf::TrackerState state = vf::Tracker::initialState();
+vf::StepScratch scratch;                     // one per thread, reused every cycle
+vf::TrackerInput input;                      // pose, measured twist, curve, goal, obstacles, dt
+// ... fill input each cycle ...
+const vf::TrackerOutput output = tracker.step(input, state, &state, scratch);
+// output.cmd is the body twist; output.phase and output.status explain it.
 ```
+
+`vectorfield_core::version()` returns the version string.
 
 `package.xml` is the only source of the version. CMake reads it before `project()` and writes
 `vectorfield_core/version.hpp` (`VF_CORE_VERSION_MAJOR`, `_MINOR`, `_PATCH`, `_STR`) into the
