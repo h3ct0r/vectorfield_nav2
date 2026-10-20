@@ -19,8 +19,18 @@ in simulated time and, should the clock stall, in wall time too (:data:`WALL_PER
 :data:`WALL_GRACE`). Nav2 readiness is checked with our own lifecycle ``get_state`` calls, each
 with a timeout and retried, rather than ``BasicNavigator.waitUntilNav2Active``, which waits forever
 for a dropped response.
+
+Service clients are created once and kept until :meth:`NavHarness.close`: on Humble, destroying a
+client while the executor holds it in a ready wait set raises ``InvalidHandle`` in the spin thread
+(rclpy ``executors.py``, ``_take_client``; Jazzy and later catch it), which then stops spinning, so
+every later wait times out. Should the spin thread stop anyway, the waits raise its exception.
+
+/clock keeps only its latest message while the pose subscription queues them, so under load the
+latest received pose can be older than :meth:`NavHarness.now`. Positions checked at a given time
+are read by stamp (:meth:`NavHarness.pose_at`), not as the latest message.
 """
 
+import faulthandler
 import math
 import threading
 import time
@@ -186,6 +196,7 @@ class NavHarness:
         self._failures = []
         self._infeasible = None
         self.map = None
+        self._abandoned = []
         self._start()
 
     def _start(self):
@@ -208,6 +219,7 @@ class NavHarness:
         node.create_subscription(Path, '/plan', self._on_plan, history)
         node.create_subscription(BehaviorTreeLog, '/behavior_tree_log', self._on_bt_log, history)
         node.create_subscription(OccupancyGrid, '/map', self._on_map, latched)
+        self._clients = {}
         self.tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self.tf_buffer, node)
         if self._ground_truth:
@@ -223,12 +235,48 @@ class NavHarness:
 
         self._executor = MultiThreadedExecutor(num_threads=4, context=self._context)
         self._executor.add_node(node)
-        self._thread = threading.Thread(target=self._executor.spin, daemon=True)
+        self._spin_error = None
+        self._closed = False
+        self._thread = threading.Thread(target=self._spin, daemon=True)
         self._thread.start()
 
+    def _spin(self):
+        """Spin the executor; keep the exception that stops it, for the waits to raise."""
+        try:
+            self._executor.spin()
+        except Exception as error:
+            self._spin_error = error
+            raise
+
+    def _check_spinning(self):
+        if self._spin_error is not None:
+            raise AssertionError(f'the test client stopped spinning: {self._spin_error!r}')
+
+    def _client(self, service_type, name):
+        """Return the client of service ``name``, created on first use and kept until close."""
+        key = (service_type, name)
+        if key not in self._clients:
+            self._clients[key] = self.node.create_client(service_type, name)
+        return self._clients[key]
+
+    def _restart(self):
+        """Start over with a new node and participant; the old ones are only stopped spinning.
+
+        Destroying the node of a participant that discovers nothing has blocked for good
+        (Lyrical: ``destroy_node``, in ``destroy_publisher``), so it is kept, unused, until the
+        process exits.
+        """
+        self._executor.shutdown(timeout_sec=5.0)
+        self._thread.join(timeout=5.0)
+        self._abandoned.append((self._executor, self.node, self._context))
+        self._start()
+
     def close(self):
-        """Stop spinning and destroy the node."""
-        self._executor.shutdown()
+        """Stop spinning and destroy the node (once)."""
+        if self._closed:
+            return
+        self._closed = True
+        self._executor.shutdown(timeout_sec=10.0)
         self._thread.join(timeout=10.0)
         self.node.destroy_node()
         rclpy.shutdown(context=self._context)
@@ -310,6 +358,7 @@ class NavHarness:
         start = self.now()
         wall_deadline = time.monotonic() + WALL_PER_SIM * timeout + WALL_GRACE
         while not predicate():
+            self._check_spinning()
             if self.now() - start > timeout or time.monotonic() > wall_deadline:
                 return predicate()
             time.sleep(0.02)
@@ -322,6 +371,7 @@ class NavHarness:
     def _wait_wall(self, predicate, timeout):
         deadline = time.monotonic() + timeout
         while not predicate():
+            self._check_spinning()
             if time.monotonic() > deadline:
                 return predicate()
             time.sleep(0.02)
@@ -340,39 +390,52 @@ class NavHarness:
     def wait_until_active(self, timeout=180.0):
         """Wait until /clock runs, every :data:`NAV2_NODES` node is active and the robot is placed.
 
+        On failure the client is closed (``tearDownClass`` does not run after a failed
+        ``setUpClass``).
+
         Raises:
             AssertionError: If something is not ready within ``timeout`` wall seconds.
 
         """
+        # Should start-up hang anyway, the thread stacks show where (in the test log).
+        faulthandler.dump_traceback_later(timeout + 60.0)
+        try:
+            self._wait_until_active(timeout)
+        except BaseException:
+            self.close()
+            raise
+        finally:
+            faulthandler.cancel_dump_traceback_later()
+
+    def _wait_until_active(self, timeout):
         deadline = time.monotonic() + timeout
 
         def remaining():
             return max(deadline - time.monotonic(), 0.0)
 
         # Rarely (seen on Lyrical, after the previous test's processes were killed), the new
-        # participant discovers nothing; a fresh one does.
+        # participant discovers nothing, or gets /clock but no service answer; a fresh one does.
+        first = NAV2_NODES[0]
         for attempt in range(3):
-            if self._wait_wall(lambda: self.now() > 0.0, min(40.0, remaining())):
+            clock = self._wait_wall(lambda: self.now() > 0.0, min(40.0, remaining()))
+            if (
+                clock
+                and self._get_state(first, min(40.0, remaining()), lambda _: True) is not None
+            ):
                 break
-            publishers = self.node.count_publishers('/clock')
-            if attempt == 2 or remaining() <= 0.0:
-                raise AssertionError(f'no /clock ({publishers} publishers discovered)')
-            print(f'no /clock ({publishers} publishers discovered); new node', flush=True)
-            self.close()
-            self._start()
-        for name in NAV2_NODES:
-            client = self.node.create_client(GetState, f'/{name}/get_state')
-            active = False
-            while not active and remaining() > 0.0:
-                response = self._call(client, GetState.Request(), min(5.0, remaining()))
-                active = (
-                    response is not None
-                    and response.current_state.id == State.PRIMARY_STATE_ACTIVE
+            if not clock:
+                problem = (
+                    f'no /clock ({self.node.count_publishers("/clock")} publishers discovered)'
                 )
-                if not active:
-                    time.sleep(0.5)
-            self.node.destroy_client(client)
-            if not active:
+            else:
+                ready = self._client(GetState, f'/{first}/get_state').service_is_ready()
+                problem = f'{first} never answered get_state (service ready: {ready})'
+            if attempt == 2 or remaining() <= 0.0:
+                raise AssertionError(problem)
+            print(f'{problem}; new node', flush=True)
+            self._restart()
+        for name in NAV2_NODES:
+            if not self.wait_lifecycle_active(name, remaining()):
                 raise AssertionError(f'{name} is not active after {timeout:.0f} s')
         if not self._wait_wall(
             lambda: self.tf_buffer.can_transform('map', 'base_scan', Time()),
@@ -383,6 +446,31 @@ class NavHarness:
             raise AssertionError('no navigate_to_pose action server')
         if not self._wait_wall(lambda: self.map is not None and self.pose() is not None, 30.0):
             raise AssertionError('no /map or no true pose')
+
+    def wait_lifecycle_active(self, name, timeout):
+        """Return whether lifecycle node ``name`` reports active within ``timeout`` wall s."""
+        active = State.PRIMARY_STATE_ACTIVE
+        return self._get_state(name, timeout, lambda state: state == active) == active
+
+    def _get_state(self, name, timeout, accept):
+        """Call ``name``'s get_state until ``accept(state id)``; return the last state id.
+
+        None if it never answered within ``timeout`` wall seconds. Each call has its own timeout,
+        so a dropped response costs one retry.
+        """
+        client = self._client(GetState, f'/{name}/get_state')
+        deadline = time.monotonic() + timeout
+        state = None
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0.0:
+                return state
+            response = self._call(client, GetState.Request(), min(5.0, remaining))
+            if response is not None:
+                state = response.current_state.id
+                if accept(state):
+                    return state
+            time.sleep(0.5)
 
     # Navigation ----------------------------------------------------------------------------------
 
@@ -426,8 +514,12 @@ class NavHarness:
         return self.episode(goal.start, status)
 
     def episode(self, start, status, end=None):
-        """Return the :class:`Episode` from ``start`` to ``end`` (default: now)."""
+        """Return the :class:`Episode` from ``start`` to ``end`` (default: now).
+
+        Waits (at most 10 wall s) until the true poses up to ``end`` have arrived.
+        """
         end = self.now() if end is None else end
+        self._wait_wall(lambda: self._latest_pose_stamp() >= end, 10.0)
         with self._lock:
             samples = [s for s in self._samples if start <= s.t <= end]
             poses = [p for p in self._poses if start <= p.t <= end]
@@ -436,9 +528,40 @@ class NavHarness:
     # Observations --------------------------------------------------------------------------------
 
     def pose(self):
-        """Return the latest true pose (:class:`PoseSample`), or None."""
+        """Return the latest received true pose (:class:`PoseSample`), or None.
+
+        Under load it can lag :meth:`now`; use :meth:`pose_at` for the pose at a given time.
+        """
         with self._lock:
             return self._poses[-1] if self._poses else None
+
+    def _latest_pose_stamp(self):
+        with self._lock:
+            return self._poses[-1].t if self._poses else -math.inf
+
+    def pose_at(self, t, timeout=10.0):
+        """Return the first true pose stamped at or after ``t`` (sim s), waiting for it to arrive.
+
+        Raises:
+            AssertionError: If no such pose arrives within ``timeout`` wall seconds.
+
+        """
+        lag = t - self._latest_pose_stamp()
+        if not self._wait_wall(lambda: self._latest_pose_stamp() >= t, timeout):
+            raise AssertionError(f'no true pose stamped at or after t = {t:.2f} s: {self.pose()}')
+        if lag > 0.1:
+            print(f'the true pose lagged t = {t:.2f} s by {lag:.2f} s', flush=True)
+        with self._lock:
+            index = len(self._poses) - 1
+            while index > 0 and self._poses[index - 1].t >= t:
+                index -= 1
+            return self._poses[index]
+
+    def settled_pose(self, settle):
+        """Wait ``settle`` simulated seconds; return the true pose stamped at the end."""
+        target = self.now() + settle
+        self.sleep(settle)
+        return self.pose_at(target)
 
     def field_samples_since(self, start):
         """Return the field_state samples stamped at or after ``start``."""
@@ -489,9 +612,7 @@ class NavHarness:
                 type=ParameterType.PARAMETER_DOUBLE, double_value=float(value)
             )
         request = SetParameters.Request(parameters=[ParameterMessage(name=name, value=message)])
-        client = self.node.create_client(SetParameters, f'/{node_name}/set_parameters')
-        response = self._call(client, request)
-        self.node.destroy_client(client)
+        response = self._call(self._client(SetParameters, f'/{node_name}/set_parameters'), request)
         if response is None or not response.results[0].successful:
             raise AssertionError(f'{node_name} rejected {name} = {value}: {response}')
 
@@ -507,20 +628,16 @@ class NavHarness:
         request.pose.pose.pose.position.y = float(y)
         request.pose.pose.pose.orientation.z = math.sin(0.5 * yaw)
         request.pose.pose.pose.orientation.w = math.cos(0.5 * yaw)
-        client = self.node.create_client(SetInitialPose, '/vectorfield_sim/step_map_to_odom')
+        client = self._client(SetInitialPose, '/vectorfield_sim/step_map_to_odom')
         response = self._call(client, request)
-        self.node.destroy_client(client)
         if response is None:
             raise AssertionError('vectorfield_sim did not answer step_map_to_odom')
 
     def clear_costmaps(self):
         """Clear both costmaps entirely."""
         for costmap in ('local_costmap', 'global_costmap'):
-            client = self.node.create_client(
-                ClearEntireCostmap, f'/{costmap}/clear_entirely_{costmap}'
-            )
+            client = self._client(ClearEntireCostmap, f'/{costmap}/clear_entirely_{costmap}')
             response = self._call(client, ClearEntireCostmap.Request())
-            self.node.destroy_client(client)
             if response is None:
                 raise AssertionError(f'{costmap} was not cleared')
 

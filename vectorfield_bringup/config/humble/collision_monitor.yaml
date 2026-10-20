@@ -13,9 +13,9 @@
 # limitations under the License.
 
 # Humble only (plan section 8): Humble's navigation_launch.py has no collision_monitor, and its
-# velocity smoother and behaviour server both publish cmd_vel. The demos therefore include
-# nav2_collision_monitor/launch/collision_monitor_node.launch.py with this file (that launch
-# file brings its own autostart lifecycle manager), and vectorfield_sim listens on cmd_vel_safe.
+# velocity smoother and behaviour server both publish cmd_vel. The demos therefore start
+# collision_monitor with this file under their own lifecycle_manager_collision_monitor, in the
+# Nav2 component container, and vectorfield_sim listens on cmd_vel_safe.
 # Real Humble robots use the same wiring. The polygon mirrors the stock Jazzy chain: slow down
 # when the footprint would hit a laser point within 1.2 s.
 

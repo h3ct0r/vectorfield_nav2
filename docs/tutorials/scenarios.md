@@ -301,15 +301,17 @@ ros2 launch vectorfield_bringup tb4_gazebo_demo.launch.py
 **Overlay.** The differential overlay (or `motion_model:=skid_steer`), merged onto the stock
 parameters as in the kinematic demo. The launch files include nav2_bringup's
 `tb3_simulation_launch.py` and `tb4_simulation_launch.py` with their maps (`tb3_sandbox`,
-`depot`), and publish the initial pose at the spawn pose: (−2, −0.5) for the TB3 and (−8, 0) for
-the TB4.
+`depot`), and publish the initial pose at the spawn pose: (−2, −0.5) for the TB3; the TB4 spawns
+at (−8, 0) in its world, which is the origin of the depot map, so its initial pose is (0, 0).
+Both have been run headless on Jazzy: a goal 1 m (TB3) and 2 m (TB4) ahead of the spawn pose
+succeeded.
 
 **In RViz.** The particle cloud of AMCL around the robot, then the same markers as in the
 kinematic demo. Send goals with **2D Goal Pose** in free space of the map. Gazebo runs without
 its GUI; `headless:=False` shows it.
 
-**Tweak.** `x_pose`, `y_pose` and `yaw` move the spawn pose; `map:=` takes a map YAML that
-matches the world.
+**Tweak.** `x_pose`, `y_pose` and `yaw` move the spawn pose in the world, and the initial pose
+with it; `map:=` takes a map YAML that matches the world.
 
 ## Nav2 loopback simulator (Jazzy and later)
 

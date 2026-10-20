@@ -19,7 +19,8 @@ base_link -> base_scan, map_server under lifecycle_manager_map_server, Nav2's
 navigation_launch.py with the merged parameters (plus lifecycle_manager_navigation on Lyrical
 and later, whose navigation_launch.py has none), initial_pose_publisher and RViz. With
 ``use_composition`` (the default) map_server, the Nav2 servers and the managers share one
-component container, as in nav2_bringup. On Humble, collision_monitor turns ``cmd_vel`` into
+component container, as in nav2_bringup. On Humble, collision_monitor (under
+lifecycle_manager_collision_monitor, in the same container) turns ``cmd_vel`` into
 ``cmd_vel_safe`` and the simulator listens there; on Jazzy and later the stock smoother ->
 collision_monitor -> ``cmd_vel`` chain is used as is.
 
@@ -117,28 +118,36 @@ def _launch_setup(context, distro):
         managed.append(
             _lifecycle_manager('lifecycle_manager_navigation', navigation_nodes, composed)
         )
+    if humble:
+        # Humble's navigation_launch.py has no collision_monitor; this one turns cmd_vel into
+        # cmd_vel_safe. Composed, it shares the container with its manager: a manager in another
+        # process can lose a change_state response to discovery under load ("failed to send
+        # response ... client will not receive response"), and Humble's manager then waits for
+        # it forever.
+        managed += [
+            _lifecycle_node(
+                'nav2_collision_monitor',
+                'nav2_collision_monitor::CollisionMonitor',
+                'collision_monitor',
+                'collision_monitor',
+                [demo.share('config', 'humble', 'collision_monitor.yaml'), {'use_sim_time': True}],
+                composed,
+            ),
+            _lifecycle_manager(
+                'lifecycle_manager_collision_monitor', ['collision_monitor'], composed
+            ),
+        ]
     if composed:
-        # nav2_bringup's container: component_container_isolated up to Kilted, where Lyrical
-        # deprecates it for component_container --isolated.
-        if distro in ('humble', 'jazzy', 'kilted'):
-            container = {'executable': 'component_container_isolated', 'arguments': []}
-        else:
-            container = {
-                'executable': 'component_container',
-                'arguments': ['--isolated', '--executor-type', 'single-threaded'],
-            }
         managed = [
-            Node(
-                package='rclcpp_components',
-                name=CONTAINER,
-                # As in nav2_bringup: the container's parameter file is the only one that
-                # reaches the costmaps' own nodes (local_costmap/local_costmap and so on).
-                parameters=[
+            # As in nav2_bringup: the container's parameter file is the only one that reaches
+            # the costmaps' own nodes (local_costmap/local_costmap and so on).
+            demo.component_container(
+                CONTAINER,
+                [
                     ParameterFile(params_file, allow_substs=True),
                     {'autostart': True, 'use_sim_time': True},
                 ],
-                output='screen',
-                **container,
+                distro,
             ),
             LoadComposableNodes(target_container=CONTAINER, composable_node_descriptions=managed),
         ]
@@ -183,21 +192,6 @@ def _launch_setup(context, distro):
         demo.initial_pose_node(pose['x'], pose['y'], pose['yaw']),
         demo.rviz_node(LaunchConfiguration('use_rviz')),
     ]
-    if humble:
-        monitor_launch = os.path.join(
-            get_package_share_directory('nav2_collision_monitor'),
-            'launch',
-            'collision_monitor_node.launch.py',
-        )
-        actions.append(
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(monitor_launch),
-                launch_arguments={
-                    'use_sim_time': 'True',
-                    'params_file': demo.share('config', 'humble', 'collision_monitor.yaml'),
-                }.items(),
-            )
-        )
     return actions
 
 

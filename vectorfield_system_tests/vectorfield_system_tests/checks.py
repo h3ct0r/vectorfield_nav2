@@ -67,8 +67,7 @@ def check_goal(test, nav, episode, goal, motion_model):
         error, tracking_limit(motion_model), f'{label}: max |D| after convergence {error:.3f} m'
     )
     # Where the robot comes to rest (the loopback simulator's TF also lags by up to a clock tick).
-    nav.sleep(SETTLE_TIME)
-    final = nav.pose()
+    final = nav.settled_pose(SETTLE_TIME)
     miss = math.hypot(final.x - x, final.y - y)
     test.assertLessEqual(
         miss, XY_GOAL_TOLERANCE + STOP_SLACK, f'{label}: stopped {miss:.3f} m from the goal'

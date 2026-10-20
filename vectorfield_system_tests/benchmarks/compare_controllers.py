@@ -242,11 +242,8 @@ class RecordingHarness(NavHarness):
 
     def get_parameters(self, node_name, names, timeout=10.0):
         """Return ``{name: value}`` of a node's parameters (None for an unset one)."""
-        client = self.node.create_client(GetParameters, f'/{node_name}/get_parameters')
-        try:
-            response = self._call(client, GetParameters.Request(names=list(names)), timeout)
-        finally:
-            self.node.destroy_client(client)
+        client = self._client(GetParameters, f'/{node_name}/get_parameters')
+        response = self._call(client, GetParameters.Request(names=list(names)), timeout)
         if response is None:
             raise RuntimeError(f'/{node_name}/get_parameters did not answer')
         if len(response.values) != len(names):

@@ -15,8 +15,8 @@
 """Nav2 with the vector-field controller on the Gazebo TurtleBot4 simulation (Jazzy and later).
 
 Includes nav2_bringup's tb4_simulation_launch.py (nav2_minimal_tb4_sim's depot world, AMCL and
-Nav2) with the merged parameters, initial_pose_publisher at the spawn pose and RViz with
-vectorfield.rviz.
+Nav2) with the merged parameters, initial_pose_publisher at the spawn pose (the world's (-8, 0)
+is the origin of the depot map) and RViz with vectorfield.rviz.
 
 Example::
 
@@ -28,4 +28,5 @@ from vectorfield_bringup import demo
 
 def generate_launch_description():
     """Build the Gazebo TurtleBot4 demo."""
-    return demo.gazebo_demo('tb4', 'depot', x=-8.0, y=0.0, yaw=0.0)
+    # The depot map's origin is the spawn point: map = world + (8, 0).
+    return demo.gazebo_demo('tb4', 'depot', x=-8.0, y=0.0, yaw=0.0, map_offset=(8.0, 0.0))

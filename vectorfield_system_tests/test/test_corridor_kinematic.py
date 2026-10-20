@@ -119,7 +119,7 @@ class TestCorridor(unittest.TestCase):
         # The end wall's face is at x = -1.0; the goal is 0.4 m from it, facing it.
         goal = (-0.6, 0.0, math.pi)
         self._pass_cleanly(goal, 'goal near the wall')
-        final = self.nav.pose()
+        final = self.nav.settled_pose(checks.SETTLE_TIME)
         miss = math.hypot(final.x - goal[0], final.y - goal[1])
         self.assertLessEqual(miss, checks.XY_GOAL_TOLERANCE + checks.STOP_SLACK)
 

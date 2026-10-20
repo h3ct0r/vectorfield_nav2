@@ -677,7 +677,7 @@ The TB3 loopback wrapper provides `robot_state_publisher` with the TB3 URDF, `ma
 
 **Rules.**
 
-- On Humble, bringup includes `collision_monitor_node.launch.py` with `config/humble/collision_monitor.yaml`: `cmd_vel` in, `cmd_vel_safe` out, `base_footprint`, polygons and a scan source. This captures both the smoother's and the behaviors' output. `vectorfield_sim` listens on `cmd_vel_safe`.
+- On Humble, bringup starts collision_monitor with `config/humble/collision_monitor.yaml` under its own `lifecycle_manager_collision_monitor`, both in the Nav2 component container (`collision_monitor_node.launch.py` puts them in two processes, and its manager can then wait forever for a `change_state` response lost to discovery): `cmd_vel` in, `cmd_vel_safe` out, `base_footprint`, polygons and a scan source. This captures both the smoother's and the behaviors' output. `vectorfield_sim` listens on `cmd_vel_safe`.
 - The final-topic launch test allows collision_monitor plus the documented bypass list (docking_server on Jazzy+, following_server on Lyrical+). It fails on any other publisher, and on any publisher from this repository.
 
 ### 8.4 Stock `nav2_params.yaml` values that matter

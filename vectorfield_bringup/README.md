@@ -30,12 +30,17 @@ Arguments:
 | `map` | `open_10x10` | a name in `maps/` (`open_10x10`, `corridor_door`, `corridor_corner`) or a map YAML path; Gazebo: empty keeps the world's map |
 | `scenarios` | empty | extra overlays, comma separated: names in `config/scenario` (for example `demo_obstacles`) or YAML paths |
 | `use_rviz` | `true` | start RViz with `rviz/vectorfield.rviz` (the wrappers' own RViz is always disabled) |
-| `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw` | 0 | start pose in the map (Gazebo: `x_pose`, `y_pose`, `yaw`, the spawn pose) |
+| `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw` | 0 | start pose in the map (Gazebo: `x_pose`, `y_pose`, `yaw`, the spawn pose in the world; the initial pose follows it) |
 | `use_composition` | `true` | kinematic and curve follower demos: run map_server, the Nav2 servers and their lifecycle managers in one component container |
 | `headless` | `True` | Gazebo demos: run Gazebo without its GUI |
 
 Each demo launch file exits with an error that names the supported distros when it cannot run on
 the current one.
+
+Both Gazebo demos have been run headless on Jazzy (Gazebo Harmonic, software rendering) with the
+differential overlay: one NavigateToPose goal 1 m (TB3) and 2 m (TB4) ahead of the spawn pose
+SUCCEEDED. The TB4's depot map has its origin at the spawn point (−8, 0) of the world, so the
+initial pose is (0, 0) in the map. Neither demo runs in CI.
 
 ## Parameters
 

@@ -28,8 +28,6 @@ from dataclasses import dataclass, field
 
 import tf2_ros
 from action_msgs.msg import GoalStatus
-from lifecycle_msgs.msg import State
-from lifecycle_msgs.srv import GetState
 from rclpy.action import ActionClient
 from rclpy.time import Time
 
@@ -149,21 +147,11 @@ class FollowerHarness(NavHarness):
         super()._start()
         self._follow = ActionClient(self.node, FollowCurve, 'follow_curve')
 
-    def wait_until_active(self, timeout=180.0):
+    def _wait_until_active(self, timeout):
         """Wait for Nav2 (:meth:`NavHarness.wait_until_active`), then for the active follower."""
         deadline = time.monotonic() + timeout
-        super().wait_until_active(timeout)
-        client = self.node.create_client(GetState, f'/{FOLLOWER}/get_state')
-        active = False
-        while not active and time.monotonic() < deadline:
-            response = self._call(client, GetState.Request())
-            active = response is not None and (
-                response.current_state.id == State.PRIMARY_STATE_ACTIVE
-            )
-            if not active:
-                time.sleep(0.5)
-        self.node.destroy_client(client)
-        if not active:
+        super()._wait_until_active(timeout)
+        if not self.wait_lifecycle_active(FOLLOWER, max(deadline - time.monotonic(), 0.0)):
             raise AssertionError(f'{FOLLOWER} is not active after {timeout:.0f} s')
         if not self._follow.wait_for_server(timeout_sec=30.0):
             raise AssertionError('no follow_curve action server')

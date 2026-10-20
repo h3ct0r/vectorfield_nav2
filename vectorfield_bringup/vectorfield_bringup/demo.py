@@ -203,6 +203,26 @@ def navigation_lifecycle_nodes(context=None):
     return tuple(get_lifecycle_nodes(context))
 
 
+def component_container(name, parameters, distro):
+    """Return a component container started as nav2_bringup starts its own on ``distro``.
+
+    component_container_isolated up to Kilted; Lyrical deprecates it for ``component_container
+    --isolated``. Either way every component gets its own single-threaded executor.
+    """
+    from launch_ros.actions import Node
+
+    if distro in ('humble', 'jazzy', 'kilted'):
+        container = {'executable': 'component_container_isolated', 'arguments': []}
+    else:
+        container = {
+            'executable': 'component_container',
+            'arguments': ['--isolated', '--executor-type', 'single-threaded'],
+        }
+    return Node(
+        package='rclcpp_components', name=name, parameters=parameters, output='screen', **container
+    )
+
+
 def rviz_node(use_rviz):
     """Return the RViz node with ``rviz/vectorfield.rviz``, started when ``use_rviz`` is true."""
     from launch.conditions import IfCondition
@@ -232,26 +252,27 @@ def initial_pose_node(x, y, yaw):
     )
 
 
-def gazebo_demo(robot, world_map, x, y, yaw):
+def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):
     """Return the launch description of the ``<robot>_gazebo_demo`` launch file (Jazzy and later).
 
     It includes nav2_bringup's ``<robot>_simulation_launch.py`` (Gazebo, AMCL and Nav2) with the
-    merged parameters and its own RViz disabled, initial_pose_publisher at the spawn pose, which
-    AMCL needs, and RViz with vectorfield.rviz.
+    merged parameters and its own RViz disabled, initial_pose_publisher at the spawn pose in the
+    map frame, which AMCL needs, and RViz with vectorfield.rviz.
 
     Args:
         robot: ``tb3`` or ``tb4``.
         world_map: The map of the stock world in ``nav2_bringup/maps`` (without ``.yaml``).
-        x: Default spawn x in the map frame (m), the stock world's value.
+        x: Default spawn x in the Gazebo world frame (m), the stock world's value.
         y: Default spawn y (m).
         yaw: Default spawn yaw (rad).
+        map_offset: The stock map's (x, y) minus the world's: the initial pose is the spawn pose
+            shifted by it. The depot map's origin is the TB4 spawn point (-8, 0) of its world.
 
     """
     from launch import LaunchDescription
     from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
     from launch.launch_description_sources import PythonLaunchDescriptionSource
     from launch.substitutions import LaunchConfiguration
-    from launch_ros.parameter_descriptions import ParameterValue
 
     refusal = refuse_unsupported(f'{robot}_gazebo_demo.launch.py', JAZZY_AND_LATER)
     if refusal is not None:
@@ -278,10 +299,8 @@ def gazebo_demo(robot, world_map, x, y, yaw):
         else:
             arguments['map'] = os.path.join(nav2_bringup, 'maps', f'{world_map}.yaml')
         simulation = os.path.join(nav2_bringup, 'launch', f'{robot}_simulation_launch.py')
-        pose = [
-            ParameterValue(LaunchConfiguration(name), value_type=float)
-            for name in ('x_pose', 'y_pose', 'yaw')
-        ]
+        spawn = [float(arguments[name]) for name in ('x_pose', 'y_pose', 'yaw')]
+        pose = (spawn[0] + map_offset[0], spawn[1] + map_offset[1], spawn[2])
         return [
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(simulation), launch_arguments=arguments.items()
@@ -316,7 +335,11 @@ def gazebo_demo(robot, world_map, x, y, yaw):
             DeclareLaunchArgument(
                 'headless', default_value='True', description='Run Gazebo without its GUI.'
             ),
-            DeclareLaunchArgument('x_pose', default_value=str(x), description='Spawn x (m).'),
+            DeclareLaunchArgument(
+                'x_pose',
+                default_value=str(x),
+                description='Spawn x in the Gazebo world (m); the initial pose follows it.',
+            ),
             DeclareLaunchArgument('y_pose', default_value=str(y), description='Spawn y (m).'),
             DeclareLaunchArgument('yaw', default_value=str(yaw), description='Spawn yaw (rad).'),
             OpaqueFunction(function=launch_setup),

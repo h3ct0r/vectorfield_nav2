@@ -58,6 +58,62 @@ colcon test --packages-select vectorfield_system_tests --ctest-args -L 'gazebo|n
 colcon test-result --verbose
 ```
 
+## Known issues
+
+**Jazzy: Nav2's loopback simulator can crash at start-up** (`nav2_loopback_sim` 1.3.13, still
+the same on the `jazzy` and `kilted` branches; Lyrical's C++ loopback simulator logs `Map server
+returned empty/invalid map ..., will retry` and is not affected).
+In about one `test_open_loopback_<model>` run in fifteen, mostly under load, the launch log shows
+
+```text
+[map_server]: Received GetMap request but not in ACTIVE state, ignoring!
+[loopback_simulator]: Laser scan will be populated using map data
+[loopback_simulator]: Received initial pose!
+utils.py:71: RuntimeWarning: divide by zero encountered in scalar divide
+OverflowError: cannot convert float infinity to integer
+```
+
+and the test fails with `no /map or no true pose`. The robot pose is never infinite; the map is
+empty:
+
+1. nav2_bringup's `tb3_loopback_simulation.launch.py` starts map_server and the loopback simulator
+   together (lines 219-220).
+2. The simulator asks for the map once, in its constructor (`loopback_simulator.py:154`,
+   `getMap` at 306-324). `wait_for_service` (line 308) returns as soon as map_server is
+   configured, because map_server creates the service in `on_configure` (`map_server.cpp:111`).
+3. Until map_server is active, `getMapCallback` (`map_server.cpp:180-193`) logs the warning above
+   and returns an empty map, resolution 0, which the simulator keeps (line 313).
+4. The first `initialpose` (from `initial_pose_publisher`, as the simulator requires) starts the
+   scan timer (line 214); `getLaserScan` (line 358) calls `worldToMap`, which divides by the
+   resolution (`utils.py:71`), and the process exits.
+
+Nothing in this repository triggers it: the race is between two nodes of the stock wrapper. It
+reproduces every time with stock Jazzy packages alone, by holding map_server in the inactive
+state:
+
+```bash
+ros2 run tf2_ros static_transform_publisher --frame-id base_footprint --child-frame-id base_scan &
+ros2 run nav2_map_server map_server --ros-args \
+  -p yaml_filename:=/opt/ros/jazzy/share/nav2_bringup/maps/tb3_sandbox.yaml &
+ros2 lifecycle set /map_server configure   # configured, not activated
+ros2 run nav2_loopback_sim loopback_simulator &
+ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
+  '{header: {frame_id: map}, pose: {pose: {position: {x: 1.0}, orientation: {w: 1.0}}}}'
+```
+
+Possible upstream fixes: retry `getMap` until the map has a non-zero resolution, or fail the
+GetMap service while map_server is inactive. Until then the coverage build (CI Jazzy amd64), the
+most loaded one, does not register the loopback tests (see `CMakeLists.txt`).
+
+**Lyrical: the test client's participant sometimes discovers nothing.** In about one Lyrical
+launch test in fifteen, after the previous test's container was killed (SIGKILL), the test
+client's own participant gets no /clock, or /clock but no service answer, while the launched
+nodes see each other. The client then starts over with a new node and participant
+(`no /clock ...; new node` or `map_server never answered get_state ...; new node` in the log)
+and leaves the old one undestroyed: destroying it has blocked in rclpy's `destroy_publisher`
+until the CTest timeout. Should start-up hang anyway, the client dumps every thread's stack to
+the log 60 s after its own time-out.
+
 ## Controller comparison
 
 `benchmarks/compare_controllers.py` (Jazzy and later; installed, not a test) drives the 3-goal

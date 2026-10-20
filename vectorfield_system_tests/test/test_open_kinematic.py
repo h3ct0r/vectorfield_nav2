@@ -164,7 +164,6 @@ class TestOpenArea(unittest.TestCase):
             f'no rejoin after the contour ended at t = {last_contour:.2f} (goal end '
             f'{episode.end:.2f}); {len(after)} samples after it: {checks.describe(after, -4)}',
         )
-        nav.sleep(checks.SETTLE_TIME)
-        final = nav.pose()
+        final = nav.settled_pose(checks.SETTLE_TIME)
         miss = math.hypot(final.x - goal[0], final.y - goal[1])
         self.assertLessEqual(miss, checks.XY_GOAL_TOLERANCE + checks.STOP_SLACK)

@@ -16,8 +16,9 @@
 
 Includes kinematic_sim_demo.launch.py (vectorfield_sim, map_server, Nav2 and RViz) with the
 ``curve_follower`` scenario overlay merged after ``kinematic_sim``, and starts the curve follower
-(``curve_follower``) with ``lifecycle_manager_curve_follower``. Nav2 stays up: its local costmap
-is the follower's obstacle input, its action statuses drive the follower's interlock,
+(``curve_follower``) with ``lifecycle_manager_curve_follower``, both in
+``curve_follower_container`` with ``use_composition`` (the default). Nav2 stays up: its local
+costmap is the follower's obstacle input, its action statuses drive the follower's interlock,
 send_curve.py approaches a curve with NavigateToPose, and the follower's ``cmd_vel_nav`` goes
 through Nav2's velocity smoother and collision_monitor (on Humble, bringup's collision_monitor).
 
@@ -32,13 +33,18 @@ Examples::
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
+from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
+from launch_ros.actions import LoadComposableNodes, Node
+from launch_ros.descriptions import ComposableNode
 
 from vectorfield_bringup import demo, params
 
 SCENARIO = 'curve_follower'
+
+# With use_composition, the follower and its lifecycle manager share this container.
+CONTAINER = 'curve_follower_container'
 
 # The kinematic demo's arguments, passed through unchanged (scenarios gets SCENARIO first).
 FORWARDED = (
@@ -67,20 +73,46 @@ def _launch_setup(context):
     follower_file = params.write_params(
         {demo.FOLLOWER: {'ros__parameters': demo.follower_parameters(merged)}}
     )
+    follower_parameters = [follower_file, {'use_sim_time': True}]
+    # Wall time, as kinematic_sim_demo's managers: a bond timeout started on simulated time
+    # before /clock is discovered would expire on the first /clock message.
+    manager_parameters = [
+        {'autostart': True, 'node_names': [demo.FOLLOWER], 'use_sim_time': False}
+    ]
+    if IfCondition(LaunchConfiguration('use_composition')).evaluate(context):
+        # One process: a manager in another process can lose a change_state response to
+        # discovery under load, and the manager then waits for it forever.
+        nodes = [
+            ComposableNode(
+                package='vectorfield_curve_follower',
+                plugin='vectorfield_curve_follower::CurveFollower',
+                name=demo.FOLLOWER,
+                parameters=follower_parameters,
+            ),
+            ComposableNode(
+                package='nav2_lifecycle_manager',
+                plugin='nav2_lifecycle_manager::LifecycleManager',
+                name='lifecycle_manager_curve_follower',
+                parameters=manager_parameters,
+            ),
+        ]
+        return [
+            simulation,
+            demo.component_container(CONTAINER, [], params.ros_distro()),
+            LoadComposableNodes(target_container=CONTAINER, composable_node_descriptions=nodes),
+        ]
     follower = Node(
         package='vectorfield_curve_follower',
         executable='curve_follower',
         name=demo.FOLLOWER,
-        parameters=[follower_file, {'use_sim_time': True}],
+        parameters=follower_parameters,
         output='screen',
     )
-    # Wall time, as kinematic_sim_demo's managers: a bond timeout started on simulated time
-    # before /clock is discovered would expire on the first /clock message.
     manager = Node(
         package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_curve_follower',
-        parameters=[{'autostart': True, 'node_names': [demo.FOLLOWER], 'use_sim_time': False}],
+        parameters=manager_parameters,
         output='screen',
     )
     return [simulation, follower, manager]
@@ -119,7 +151,8 @@ def generate_launch_description():
                 'use_composition',
                 default_value='true',
                 description='Run map_server, the Nav2 servers and their lifecycle managers in one '
-                'component container (the follower runs in its own process).',
+                'component container, and the follower and its manager in another '
+                '(curve_follower_container).',
             ),
             DeclareLaunchArgument(
                 'initial_pose_x', default_value='0.0', description='Initial map x (m).'
