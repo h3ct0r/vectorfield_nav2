@@ -9,6 +9,15 @@ Forthcoming
 * examples/follow_curve_client.py and examples/navigate_waypoints.py, the tutorials' clients.
 * send_curve.py sends laps 0 for open curves (laps > 0 made every open curve INVALID_CURVE).
 
+0.1.1 (2026-10-20)
+------------------
+* The kinematic-sim demos enable skid slip compensation with vectorfield_sim's own slip parameters;
+  the shipped skid overlay stays neutral.
+* kinematic_sim_demo composes collision_monitor and its lifecycle manager in nav2_container (a
+  dropped change_state reply could stall Humble's manager); the curve follower and its manager
+  share a container.
+* TB4 Gazebo demo: the initial pose is offset into the depot map frame.
+
 0.1.0 (2026-10-19)
 ------------------
 * First release: the kinematic-sim, loopback, TB3/TB4 Gazebo and curve-follower demos; maps

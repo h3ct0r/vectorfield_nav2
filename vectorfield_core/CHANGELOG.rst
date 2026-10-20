@@ -2,6 +2,17 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.1 (2026-10-20)
+------------------
+* In ROTATE_TO_FIELD, ROTATE_TO_HEADING and STOPPED the translational axes brake at their own
+  deceleration bound instead of sharing the angular axis' acceleration scale, so a rotation that
+  starts with residual speed no longer creeps forward (21 mm down to 2.7 mm after a 0.1 m/s
+  approach).
+* Skid-steer slip compensation: the new skid_yaw_rate_efficiency and skid_icr_offset (defaults 1
+  and 0, off).
+* Curve expressions with && or || are rejected: muParser folds them through an int cast that
+  overflows for large operands (found by the fuzzer).
+
 0.1.0 (2026-10-19)
 ------------------
 * First release: a ROS-free C++17 library (Eigen, vendored muParser) implementing the constructive

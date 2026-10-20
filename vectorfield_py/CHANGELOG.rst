@@ -2,6 +2,10 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.1 (2026-10-20)
+------------------
+* CoreConfig exposes the skid slip compensation parameters.
+
 0.1.0 (2026-10-19)
 ------------------
 * First release.

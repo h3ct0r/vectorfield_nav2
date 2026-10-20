@@ -2,6 +2,10 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.1 (2026-10-20)
+------------------
+* Parameters skid_yaw_rate_efficiency and skid_icr_offset.
+
 0.1.0 (2026-10-19)
 ------------------
 * First release: the distro compatibility layer (Humble to Rolling), message conversions, the

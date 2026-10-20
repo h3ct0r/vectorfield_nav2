@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_core</name>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <description>
     ROS-free C++17 core of vectorfield_nav2: constructive time-varying artificial vector fields
     (Rezende, Gonçalves and Pimenta, IEEE T-RO 2022), curve projection, obstacle contouring,

@@ -2,6 +2,9 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.1.1 (2026-10-20)
+------------------
+
 0.1.0 (2026-10-19)
 ------------------
 * First release: the FollowCurve action server for closed, parametric, expression and moving
