@@ -29,6 +29,7 @@ visualization
 obstacle_avoidance
 curve_follower
 behavior_tree
+core_3d
 tuning
 parameters
 distro_matrix

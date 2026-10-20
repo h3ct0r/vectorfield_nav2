@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import vectorfield as vf
 
-from . import _cli, curves, plotting
+from . import _cli, curves, curves3d, plotting
 
 PROG = 'vf-curve'
 EPILOG = """examples:
@@ -33,6 +33,7 @@ EPILOG = """examples:
   vf-curve --curve lemniscate_bernoulli:a=2 --plot -o lemniscate.svg
   vf-curve --curve '2*cos(s); sin(s)' --export ellipse.yaml --export ellipse.csv
   vf-curve --curve ellipse.csv --closed
+  vf-curve --dim 3 --curve viviani --plot -o viviani.png --export viviani.csv
 
 --export writes FILE.csv as sampled x,y rows, and FILE.yaml as a vectorfield_msgs/msg/Curve
 mapping of the spec (a polyline of the samples with --polyline), which --curve reads back.
@@ -44,6 +45,13 @@ def build_parser():
     """Build the vf-curve argument parser."""
     argp = _cli.parser(PROG, __doc__.split('\n', 1)[0].split(': ', 1)[1], EPILOG)
     argp.add_argument('--list', action='store_true', help='list the built-in shapes and exit')
+    argp.add_argument(
+        '--dim',
+        type=int,
+        choices=(2, 3),
+        default=2,
+        help='3: a curve of the experimental 3D core (vectorfield.d3; x,y,z CSV, 3D plot)',
+    )
     curves.add_curve_arguments(argp)
     group = argp.add_argument_group('sampling and export')
     group.add_argument(
@@ -119,8 +127,71 @@ def export(path, spec, points, args):
     print(f'wrote {path}')
 
 
+def list_shapes3():
+    """Return the 3D built-in shapes as text lines."""
+    lines = []
+    for shape in vf.d3.builtin_shapes():
+        params = ', '.join(f'{k}={v:g}' for k, v in shape['parameters'].items())
+        lines.append(f'{shape["name"]}: {shape["formula"]}')
+        lines.append(f'    parameters: {params}')
+    return lines
+
+
+def _main3d(args):
+    """vf-curve --dim 3: describe, sample, export and plot a 3D curve."""
+    if args.list:
+        print('\n'.join(list_shapes3()))
+        return _cli.EXIT_OK
+    if args.curve == curves.DEFAULT_CURVE and args.curve not in curves3d.builtin_names():
+        args.curve = curves3d.DEFAULT_CURVE
+    spec, curve = curves3d.curve_from_args(args)
+    points = curve.sample(args.ds or 0.0, t=args.time)
+    lo, hi = points.min(axis=0), points.max(axis=0)
+    print(f'curve        {curves3d.describe_spec(spec)}')
+    print(f'closed       {"yes" if curve.is_closed else "no (open: extended by rays)"}')
+    print(f'moving       {"yes (depends on t)" if curve.is_time_varying else "no"}')
+    print(f'length       {curve.length(args.time):.4f} m')
+    print(
+        f'extent       x [{lo[0]:.3f}, {hi[0]:.3f}], y [{lo[1]:.3f}, {hi[1]:.3f}], '
+        f'z [{lo[2]:.3f}, {hi[2]:.3f}] m'
+    )
+    print(f'samples      {len(points)}')
+    if args.print_samples:
+        print('x,y,z')
+        for x, y, z in points:
+            print(f'{x:.6f},{y:.6f},{z:.6f}')
+    for path in args.export:
+        suffix = Path(path).suffix.lower()
+        if suffix in ('.csv', '.txt'):
+            curves3d.write_curve_csv(path, points)
+        elif suffix in ('.yaml', '.yml'):
+            out = spec
+            if args.polyline:
+                closed = bool(curve.is_closed)
+                out = vf.d3.CurveSpec.polyline(points[:-1] if closed else points, closed=closed)
+            curves3d.write_curve_yaml(path, out, args.frame)
+        else:
+            raise _cli.InputError(f'--export {path}: use a .csv or .yaml file name')
+        print(f'wrote {path}')
+    if args.plot or args.output or args.show:
+        if not (args.output or args.show):
+            raise _cli.InputError('--plot needs -o FILE and/or --show')
+        plt = _cli.pyplot(interactive=args.show)
+        plotting.apply_style(plt)
+        fig, ax = curves3d.axes3d(plt)
+        ax.plot(*points.T, color=plotting.INK, lw=1.4)
+        ax.scatter(*points[0], color=plotting.SERIES[1], s=18, label='s = 0')
+        curves3d.set_equal_aspect(ax, points)
+        ax.set_title(curves3d.describe_spec(spec))
+        ax.legend(loc='upper left')
+        _cli.finish_figure(plt, fig, args)
+    return _cli.EXIT_OK
+
+
 def _main(argv):
     args = _cli.parse_args(build_parser(), argv)
+    if args.dim == 3:
+        return _main3d(args)
     if args.list:
         print('\n'.join(list_shapes()))
         return _cli.EXIT_OK

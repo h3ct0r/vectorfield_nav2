@@ -94,7 +94,9 @@ configure_file(
 )
 
 # Every planned M1 source is listed explicitly (no glob), so a missing file fails the configure
-# step. Modules of later waves start as stubs that name their owner.
+# step. Modules of later waves start as stubs that name their owner. src/d3/ is the experimental
+# 3D core (namespace vectorfield_core::d3, docs/design/m7_3d.md): the same library, so it shares
+# the folded muParser objects and the internal expression hardening without a second export.
 add_library(vectorfield_core
   src/builtin_curves.cpp
   src/cbf.cpp
@@ -103,7 +105,16 @@ add_library(vectorfield_core
   src/config.cpp
   src/contour.cpp
   src/curve_spec.cpp
+  src/d3/curve_spec.cpp
+  src/d3/expression_curve.cpp
+  src/d3/field.cpp
+  src/d3/law.cpp
+  src/d3/parametric_curve.cpp
+  src/d3/polyline_curve.cpp
+  src/d3/simulator.cpp
+  src/d3/tracker.cpp
   src/expression_curve.cpp
+  src/expression_parser.cpp
   src/field.cpp
   src/footprint.cpp
   src/gains.cpp
@@ -203,14 +214,17 @@ if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
 
   # Self-containment of the public headers: one translation unit per header, each including only
   # that header, compiled with the library's warnings.
+  # The experimental 3D core's headers live in include/vectorfield_core/d3/.
   file(GLOB VF_CORE_PUBLIC_HEADERS CONFIGURE_DEPENDS
-    "${PROJECT_SOURCE_DIR}/include/vectorfield_core/*.hpp")
+    "${PROJECT_SOURCE_DIR}/include/vectorfield_core/*.hpp"
+    "${PROJECT_SOURCE_DIR}/include/vectorfield_core/d3/*.hpp")
   set(_vf_header_check_sources)
   foreach(_vf_header IN LISTS VF_CORE_PUBLIC_HEADERS)
-    get_filename_component(_vf_header_name "${_vf_header}" NAME_WE)
+    file(RELATIVE_PATH _vf_header_rel "${PROJECT_SOURCE_DIR}/include" "${_vf_header}")
+    string(REPLACE "/" "__" _vf_header_name "${_vf_header_rel}")
     set(_vf_header_source "${PROJECT_BINARY_DIR}/header_check/${_vf_header_name}.cpp")
     file(CONFIGURE OUTPUT "${_vf_header_source}"
-      CONTENT "#include \"vectorfield_core/${_vf_header_name}.hpp\"\n")
+      CONTENT "#include \"${_vf_header_rel}\"\n")
     list(APPEND _vf_header_check_sources "${_vf_header_source}")
   endforeach()
   add_library(vf_core_header_check OBJECT ${_vf_header_check_sources})
@@ -233,6 +247,7 @@ if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_BENCHMARKS)
   vf_core_add_benchmark(bench_field bench/bench_field.cpp)
   vf_core_add_benchmark(bench_edt bench/bench_edt.cpp)
   vf_core_add_benchmark(bench_tracker bench/bench_tracker.cpp)
+  vf_core_add_benchmark(bench_d3 bench/bench_d3.cpp)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_FUZZERS)

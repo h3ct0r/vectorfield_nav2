@@ -30,7 +30,8 @@ from pathlib import Path
 
 import numpy as np
 import vectorfield as vf
-from vectorfield_tools import _cli, plotting, simulation
+from vectorfield import d3
+from vectorfield_tools import _cli, curves3d, plotting, simulation
 from vectorfield_tools.obstacles import Obstacles
 
 OUTPUT = Path(__file__).resolve().parent / '_static' / 'figures'
@@ -248,6 +249,28 @@ def models_convergence(plt):
     return fig
 
 
+def viviani_3d(plt):
+    """(7) The 3D core: streamlines and a Tracker3 run on Viviani's curve (mplot3d)."""
+    curve = d3.make_curve(d3.CurveSpec.builtin('viviani', radius=2.0))
+    field = d3.DistanceField(vf.GainFunction(vf.GainType.ATAN, 2.0), v_r=0.5)
+    simulator = d3.sim.ClosedLoopSimulator(d3.Tracker(d3.TrackerConfig(desired_speed=0.5)))
+    simulator.reset(np.array([2.6, 0.8, -0.4]))
+    run = simulator.run(curve, 30.0)
+    fig, ax = curves3d.axes3d(plt, figsize=(6.0, 5.0))
+    seeds = curves3d.seeds_around(curve, count=10, offset=0.7, seed=3)
+    for line in curves3d.streamlines(curve, field, seeds, step=0.05, count=90):
+        ax.plot(*line[::3].T, color=plotting.STREAM, lw=0.6, alpha=0.55)
+    points = curve.sample(ds=0.04)
+    ax.plot(*points.T, color=plotting.INK, lw=1.4, label='curve')
+    path = run['position'][::2]
+    ax.plot(*path.T, color=plotting.SERIES[1], lw=1.1, label='Tracker3, 0.5 m/s, 20 Hz')
+    ax.scatter(*path[0], color=plotting.SERIES[1], s=14)
+    curves3d.set_equal_aspect(ax, np.vstack([points, path]), margin=0.05)
+    ax.view_init(elev=22.0, azim=-58.0)
+    ax.legend(loc='upper left')
+    return fig
+
+
 FIGURES = {
     'field_ellipse.svg': field_ellipse,
     'field_decomposition.svg': field_decomposition,
@@ -255,6 +278,7 @@ FIGURES = {
     'contour_disc.svg': contour_disc,
     'cbf_disc.svg': cbf_disc,
     'models_convergence.svg': models_convergence,
+    'viviani_3d.svg': viviani_3d,
 }
 
 

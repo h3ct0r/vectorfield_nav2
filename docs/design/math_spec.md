@@ -2031,6 +2031,155 @@ there and the predicates defined in this document.
   shorter than $\ell_c$ are never stops and are followed in the segment's direction with a
   deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly; a
   reverse segment cannot contour; both directions share one speed limit [Design, M7].
+- **The 3D core** ({ref}`sec-3d`) is experimental. It has no obstacles, no moving frames and no
+  rotate phases, and its open curves must be static. The ZOH equilibrium $D_{\mathrm{zoh}}$ of
+  §14.3 applies to every holonomic law.
+
+(sec-3d)=
+
+## 14 3D core [Design, M7, experimental]
+
+The equations of §2–§5 hold in $\mathbb R^n$. Only the wedge and hairpin tangents of §2.3 use the
+planar rotation $J$. This section restates the 3D core ({doc}`m7_3d`) where it differs. Symbols
+are as in §1, with $x, T, n, \Phi \in \mathbb R^3$.
+
+(sec-3d-geometry)=
+
+### 14.1 Curves in $\mathbb R^3$
+
+Lemma 2 ($T^\top \mathbf D = 0$ at a minimiser), Lemma 5 ($\nabla D = n$), Lemma 6 and
+Proposition 2 use only inner products, so they hold verbatim. Open curves are extended by rays, as
+in §2.1, and polyline pieces and projections are as in §2.2. Parametric curves follow §2.5 with
+$r \in \mathbb R^3$, and then the foot is polished [Design]. Write
+$g(u) = r_u^\top (r(u) - x)$ with $g' = \lVert r_u\rVert^2 + r_{uu}^\top (r - x)$, where $r_{uu}$
+is a central difference of $r_u$ with step $h_u$. At most three Newton steps
+$u \leftarrow u - g/g'$ are taken. A step is accepted only if $g' > 0$, if $u$ stays in the
+bracket of the stage that produced the foot (for an open curve also in $[u_i, u_f]$), and if $D$
+grows by at most $10^{-12}$ m (rounding: near the root $D$ changes by $O(\Delta u^2)$). The closure check compares the end tangents by
+$\angle(a, b) = \operatorname{atan2}(\lVert a \times b\rVert, a^\top b)$; regularity (§2.6) is
+unchanged.
+
+(sec-3d-wedge)=
+
+### 14.2 Wedge and hairpin tangents
+
+Ownership is as in §2.3: vertex $P_v$ owns $x$ iff $a_1 = y^\top t_{v-1} > 0$ and
+$a_2 = -y^\top t_v > 0$, where $y = x - P_v$. In 3D this region is the intersection of two open
+half-spaces, and the unit normals $y/D$ fill a spherical lune. For $D \ge \varepsilon_D$:
+
+$$
+T = \operatorname{unit}\big(\Pi_n\, b\big), \qquad b = (1-\alpha)\,t_{v-1} + \alpha\, t_v, \qquad
+\alpha = \frac{a_1}{a_1 + a_2}.
+$$
+
+*Properties* [Derived]:
+
+1. $y^\top b = (1-\alpha)a_1 - \alpha a_2 = 0$, so $b \perp n$ in exact arithmetic. $\Pi_n$
+   only removes rounding error and keeps $n^\top T = 0$ to $10^{-12}$.
+2. $\lVert b\rVert^2 = (1-\alpha)^2 + \alpha^2 + 2\alpha(1-\alpha)\cos\beta \ge
+   \tfrac14\lVert t_{v-1} + t_v\rVert^2$, where $\beta$ is the turning angle. $b$ vanishes only
+   for an exact reversal.
+3. On the boundary $a_1 = 0$ we have $T = t_{v-1}$, and on $a_2 = 0$ we have $T = t_v$, so $T$
+   is continuous across ownership changes.
+4. In a plane containing $t_{v-1}$, $t_v$ and $y$, $\Pi_n b$ is parallel to $Jn$ with the sign
+   of $(Jn)^\top(t_{v-1} + t_v)$ (§2.3). This is the 2D rule.
+
+**Hairpin** [Design]: if $\lVert t_{v-1} + t_v\rVert < \varepsilon_{\mathrm{hp}}$, $T$ is the
+first of $\Pi_n T_{\mathrm{last}}$, $\Pi_n t_{v-1}$ and $\Pi_n e_k$ ($k = \arg\min_i \lvert n_i\rvert$)
+whose norm is at least $\varepsilon_{\mathrm{hp}}$, normalised. kHairpin is set. **On the
+curve** ($D < \varepsilon_D$): $n := 0$ and $T$ is the owning piece's tangent, or
+$\operatorname{unit}(t_{v-1} + t_v)$ at a vertex ($t_v$ for a hairpin), as in 2D.
+
+(sec-3d-field)=
+
+### 14.3 Field, scale and terminal field
+
+$$
+\Phi_S = -G(D)\, n + H(D)\, T_d,\quad \Phi_T = \Pi_T v_c,\quad
+\eta = -b + \sqrt{b^2 + v_r^2 - \lVert\Phi_T\rVert^2},\quad b = \Phi_S^\top\Phi_T,\quad
+\Phi = \eta\Phi_S + \Phi_T ,
+$$
+
+with the Assumption-3 clamp of §4.2 and the cancellation-free branch of §4.3. Hence
+$\lVert\Phi\rVert = v_r$ (O1, O7), $\dot D = n^\top(\dot x - v_c) = -\eta G$ (O9), and
+$v_r - p_T \le \eta \le v_r + p_T$ (Lemma 8). $v_c = \partial_t r(u^\star, t)$ is a central
+difference with $\delta_t$ (§4.2). There is no moving frame in 3D. For a static open curve the
+terminal field is that of §5.1, with $\sigma = \mathrm{dir}\,(s_{\mathrm{goal}} - s^\star)$ and
+the same $\varphi$. Open time-varying curves are rejected (UNSUPPORTED).
+
+**ZOH equilibrium** [Derived]. A holonomic body under zero-order hold moves along the chord of
+length $\ell = v_r\Delta t$ in direction $\Phi(x_k)$. Near a curve of curvature $\kappa$, the chord
+leaves the osculating circle by $\ell^2\kappa/2$ per step, while the field corrects
+$\ell\,G(D)$. The distance therefore settles at the root of $G(D) = \ell\kappa H^2/2$, that is
+
+$$
+D_{\mathrm{zoh}} \approx \frac{v_r\,\Delta t\,\kappa}{2\,G'(0)} .
+$$
+
+At the TC gain ($G'(0) = 4/\pi$), 0.5 m/s and 20 Hz on the default helix ($\kappa = 0.994$), this
+gives 9.76 mm. The closed-loop test measures 9.65 mm. The planar laws have the same offset, and
+it shrinks linearly with $\Delta t$ and with $1/k_f$.
+
+**The medial set.** The closest point is not unique on the curve's medial set: the axis of a
+circle, or the points of a helix's axis cylinder that lie farther than the reach $1/\kappa$. In
+3D this set is a surface or a line, not a point as at the centre of a planar circle. The search
+returns one of the minimisers, and the field there is unit-norm but discontinuous. Proposition 2
+needs trajectories to stay inside the reach (Assumption 4). The oracles probe at
+$D < 0.5/\kappa_{\max}$.
+
+(sec-3d-law)=
+
+### 14.4 Holonomic law, box and limiter
+
+The command is $u = (v, \omega)$ with $v \in \mathbb R^3$ in the curve frame and $\omega$ the yaw
+rate. The nominal law is $v = F$, with $F = \Phi$ after speed shaping $\gamma$ (here only the
+`speed_limit_scale`).
+
+- **Uniform box** (static or terminal field):
+  $c = \min(1, v_{\max}/\lVert v\rVert, v_{i,\max}/\lvert v_i\rvert)$ with $i \in \{x, y, z\}$,
+  and $v := c\,v$.
+- **$\eta$-box** (time-varying field): with $a = \Phi_T$ and $b = \Phi_S$, $\eta^\ast$ is the
+  largest $\eta$ in $[0, \eta_1] \cap \bigcap_i \{\lvert a_i + \eta b_i\rvert \le v_{i,\max}\}
+  \cap \{\lVert a + \eta b\rVert \le v_{\max}\}$, using `boxAxisInterval` and the 3D norm
+  interval of §8.3. An empty set falls back to the uniform box and sets kAssumption3Clamped.
+- **Yaw** [Design]: $\psi_d = \operatorname{atan2}(w_y, w_x)$, with $w = T_d$ (path tangent),
+  $w = F$ (field), or $\psi_d$ = `fixed_yaw`. While $\lVert (w_x, w_y)\rVert < 10^{-3}$ the
+  previous $\psi_d$ is held, or the current yaw if there is none. The rate is
+  $\omega = \operatorname{clamp}(k_\psi\operatorname{wrap}(\psi_d - \psi), \pm\omega_{\max})$.
+- **Limiter**: §8.4 over the four axes $(v_x, v_y, v_z, \omega)$, with one $\alpha$ and
+  $A_i = a_{\mathrm{dec}}$ if $u_{\mathrm{prev},i}\Delta_i < 0$, else $a_{\mathrm{acc}}$
+  ($\alpha_{\max}$ for $\omega$). STOPPED brakes the translation and the yaw rate separately,
+  with $a_{\mathrm{can}}$ for a cancel. The NaN guard is unchanged.
+
+(sec-3d-phases)=
+
+### 14.5 Tracker3 phases
+
+FOLLOW is the default. FINAL_APPROACH applies to an open curve with
+$\sigma < d_{\mathrm{fa}}$, where $d_{\mathrm{fa}}$ is `final_approach_distance`, auto
+$= \max(\sigma_b, \mathrm{tol})$. In it the law and the terminal field are unchanged. The XY latch
+$\lVert p - g\rVert \le \mathrm{tol}$ is cleared only by a `goal_seq` change. Settled means
+latched and $\lVert p - g\rVert \le \sigma_{\mathrm{stop}} = \mathrm{tol}/2$. Goal hold follows
+§9.2: the target is zero while $\mathrm{hold}_k = \text{settled}_k \vee (\mathrm{hold}_{k-1}
+\wedge \text{latched})$. A cancel enters STOPPED, latched until `goal_seq` changes. The cancel
+completes once $\lVert v\rVert < 0.01$ m/s and $\lvert\omega\rvert < 0.01$ rad/s. There are no
+obstacles, rotate phases or rollouts.
+
+(sec-3d-oracles)=
+
+### 14.6 Oracles
+
+| Id | Statement | Tolerance |
+|---|---|---|
+| O3D-1 | $\lVert\Phi\rVert = v_r$ (static, $10^4$ random points within the reach, every curve kind) | $10^{-12}$ |
+| O3D-2 | $n^\top T = 0$, $\lVert T\rVert = 1$, including wedges and hairpins | $10^{-12}$ |
+| O3D-3 | helix foot: for $x = (\rho\cos u_0, \rho\sin u_0, c u_0 + \zeta)$ the foot matches the root of $g$ | $10^{-9}$ m |
+| O3D-4 | inclined circle: $n^\top \Phi = -v_r G(D)$ | $10^{-12}$ |
+| O3D-5 | translating circle $r + u t$: $\Phi_T = (I - TT^\top)u$; $\dot D = -\eta G$ | $10^{-9}$ |
+| O3D-6 | $v_r - p_T \le \eta \le v_r + p_T$ (time-varying, random) | $10^{-12}$ |
+| O3D-7 | closed loop (Tracker3, 0.5 m/s, 20 Hz ZOH), helix and Viviani: $D < 0.01$ m after the transient; helix: $D = D_{\mathrm{zoh}}$ | 3 % |
+| O3D-8 | open polyline: settled within $\sigma_{\mathrm{stop}}$ of the goal; cancel → STOPPED | — |
+| O3D-9 | steady-state `Tracker3::step` performs no allocation | 0 |
 
 (sec-math-viz)=
 

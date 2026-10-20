@@ -13,19 +13,17 @@
 // limitations under the License.
 
 // ExpressionCurve on the vendored muParser (plan §3.2 expression hardening, §6 SECURITY.md;
-// upstream audit U01–U05). muParser headers are included here only.
+// upstream audit U01–U05). muParser headers are included in the sources only.
 
 #include "expression_curve.hpp"
+
+#include "expression_parser.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include <exception>
-#include <iomanip>
 #include <memory>
 #include <mutex>
-#include <new>
-#include <sstream>
 #include <string>
 #include <utility>
 
@@ -37,175 +35,7 @@
 namespace vectorfield_core::detail
 {
 
-namespace
-{
-
-using Math = mu::MathImpl<mu::value_type>;
-
-struct UnaryFunction
-{
-  const char * name;
-  mu::value_type (*function)(mu::value_type);
-};
-
-struct BinaryFunction
-{
-  const char * name;
-  mu::value_type (*function)(mu::value_type, mu::value_type);
-};
-
-struct VariadicFunction
-{
-  const char * name;
-  mu::value_type (*function)(const mu::value_type *, int);
-};
-
-// muParser 2.3.6's default functions (Parser::InitFun), all deterministic, without rnd.
-constexpr UnaryFunction kUnaryFunctions[] = {
-  {"sin", &Math::Sin},     {"cos", &Math::Cos},     {"tan", &Math::Tan},   {"cot", &Math::Cot},
-  {"asin", &Math::ASin},   {"acos", &Math::ACos},   {"atan", &Math::ATan}, {"sinh", &Math::Sinh},
-  {"cosh", &Math::Cosh},   {"tanh", &Math::Tanh},   {"coth", &Math::Coth}, {"asinh", &Math::ASinh},
-  {"acosh", &Math::ACosh}, {"atanh", &Math::ATanh}, {"log2", &Math::Log2}, {"log10", &Math::Log10},
-  {"log", &Math::Log},     {"ln", &Math::Log},      {"exp", &Math::Exp},   {"sqrt", &Math::Sqrt},
-  {"sign", &Math::Sign},   {"rint", &Math::Rint},   {"abs", &Math::Abs},
-};
-constexpr BinaryFunction kBinaryFunctions[] = {{"atan2", &Math::ATan2}};
-constexpr VariadicFunction kVariadicFunctions[] = {
-  {"sum", &Math::Sum}, {"avg", &Math::Avg}, {"min", &Math::Min}, {"max", &Math::Max}};
-
-// Names that are never parameters: the variables, muParser's constants and the removed rnd.
-constexpr const char * kReservedNames[] = {"s", "t", "_pi", "_e", "rnd"};
-
-std::string fmt(double value)
-{
-  std::ostringstream stream;
-  stream << std::setprecision(10) << value;
-  return stream.str();
-}
-
-[[noreturn]] void reject(const std::string & message)
-{
-  throw CurveError(CurveError::Code::kInvalidCurve, message);
-}
-
-bool isIdentifier(const std::string & name) noexcept
-{
-  if (name.empty() || name.size() > kMaxExpressionNameLength) {
-    return false;
-  }
-  const auto letter = [](char c) {
-    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
-  };
-  if (!letter(name[0])) {
-    return false;
-  }
-  return std::all_of(name.begin() + 1, name.end(), [&letter](char c) {
-    return letter(c) || (c >= '0' && c <= '9');
-  });
-}
-
-void checkExpressionText(const std::string & expression, const char * which)
-{
-  if (expression.find_first_not_of(" \t\r\n") == std::string::npos) {
-    reject(std::string(which) + " is empty");
-  }
-  if (expression.size() > kMaxExpressionLength) {
-    reject(
-      std::string(which) + " has " + std::to_string(expression.size()) +
-      " characters; the limit is " + std::to_string(kMaxExpressionLength));
-  }
-  // muParser folds `a && b` and `a || b` on constants as (int)a && (int)b, which is undefined
-  // behaviour for operands outside the int range (found by the libFuzzer target). A curve needs
-  // no logical operators; comparisons and the ternary `?:` stay available.
-  if (expression.find("&&") != std::string::npos || expression.find("||") != std::string::npos) {
-    reject(std::string(which) + " uses && or ||; logical operators are not supported");
-  }
-}
-
-void validateSpec(const CurveSpec & spec)
-{
-  checkExpressionText(spec.x_expression, "x_expression");
-  checkExpressionText(spec.y_expression, "y_expression");
-  if (!std::isfinite(spec.s_min) || !std::isfinite(spec.s_max) || !(spec.s_min < spec.s_max)) {
-    reject(
-      "the domain [s_min, s_max] = [" + fmt(spec.s_min) + ", " + fmt(spec.s_max) +
-      "] must be finite with s_min < s_max");
-  }
-  if (!std::isfinite(spec.t0)) {
-    reject("t0 = " + fmt(spec.t0) + " must be finite");
-  }
-  const std::size_t count = spec.parameter_names.size();
-  if (count != spec.parameter_values.size()) {
-    reject(
-      std::to_string(count) + " parameter names but " +
-      std::to_string(spec.parameter_values.size()) + " values");
-  }
-  if (count > kMaxExpressionParameters) {
-    reject(
-      std::to_string(count) + " parameters; the limit is " +
-      std::to_string(kMaxExpressionParameters));
-  }
-  for (std::size_t i = 0; i < count; ++i) {
-    const std::string & name = spec.parameter_names[i];
-    if (!isIdentifier(name)) {
-      reject(
-        "parameter name '" + name +
-        "' is not an identifier ([A-Za-z_][A-Za-z0-9_]*, at most 100 characters)");
-    }
-    if (isReservedExpressionName(name)) {
-      reject("parameter name '" + name + "' is reserved (the variables s and t, or a function)");
-    }
-    for (std::size_t j = 0; j < i; ++j) {
-      if (spec.parameter_names[j] == name) {
-        reject("parameter name '" + name + "' is declared twice");
-      }
-    }
-    if (!std::isfinite(spec.parameter_values[i])) {
-      reject("parameter '" + name + "' = " + fmt(spec.parameter_values[i]) + " is not finite");
-    }
-  }
-}
-
-void defineFunctions(mu::Parser & parser)
-{
-  parser.ClearFun();
-  for (const UnaryFunction & entry : kUnaryFunctions) {
-    parser.DefineFun(entry.name, entry.function);
-  }
-  for (const BinaryFunction & entry : kBinaryFunctions) {
-    parser.DefineFun(entry.name, entry.function);
-  }
-  for (const VariadicFunction & entry : kVariadicFunctions) {
-    parser.DefineFun(entry.name, entry.function);
-  }
-}
-
-}  // namespace
-
-bool isReservedExpressionName(const std::string & name) noexcept
-{
-  for (const char * reserved : kReservedNames) {
-    if (name == reserved) {
-      return true;
-    }
-  }
-  for (const UnaryFunction & entry : kUnaryFunctions) {
-    if (name == entry.name) {
-      return true;
-    }
-  }
-  for (const BinaryFunction & entry : kBinaryFunctions) {
-    if (name == entry.name) {
-      return true;
-    }
-  }
-  for (const VariadicFunction & entry : kVariadicFunctions) {
-    if (name == entry.name) {
-      return true;
-    }
-  }
-  return false;
-}
+// The hardening helpers (validation, parser configuration) live in expression_parser.cpp.
 
 struct ExpressionCurve::Impl
 {
@@ -220,66 +50,22 @@ struct ExpressionCurve::Impl
   std::mutex mutex;
 };
 
-namespace
-{
-
-// Configures one parser and parses its expression; returns true iff the expression uses t.
-bool configureParser(
-  mu::Parser & parser, double * s, double * t, const CurveSpec & spec,
-  const std::string & expression, const char * which)
-{
-  bool uses_t = false;
-  try {
-    defineFunctions(parser);
-    parser.DefineVar("s", s);
-    parser.DefineVar("t", t);
-    for (std::size_t i = 0; i < spec.parameter_names.size(); ++i) {
-      parser.DefineConst(spec.parameter_names[i], spec.parameter_values[i]);
-    }
-    parser.SetExpr(expression);
-    // The first evaluation parses: syntax errors, undefined names (rnd included), assignments
-    // to parameters (constants) and string results throw here.
-    static_cast<void>(parser.Eval());
-    const int results = parser.GetNumResults();
-    if (results != 1) {
-      reject(
-        std::string(which) + " must have exactly one result, it has " + std::to_string(results) +
-        " (comma-separated expressions are not allowed)");
-    }
-    for (const auto & used : parser.GetUsedVar()) {
-      if (used.first == "t") {
-        uses_t = true;
-      } else if (used.first != "s") {
-        reject(std::string(which) + ": unknown variable '" + used.first + "'");
-      }
-    }
-    // GetUsedVar() leaves the parser in string mode; evaluate once more to rebuild bytecode.
-    static_cast<void>(parser.Eval());
-  } catch (const mu::ParserError & error) {
-    reject(std::string(which) + ": " + error.GetMsg());
-  } catch (const CurveError &) {
-    throw;
-  } catch (const std::bad_alloc &) {
-    throw;
-  } catch (const std::exception & error) {
-    reject(std::string(which) + ": " + error.what());
-  }
-  return uses_t;
-}
-
-}  // namespace
-
 std::unique_ptr<ExpressionCurve::Impl> ExpressionCurve::parse(const CurveSpec & spec)
 {
-  validateSpec(spec);
+  checkExpressionText(spec.x_expression, "x_expression");
+  checkExpressionText(spec.y_expression, "y_expression");
+  checkExpressionInputs(
+    spec.s_min, spec.s_max, spec.t0, spec.parameter_names, spec.parameter_values);
   auto impl = std::make_unique<Impl>();
   impl->t0 = spec.t0;
   impl->s = 0.5 * spec.s_min + 0.5 * spec.s_max;
   impl->t = 0.0;
-  const bool x_uses_t =
-    configureParser(impl->x_parser, &impl->s, &impl->t, spec, spec.x_expression, "x_expression");
-  const bool y_uses_t =
-    configureParser(impl->y_parser, &impl->s, &impl->t, spec, spec.y_expression, "y_expression");
+  const bool x_uses_t = configureExpressionParser(
+    impl->x_parser, &impl->s, &impl->t, spec.parameter_names, spec.parameter_values,
+    spec.x_expression, "x_expression");
+  const bool y_uses_t = configureExpressionParser(
+    impl->y_parser, &impl->s, &impl->t, spec.parameter_names, spec.parameter_values,
+    spec.y_expression, "y_expression");
   impl->time_varying = x_uses_t || y_uses_t;
   return impl;
 }

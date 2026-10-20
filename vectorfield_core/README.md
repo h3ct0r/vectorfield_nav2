@@ -28,6 +28,9 @@ experimental until 1.0.
 - **Validation:** `validateConfig()` and the per-plan advisor, with stable issue codes.
 - **Simulation:** exact-arc integration of the four motion models, used by `vectorfield_sim` and
   the Python `ClosedLoopSimulator`.
+- **3D core (experimental):** `vectorfield_core::d3` (`#include "vectorfield_core/d3.hpp"`):
+  curves in R³, the 3D field, a holonomic multirotor law, `Tracker3` and a simulator, in the same
+  library (docs/core_3d.md, math_spec §14).
 
 The equations, guards and tolerances are specified in
 [`docs/design/math_spec.md`](../docs/design/math_spec.md); the API reference is in the

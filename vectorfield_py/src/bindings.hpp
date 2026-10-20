@@ -70,6 +70,8 @@ void bindField(py::module_ & m);
 void bindMotion(py::module_ & m, py::module_ & sim);
 void bindObstacles(py::module_ & m);
 void bindTracker(py::module_ & m, py::module_ & sim);
+/// The experimental 3D core as the `d3` submodule (bind_d3.cpp).
+void bindD3(py::module_ & m);
 /// @}
 
 /// @name NumPy conversions

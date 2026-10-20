@@ -53,6 +53,7 @@ pybind11_add_module(_vectorfield MODULE
   src/bind_motion.cpp
   src/bind_obstacles.cpp
   src/bind_tracker.cpp
+  src/bind_d3.cpp
 )
 target_link_libraries(_vectorfield PRIVATE vectorfield_core::vectorfield_core)
 set_target_properties(_vectorfield PROPERTIES CXX_EXTENSIONS OFF)
@@ -75,7 +76,7 @@ else()
   ament_python_install_package(vectorfield_tools PACKAGE_DIR python/vectorfield_tools)
   install(TARGETS _vectorfield LIBRARY DESTINATION "${PYTHON_INSTALL_DIR}/vectorfield")
   # The CLIs, run as `ros2 run vectorfield_py vf-sim`.
-  foreach(tool curve plot sim tune)
+  foreach(tool curve plot sim sim3d tune)
     install(PROGRAMS scripts/vf_${tool}.py DESTINATION lib/${PROJECT_NAME} RENAME vf-${tool})
   endforeach()
 

@@ -17,11 +17,12 @@
 - ``vf-curve`` (:mod:`.vf_curve`): describe, sample, plot and export curves;
 - ``vf-plot`` (:mod:`.vf_plot`): fields, streamlines, obstacles and the field decomposition;
 - ``vf-sim`` (:mod:`.vf_sim`): closed-loop simulation with plots and GIF animations;
+- ``vf-sim3d`` (:mod:`.vf_sim3d`): the same for the experimental 3D core (mplot3d, GIF);
 - ``vf-tune`` (:mod:`.vf_tune`): configuration validation, suggestions and parameter sweeps.
 
-The helpers behind them (:mod:`.curves`, :mod:`.config`, :mod:`.obstacles`, :mod:`.simulation`
-and :mod:`.plotting`) are importable, for example by ``docs/gen_figures.py``. matplotlib, Pillow
-and PyYAML are imported only when needed: install the ``tools`` extra
-(``pip install './vectorfield_py[tools]'``) or, under ROS, the python3-matplotlib, python3-pil
-and python3-yaml rosdep keys.
+The helpers behind them (:mod:`.curves`, :mod:`.curves3d`, :mod:`.config`, :mod:`.obstacles`,
+:mod:`.simulation` and :mod:`.plotting`) are importable, for example by
+``docs/gen_figures.py``. matplotlib, Pillow and PyYAML are imported only when needed: install
+the ``tools`` extra (``pip install './vectorfield_py[tools]'``) or, under ROS, the
+python3-matplotlib, python3-pil and python3-yaml rosdep keys.
 """

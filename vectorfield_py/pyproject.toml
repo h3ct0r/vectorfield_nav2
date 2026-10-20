@@ -57,6 +57,7 @@ Issues = "https://github.com/h3ct0r/vectorfield_nav2/issues"
 vf-curve = "vectorfield_tools.vf_curve:main"
 vf-plot = "vectorfield_tools.vf_plot:main"
 vf-sim = "vectorfield_tools.vf_sim:main"
+vf-sim3d = "vectorfield_tools.vf_sim3d:main"
 vf-tune = "vectorfield_tools.vf_tune:main"
 
 [tool.scikit-build]

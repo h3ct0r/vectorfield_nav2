@@ -31,7 +31,7 @@ Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implemen
 | M4 | `vectorfield_py` bindings and CLIs, theory pages with generated figures | Done |
 | M5 | `vectorfield_curve_follower` (`follow_curve` action), curve demos and example clients | Done |
 | M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | In progress |
-| M7 | Optional extensions: 3D core; done: the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`), reversing (plans with cusps) with Nav2 path constraints, obstacle contouring for Ackermann bases, and the control-barrier-function obstacle mode (`obstacle_mode: cbf`) | Optional |
+| M7 | Optional extensions; done: an experimental 3D core (`vectorfield_core::d3`, `vectorfield.d3`, `vf-sim3d`), the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`), reversing (plans with cusps) with Nav2 path constraints, obstacle contouring for Ackermann bases, and the control-barrier-function obstacle mode (`obstacle_mode: cbf`) | Optional |
 
 ## Packages
 

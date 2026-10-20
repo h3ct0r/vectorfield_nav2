@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 
+#include "expression_parser.hpp"
 #include "vectorfield_core/config.hpp"
 #include "vectorfield_core/curve_spec.hpp"
 #include "vectorfield_core/parametric_curve.hpp"
@@ -30,13 +31,7 @@
 namespace vectorfield_core::detail
 {
 
-/// @brief Longest accepted parameter name (muParser's identifier limit).
-inline constexpr std::size_t kMaxExpressionNameLength = 100;
-
-/// @brief True iff `name` is reserved in expressions: the variables `s` and `t`, muParser's
-/// constants `_pi` and `_e`, and every function name of muParser's default set (including the
-/// removed `rnd`).
-bool isReservedExpressionName(const std::string & name) noexcept;
+// kMaxExpressionNameLength and isReservedExpressionName() are declared in expression_parser.hpp.
 
 /// @brief A curve \f$r(s, t) = (x(s, t), y(s, t))\f$ given by two muParser expressions in `s`,
 /// `t` and named parameters (plan §3.2, §6; upstream audit U01–U05).

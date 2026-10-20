@@ -59,6 +59,33 @@ The ROS-free library. `Tracker::step` runs one control cycle ({doc}`architecture
 :members:
 ```
 
+### 3D core (experimental)
+
+Namespace `vectorfield_core::d3` ({doc}`core_3d`).
+
+```{doxygenclass} vectorfield_core::d3::Tracker3
+:members:
+```
+
+```{doxygenstruct} vectorfield_core::d3::Tracker3Config
+:members:
+```
+
+```{doxygenclass} vectorfield_core::d3::Curve3
+:members:
+```
+
+```{doxygenfunction} vectorfield_core::d3::makeCurve3
+```
+
+```{doxygenclass} vectorfield_core::d3::DistanceField3
+:members:
+```
+
+```{doxygenclass} vectorfield_core::d3::sim::ClosedLoopSimulator3
+:members:
+```
+
 ## vectorfield_ros
 
 The shared ROS 2 layer. `MarkerBuilder` turns one cycle's tracker output into the marker arrays

@@ -268,6 +268,36 @@ because a head-on approach would otherwise sit in the trap basin of {doc}`design
 (section 6.3). The orange stretch of the trajectory is the contour episode.
 :::
 
+## Beyond the plane: the field in $\mathbb{R}^n$
+
+Nothing above is planar. The closest point, $\mathbf D = x - x^*$, $n = \mathbf D/D$, the
+tangent $T$ and the projector $\Pi_T = I - TT^\top$ are defined in any dimension. Lemma 2
+($T^\top\mathbf D = 0$ at a minimiser) and Lemma 5 ($\nabla D = n$) use only inner products.
+The field (3.27), the scale (3.28) and the Lyapunov argument therefore hold verbatim in
+$\mathbb R^n$:
+$\lVert\Phi\rVert = v_r$ and $\dot D = -\eta\,G(D)$ {cite:p}`rezende2022constructive`.
+The planar implementation uses the 90° rotation $J$ in one place only: the tangent assigned
+inside the wedge of a polyline corner. In $\mathbb R^3$, the normals at a corner span a spherical
+lune, and the tangent is fixed only up to a rotation about $n$. The 3D core takes the
+ownership-weighted blend of the two segment tangents. That blend is orthogonal to $n$ by
+construction and reduces to the planar rule in a plane ({doc}`design/math_spec`, section 14.2).
+
+:::{figure} _static/figures/viviani_3d.svg
+:alt: Viviani's curve on a sphere of radius 2 m with blue field streamlines converging onto it and an orange trajectory that joins it from an offset start.
+:width: 70%
+
+The experimental 3D core on Viviani's curve: field streamlines (blue) and a `Tracker3` run at
+0.5 m/s and 20 Hz (orange). The curve crosses itself at $(2, 0, 0)$, and the hinted closest-point
+search keeps the branch there, as it does for the planar lemniscates.
+:::
+
+Under zero-order hold, a holonomic body moves along chords. A chord leaves a curve of curvature
+$\kappa$ by $\ell^2\kappa/2$ per step, and the field takes back $\ell\,G(D)$, with
+$\ell = v_r\Delta t$. The distance therefore settles near
+$D_{\mathrm{zoh}} \approx v_r\Delta t\,\kappa/(2G'(0))$, which is 1 cm for a 1 m radius at
+0.5 m/s and 20 Hz with the default gain. The same holds in 2D. {doc}`core_3d` documents the
+API and its limits.
+
 ## Assumptions and limits
 
 - **Unique closest point.** Points with several closest points (the medial axis) form a set of

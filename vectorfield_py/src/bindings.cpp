@@ -174,4 +174,5 @@ PYBIND11_MODULE(_vectorfield, m)
   vp::bindMotion(m, sim);
   vp::bindObstacles(m);
   vp::bindTracker(m, sim);
+  vp::bindD3(m);
 }

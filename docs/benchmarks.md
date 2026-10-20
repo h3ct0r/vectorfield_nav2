@@ -12,6 +12,7 @@ cd vectorfield_core
 cmake --preset bench
 cmake --build --preset bench
 build/bench/bench_field && build/bench/bench_edt && build/bench/bench_tracker
+build/bench/bench_d3   # the experimental 3D core
 ```
 
 The `bench` preset is a Release build with `-DVF_BUILD_BENCHMARKS=ON` and needs Google Benchmark
@@ -47,6 +48,19 @@ Apple M3 Pro, macOS, Apple clang 21, Release; median of 3 repetitions.
 
 At the default 20 Hz control rate, the worst cycle (an episode start) uses under 0.3% of the
 50 ms period.
+
+### 3D core (experimental)
+
+The same machine and build; `bench/bench_d3.cpp`, {doc}`core_3d`. The points walk along the
+curve 2 cm off it.
+
+| Benchmark | What it measures | Median |
+|---|---|---|
+| `BM_D3FieldEval_Helix_Hinted` | closest point (golden section and Newton polish) and field, default helix, hint carried | 0.97 µs |
+| `BM_D3FieldEval_Helix_GlobalStage` | same, invalid hint: 400 samples, then the refinement | 1.5 µs |
+| `BM_D3FieldEval_Viviani_Hinted` | Viviani's curve, hint carried | 1.5 µs |
+| `BM_D3FieldEval_Polyline2k_Hinted` | 2000-vertex 3D polyline, hinted window | 0.22 µs |
+| `BM_D3TrackerStep_Helix` | one `Tracker3::step` (field, law, limiter) on the helix | 1.1 µs |
 
 ## Visualization (`vectorfield_ros`)
 
