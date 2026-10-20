@@ -484,6 +484,7 @@ FootprintRadii computeFootprintRadii(const FootprintSpec & footprint) noexcept;
 
 /// @brief True iff the footprint is usable: radius finite and >= 0 when the polygon is empty;
 /// otherwise at least 3 finite vertices and a non-zero area.
+/// @param footprint Footprint to check.
 /// @param reason If not null and invalid, receives a short explanation.
 bool footprintIsValid(const FootprintSpec & footprint, std::string * reason = nullptr) noexcept;
 

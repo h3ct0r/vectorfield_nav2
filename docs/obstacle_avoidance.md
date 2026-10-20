@@ -176,4 +176,6 @@ the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the side arrow an
   {doc}`motion_models`.
 - **Global planning still matters.** Contouring handles obstacles the global plan does not know
   yet. With the stock global obstacle layer, the planner routes around an obstacle once the
-  global costmap marks it, and the contour rarely needs to engage.
+  global costmap marks it, and the contour rarely needs to engage. The `demo_obstacles` scenario
+  of `vectorfield_bringup` turns the global obstacle layer off to show contouring (see
+  {doc}`quickstart`).

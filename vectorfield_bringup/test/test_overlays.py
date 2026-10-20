@@ -172,6 +172,21 @@ def test_merged_file_is_written(model, tmp_path):
 
 
 @pytest.mark.parametrize('model', demo.MOTION_MODELS)
+def test_demo_obstacles_keep_the_global_plan(model):
+    """demo_obstacles drops only the global obstacle layer; the local costmap keeps its own."""
+    merged = _merged(model, ('kinematic_sim', 'demo_obstacles'))
+    stock = params.load_yaml(params.stock_params_file())
+    plugins = _node(merged['global_costmap'], 'global_costmap')['plugins']
+    stock_plugins = _node(stock['global_costmap'], 'global_costmap')['plugins']
+    assert 'obstacle_layer' in stock_plugins
+    assert plugins == [p for p in stock_plugins if p != 'obstacle_layer']
+    assert (
+        _node(merged['local_costmap'], 'local_costmap')['plugins']
+        == _node(stock['local_costmap'], 'local_costmap')['plugins']
+    )
+
+
+@pytest.mark.parametrize('model', demo.MOTION_MODELS)
 def test_follower_parameters(model):
     """curve_follower_demo gives the follower FollowPath without its plugin, then its section."""
     merged = _merged(model, ('kinematic_sim', 'curve_follower'))

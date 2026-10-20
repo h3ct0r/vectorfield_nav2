@@ -27,7 +27,7 @@ Arguments:
 | Argument | Default | Meaning |
 |---|---|---|
 | `motion_model` | `differential` | `config/controller/<motion_model>.yaml`: `differential`, `skid_steer`, `omnidirectional` or `ackermann` (Gazebo: the first two) |
-| `map` | `open_10x10` | a name in `maps/` (`open_10x10`, `corridor_door`) or a map YAML path; Gazebo: empty keeps the world's map |
+| `map` | `open_10x10` | a name in `maps/` (`open_10x10`, `corridor_door`, `corridor_corner`) or a map YAML path; Gazebo: empty keeps the world's map |
 | `scenarios` | empty | extra overlays, comma separated: names in `config/scenario` (for example `demo_obstacles`) or YAML paths |
 | `use_rviz` | `true` | start RViz with `rviz/vectorfield.rviz` (the wrappers' own RViz is always disabled) |
 | `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw` | 0 | start pose in the map (Gazebo: `x_pose`, `y_pose`, `yaw`, the spawn pose) |
@@ -49,9 +49,9 @@ and `nav2_behaviors::X` are renamed to the `/` form.
 | Path | Contents |
 |---|---|
 | `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` |
-| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`), `curve_follower` (local costmap for the M5 follower) |
+| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the M5 follower) |
 | `config/humble/` | `collision_monitor.yaml`, the only distro-specific file |
-| `maps/` | `open_10x10` and `corridor_door` |
+| `maps/` | `open_10x10`, `corridor_door` and `corridor_corner` |
 | `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
 | `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below) |
 
@@ -126,7 +126,7 @@ follower runs (RViz's 2D Goal Pose) stops it with `NAV2_ACTIVE`.
 and the controller's markers, pre-configured with the shared colour legend:
 
 - a status text above the robot whose colour follows the phase (FOLLOW green, ROTATE_TO_FIELD
-  yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red) and lists active flags such
+  amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red) and lists active flags such
   as `BLOCKED` or `CONTOUR ±1`;
 - the field at the control point split into convergence (red), circulation (green), feedforward
   (blue) and the resulting field (white);
@@ -138,7 +138,7 @@ and the controller's markers, pre-configured with the shared colour legend:
   "Field grid" display, off by default because the grid costs CPU while subscribed).
 
 The "Curve follower" group shows the same markers, window and predicted path for
-`curve_follower`. The global plan is grey, the controller's window white and the
+`curve_follower`. The global plan is grey, the controller's window teal and the
 `predicted_path` green. RViz's 2D Goal Pose tool sends `goal_pose` to bt_navigator.
 `foxglove/vectorfield.json` (Foxglove, through `foxglove_bridge`) shows the same 3D scene plus
 plots of D, σ, v, ω and the limiter scale and a phase/status timeline from

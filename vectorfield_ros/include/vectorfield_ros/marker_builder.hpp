@@ -107,7 +107,8 @@ struct MarkerContext
 /// - namespaces that do not apply (e.g. `heading` outside the rotate phases, `contour` while the
 ///   gate is closed and no episode is active, `curve_info` without CurveInfo, `goal` without a
 ///   goal) are DELETEd as a whole; sub-markers that do not apply (the feedforward arrow when
-///   \f$\Phi_T = 0\f$, `g_ref` when \f$x_{\mathrm{ref}} = 0\f$, the collision cube without a
+///   \f$\Phi_T = 0\f$, `g_ref` when \f$x_{\mathrm{ref}} = 0\f$, `g_ref` and the braking zone
+///   while the curve does not end at the goal (no terminal mode), the collision cube without a
 ///   collision, the virtual vertex without tail conditioning) are DELETEd individually;
 /// - every marker has `header.frame_id = frame_id`, `header.stamp = stamp`, finite coordinates
 ///   (non-finite inputs DELETE the marker instead), `frame_locked = false` and `lifetime = 0`;

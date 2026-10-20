@@ -681,6 +681,9 @@ private:
     }
   }
 
+  /// @brief g, the rings and the goal yaw at the goal pose; g_ref and the braking zone only in
+  /// terminal mode (the curve ends at the goal), since \f$s_{\mathrm{goal}}\f$ is the curve end:
+  /// a window that stops short of the goal would put them mid-path.
   void goal()
   {
     if (!in_.goal.has_value()) {
@@ -690,7 +693,7 @@ private:
     const Vec2 & g = goal.pose.p;
     Marker & point = add(Ns::kGoal, legend::id::kGoalPoint, legend::kGoalColor);
     sphere(&point, g, kSphereLarge);
-    if (f_.has_goal && std::abs(f_.x_ref) > 1.0e-9 && vf::isFinite(f_.g_ref)) {
+    if (f_.terminal && std::abs(f_.x_ref) > 1.0e-9 && vf::isFinite(f_.g_ref)) {
       Marker & ref = add(Ns::kGoal, legend::id::kGoalReference, legend::kGoalColor);
       sphere(&ref, f_.g_ref, kSphereSmall);
     }
@@ -709,11 +712,11 @@ private:
   }
 
   /// @brief The last \f$\sigma_b\f$ of the curve before the goal station, against the traversal
-  /// direction.
+  /// direction (terminal mode only).
   void brakingZone()
   {
     const double sigma_b = config_.phases.terminal_braking_distance;
-    if (in_.curve == nullptr || !std::isfinite(f_.s_goal) || !(sigma_b > 0.0)) {
+    if (!f_.terminal || in_.curve == nullptr || !std::isfinite(f_.s_goal) || !(sigma_b > 0.0)) {
       return;
     }
     const double direction = config_.field.direction < 0 ? -1.0 : 1.0;

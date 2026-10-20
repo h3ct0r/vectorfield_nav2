@@ -49,17 +49,17 @@ the code, the shipped RViz configuration and this table.
 
 | Namespace | Marker(s) | Shows | Colour |
 |---|---|---|---|
-| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW \| v 0.38 w 0.12 \| D 0.04 m \| sigma 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
+| `status` | TEXT_VIEW_FACING 0.6 m above `base_link`, e.g. `FOLLOW \| v 0.38 w 0.12 \| D 0.04 m \| sigma 1.20 m`, plus the active flags `BLOCKED`, `CONTOUR ±1`, `A3-CLAMP`, `CURV-SAT`, `CANCEL` | phase, command, distance to the curve, distance to the goal, active conditions | text colour = phase: FOLLOW green, ROTATE_TO_FIELD amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red |
 | `footprint` | LINE_STRIP at the current pose | robot outline | green normal / orange speed-capped / red blocked |
-| `curve` | LINE_STRIP of the conditioned window (plugin) or the full curve (follower); LINE_LIST dashes for the extension rays; small SPHERE at the virtual tail vertex | exactly the geometry the field uses | white; rays grey |
-| `closest_point` | SPHERE at $x^*$, ARROW of $T$, LINE from the evaluation point to $x^*$ (length $D$) | projection, tangent, distance | yellow |
+| `curve` | LINE_STRIP of the conditioned window (plugin) or the full curve (follower); LINE_LIST dashes for the extension rays; small SPHERE at the virtual tail vertex | exactly the geometry the field uses | teal; rays grey |
+| `closest_point` | SPHERE at $x^*$, ARROW of $T$, LINE from the evaluation point to $x^*$ (length $D$) | projection, tangent, distance | amber |
 | `control_point` | SPHERE at $p_c$ (feedback linearisation) or the reference point (Ackermann), LINE from `base_link` | where the field is evaluated | magenta |
 | `field` | ARROWs at the evaluation point: convergence $-\eta G\, n$, circulation $\eta H\, T$, feedforward $\Phi_T$ (only when non-zero), resulting $F$ (thick) | the paper's decomposition of the field | red / green / blue / white |
 | `command` | ARROW from `base_link` along the commanded body velocity, plus a LINE_STRIP arc of 1 s of motion under the current $(v, \omega)$ | what is actually sent | cyan |
-| `heading` | in rotate phases: ARROW of the target heading and an arc from the current heading to it | the ROTATE_TO_FIELD / ROTATE_TO_HEADING target | yellow / blue |
+| `heading` | in rotate phases: ARROW of the target heading and an arc from the current heading to it | the ROTATE_TO_FIELD / ROTATE_TO_HEADING target | amber / blue |
 | `prediction` | LINE_STRIP of the rollout poses (green up to the first collision), CUBE at the first colliding pose, TEXT `s_free 0.42 m` | collision prediction and braking cap | green → red |
-| `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve | terminal field, braking zone, settle radius | white / orange / cyan |
-| `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (yellow); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 \| 1.3/5.0 m \| 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / yellow |
+| `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve; $g_{ref}$ and the overlay only once the curve ends at the goal (terminal mode), so a window that stops short of the goal shows neither | terminal field, braking zone, settle radius | white / orange / cyan |
+| `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (amber); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 \| 1.3/5.0 m \| 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / amber |
 | `curve_info` (follower) | ARROWs every 1 m along the curve (traversal direction), SPHERE at the start, TEXT `lap 2/3 \| rem 7.4 m`; for moving frames, an ARROW of the frame velocity | direction, laps, moving-curve motion | white / blue |
 
 ### Status flags
@@ -124,7 +124,9 @@ with the shipped `rviz/vectorfield.rviz`; only the camera (zoom, centre and angl
 some views the camera is turned by 45°, so the robot drives up the screen and the map's border
 appears as a diagonal band. RViz 2 draws each space of a text marker at a fixed width of about
 0.6 m, whatever the text size, so the status line spans several metres at this zoom; the
-words read left to right as in the legend.
+words read left to right as in the legend. The captures predate the current colours: the curve,
+now teal, was white and does not show on the white map, and the markers now drawn amber were
+yellow.
 
 ### FOLLOW
 
@@ -139,8 +141,9 @@ enough to see. At the magenta control point: the red convergence arrow toward th
 green circulation arrow along it and the white resulting field. The cyan arrow is the command;
 the yellow sphere, line and arrow are the closest point, the distance $D$ and the tangent; the
 short green line is the predicted path. On the right, the goal with its two cyan rings and the
-cyan goal-yaw arrow; the orange segment is the last `terminal_braking_distance` of the plan
-window. The thin green circle is Nav2's footprint display, still drawn at the pre-jump pose.
+cyan goal-yaw arrow; the orange segment and the small sphere after it are the braking zone and
+$g_{\mathrm{ref}}$ at the end of the plan window, which the current build draws only once the
+window ends at the goal. The thin green circle is Nav2's footprint display, still drawn at the pre-jump pose.
 :::
 
 ### ROTATE_TO_FIELD
@@ -189,9 +192,8 @@ the goal-yaw marker of the `goal` namespace.
 :alt: Robot circulating around a box that sits on its plan, with the obstacle cells highlighted, translucent distance discs and red contour text.
 :width: 100%
 
-A contour episode (`obstacle_mode: contour`). Launched with
-`scenarios:=demo_obstacles,<file>` where the file removes the global obstacle layer (see
-{doc}`quickstart`), with a 0.4 m box set at run time on the plan between the start (1.6, −1.6)
+A contour episode (`obstacle_mode: contour`). Launched with `scenarios:=demo_obstacles`,
+which turns the global obstacle layer off (see {doc}`quickstart`), with a 0.4 m box set at run time on the plan between the start (1.6, −1.6)
 and the goal (−1.6, 1.6). The status reads `CONTOUR +1`, and the red text
 `contour +1 | 0.8/5.0 m | 2/20 s` is the watchdog progress (path length and time of the
 episode against their limits). The `contour` namespace shows the blocking obstacle's cells, the

@@ -19,7 +19,7 @@
 ///
 /// Adapted from navigation2 (https://github.com/ros-navigation/navigation2),
 /// `nav2_controller/plugins/feasible_path_handler.{hpp,cpp}`, Apache-2.0:
-/// Copyright (c) 2022 Samsung Research America, @artofnothingness Alexey Budyakov;
+/// Copyright (c) 2022 Samsung Research America, \@artofnothingness Alexey Budyakov;
 /// Copyright (c) 2023 Dexory; Copyright (c) 2023 Open Navigation LLC. See NOTICE.
 ///
 /// Implemented in src/legacy_path_handler.cpp (M2 wave 2, path). A plain class, compiled on every

@@ -12,7 +12,7 @@
       <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
        <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
        <limitY/>
-       <curve name="/FollowPath/field_state/distance" color="#ffd91a"/>
+       <curve name="/FollowPath/field_state/distance" color="#cc9900"/>
        <curve name="/FollowPath/field_state/distance_to_end" color="#ff8c00"/>
       </plot>
      </DockArea>

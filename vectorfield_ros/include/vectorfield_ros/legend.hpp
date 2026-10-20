@@ -64,8 +64,9 @@ constexpr bool operator==(const Rgba & lhs, const Rgba & rhs) noexcept
 /// @{
 /// Green: FOLLOW, normal footprint, collision-free prediction, circulation arrow.
 inline constexpr Rgba kGreen{0.20F, 0.80F, 0.20F, 1.0F};
-/// Yellow: ROTATE_TO_FIELD, closest point, contour D_in and D'_in rings.
-inline constexpr Rgba kYellow{1.00F, 0.85F, 0.10F, 1.0F};
+/// Amber: ROTATE_TO_FIELD, closest point, contour D_in and D'_in rings (dark enough to read on
+/// a white map, kept apart from orange by its hue).
+inline constexpr Rgba kAmber{0.80F, 0.60F, 0.00F, 1.0F};
 /// Cyan: FINAL_APPROACH, command, goal rings and goal yaw.
 inline constexpr Rgba kCyan{0.00F, 0.85F, 0.90F, 1.0F};
 /// Blue: ROTATE_TO_HEADING, feedforward arrow, moving-frame velocity.
@@ -74,7 +75,9 @@ inline constexpr Rgba kBlue{0.20F, 0.45F, 1.00F, 1.0F};
 inline constexpr Rgba kRed{0.90F, 0.10F, 0.10F, 1.0F};
 /// Orange: speed-capped footprint, braking zone, contour lambda ring and side arrow.
 inline constexpr Rgba kOrange{1.00F, 0.55F, 0.00F, 1.0F};
-/// White: curve, resulting field, goal, curve_info.
+/// Teal: the curve (readable on a white map and on a dark background).
+inline constexpr Rgba kTeal{0.00F, 0.60F, 0.60F, 1.0F};
+/// White: resulting field, goal, curve_info.
 inline constexpr Rgba kWhite{1.00F, 1.00F, 1.00F, 1.0F};
 /// Grey: extension rays and the virtual tail vertex.
 inline constexpr Rgba kGrey{0.60F, 0.60F, 0.60F, 1.0F};
@@ -90,12 +93,12 @@ inline constexpr Rgba kTranslucentRed{0.90F, 0.10F, 0.10F, 0.35F};
 inline constexpr float kRingAlpha = 0.25F;
 
 /// @brief Text colour of the `status` namespace per phase: FOLLOW green, ROTATE_TO_FIELD
-/// yellow, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red.
+/// amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red.
 constexpr Rgba phaseColor(vectorfield_core::Phase phase) noexcept
 {
   switch (phase) {
     case vectorfield_core::Phase::kRotateToField:
-      return kYellow;
+      return kAmber;
     case vectorfield_core::Phase::kFollow:
       return kGreen;
     case vectorfield_core::Phase::kFinalApproach:
@@ -118,11 +121,11 @@ inline constexpr Rgba kFootprintCapped = kOrange;
 /// footprint: kBlocked.
 inline constexpr Rgba kFootprintBlocked = kRed;
 /// curve: the polyline the field uses.
-inline constexpr Rgba kCurveColor = kWhite;
+inline constexpr Rgba kCurveColor = kTeal;
 /// curve: extension rays and the virtual tail vertex.
 inline constexpr Rgba kCurveRays = kGrey;
 /// closest_point.
-inline constexpr Rgba kClosestPointColor = kYellow;
+inline constexpr Rgba kClosestPointColor = kAmber;
 /// control_point.
 inline constexpr Rgba kControlPointColor = kMagenta;
 /// field: convergence \f$-\eta G n\f$.
@@ -136,7 +139,7 @@ inline constexpr Rgba kFieldResult = kWhite;
 /// command.
 inline constexpr Rgba kCommandColor = kCyan;
 /// heading: ROTATE_TO_FIELD target.
-inline constexpr Rgba kHeadingToField = kYellow;
+inline constexpr Rgba kHeadingToField = kAmber;
 /// heading: ROTATE_TO_HEADING target.
 inline constexpr Rgba kHeadingToGoal = kBlue;
 /// prediction: collision-free part of the rollout and the s_free text.
@@ -156,7 +159,7 @@ inline constexpr Rgba kContourObstacle = kRed;
 /// contour: the lambda ring and the sigma_c side arrow.
 inline constexpr Rgba kContourLambda = kOrange;
 /// contour: the D_in and D'_in rings.
-inline constexpr Rgba kContourBlend = kYellow;
+inline constexpr Rgba kContourBlend = kAmber;
 /// curve_info: direction arrows, start and text.
 inline constexpr Rgba kCurveInfoColor = kWhite;
 /// curve_info: moving-frame velocity.
@@ -261,7 +264,7 @@ inline constexpr std::int32_t kPredictionText = 2;
 
 /// goal: SPHERE at g.
 inline constexpr std::int32_t kGoalPoint = 0;
-/// goal: small SPHERE at g_ref (only when x_ref != 0).
+/// goal: small SPHERE at g_ref (only in terminal mode and when x_ref != 0).
 inline constexpr std::int32_t kGoalReference = 1;
 /// goal: CYLINDER ring of radius xy_tol about g.
 inline constexpr std::int32_t kGoalToleranceRing = 2;
@@ -269,7 +272,8 @@ inline constexpr std::int32_t kGoalToleranceRing = 2;
 inline constexpr std::int32_t kGoalStopRing = 3;
 /// goal: ARROW of the goal yaw (only when the yaw is checked).
 inline constexpr std::int32_t kGoalYaw = 4;
-/// goal: LINE_STRIP overlay of the last sigma_b of the curve (the braking zone).
+/// goal: LINE_STRIP overlay of the last sigma_b of the curve (the braking zone; terminal mode
+/// only).
 inline constexpr std::int32_t kGoalBrakingZone = 5;
 
 /// contour: CUBE_LIST of K's cells.

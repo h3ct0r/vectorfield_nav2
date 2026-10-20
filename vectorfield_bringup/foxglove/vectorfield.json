@@ -78,8 +78,8 @@
           "visible": true,
           "lineWidth": 0.015,
           "gradient": [
-            "#ffffffff",
-            "#ffffffff"
+            "#009999ff",
+            "#009999ff"
           ]
         },
         "/FollowPath/predicted_path": {
@@ -132,7 +132,7 @@
           "enabled": true,
           "timestampMethod": "receiveTime",
           "label": "D",
-          "color": "#ffd91a"
+          "color": "#cc9900"
         },
         {
           "value": "/FollowPath/field_state.distance_to_end",

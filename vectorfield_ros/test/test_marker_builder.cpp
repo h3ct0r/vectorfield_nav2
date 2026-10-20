@@ -296,6 +296,7 @@ TEST(MarkerBuilder, FollowWithoutObstacles)
   EXPECT_TRUE(added(a, Ns::kField, legend::id::kFieldResult));
   EXPECT_FALSE(added(a, Ns::kField, legend::id::kFieldFeedforward));  // Phi_T = 0
   EXPECT_TRUE(added(a, Ns::kGoal, legend::id::kGoalReference));       // FL: x_ref = d != 0
+  EXPECT_TRUE(added(a, Ns::kGoal, legend::id::kGoalBrakingZone));     // the window ends at g
   EXPECT_FALSE(added(a, Ns::kGoal, legend::id::kGoalYaw));
   EXPECT_EQ(statusText(a).rfind("FOLLOW", 0), 0U);
   EXPECT_TRUE(sameColor(find(a, Ns::kFootprint, 0).color, legend::kFootprintNormal));
@@ -304,6 +305,31 @@ TEST(MarkerBuilder, FollowWithoutObstacles)
   ASSERT_EQ(curve.points.size(), 2U);
   EXPECT_EQ(curve.points[0].x, -1.0);
   EXPECT_EQ(curve.points[1].x, 4.0);
+}
+
+TEST(MarkerBuilder, WindowShortOfTheGoalShowsNoTerminalField)
+{
+  // The window ends at (2, 0), the goal is (4, 0): no terminal mode, so neither g_ref nor the
+  // braking zone is drawn at the window end, and g, its rings and its yaw stay at the goal.
+  Scenario s(vf::CoreConfig{}, line(Vec2(-1.0, 0.0), Vec2(2.0, 0.0)), Pose2{Vec2(0.0, 0.15), 0.0});
+  s.input().goal = vf_viz_test::goalAt(Vec2(4.0, 0.0), 0.5 * vf::kPi, true);
+  s.run(10);
+  ASSERT_TRUE(s.output().field.has_goal);
+  ASSERT_FALSE(s.output().field.terminal);
+  MarkerBuilder builder;
+  const MarkerContext c = s.context();
+  expectCycle(builder, c);
+  const MarkerArray & a = builder.markers(c);
+  EXPECT_FALSE(added(a, Ns::kGoal, legend::id::kGoalReference));
+  EXPECT_FALSE(added(a, Ns::kGoal, legend::id::kGoalBrakingZone));
+  for (const std::int32_t id :
+       {legend::id::kGoalPoint, legend::id::kGoalToleranceRing, legend::id::kGoalStopRing,
+        legend::id::kGoalYaw}) {
+    const Marker & m = find(a, Ns::kGoal, id);
+    ASSERT_EQ(m.action, Marker::ADD) << id;
+    const double x = id == legend::id::kGoalYaw ? m.points.at(0).x : m.pose.position.x;
+    EXPECT_EQ(x, 4.0) << id;
+  }
 }
 
 TEST(MarkerBuilder, RotateToFieldShowsTheTargetHeading)

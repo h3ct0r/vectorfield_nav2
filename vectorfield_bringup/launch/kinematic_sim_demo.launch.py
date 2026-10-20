@@ -218,7 +218,8 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 'map',
                 default_value='open_10x10',
-                description='Map: a name in maps/ (open_10x10, corridor_door) or a map YAML path.',
+                description='Map: a name in maps/ (open_10x10, corridor_door, corridor_corner) '
+                'or a map YAML path.',
             ),
             DeclareLaunchArgument(
                 'scenarios',

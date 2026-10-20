@@ -67,7 +67,7 @@ The `control_point` marker shows the evaluation point in RViz ({doc}`visualizati
 
 | Phase | Status colour | Entry | Behaviour | Exit |
 |---|---|---|---|---|
-| ROTATE_TO_FIELD | yellow | differential or skid-steer with `use_rotate_to_field`, and the heading error to the tracked field above `rotate_to_field_angle` ($\pi/2$) | rotate in place, $v = 0$, $\lvert\omega\rvert \ge$ `min_in_place_angular_vel` | error below `rotate_to_field_release_angle` ($\pi/4$) |
+| ROTATE_TO_FIELD | amber | differential or skid-steer with `use_rotate_to_field`, and the heading error to the tracked field above `rotate_to_field_angle` ($\pi/2$) | rotate in place, $v = 0$, $\lvert\omega\rvert \ge$ `min_in_place_angular_vel` | error below `rotate_to_field_release_angle` ($\pi/4$) |
 | FOLLOW | green | default | speed shaping, field, contour, law, kinematic limits, acceleration limiter, collision cap | — |
 | FINAL_APPROACH | cyan | open path ending at the goal, and remaining path length below `final_approach_distance` (auto: $\max(2d,\ \mathrm{xy\_tol} + d)$ for feedback linearisation, xy_tol otherwise) | feedback linearisation hands over to heading tracking at `base_link` on the terminal field; the other laws keep their own | settled |
 | ROTATE_TO_HEADING | blue | settled, `use_rotate_to_heading`, the goal checker checks yaw (yaw tolerance > 10⁻⁶ rad); not Ackermann, not the curve follower | rotate in place toward the goal yaw at up to `rotate_to_heading_angular_vel` | the goal checker succeeds; if the robot leaves the XY tolerance, back to FINAL_APPROACH or FOLLOW |

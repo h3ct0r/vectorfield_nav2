@@ -31,6 +31,7 @@ Nav2's `navigation_launch.py` with the vector-field controller as `FollowPath`, 
 ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py
 ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py motion_model:=omnidirectional
 ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py map:=corridor_door
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py map:=corridor_corner
 ```
 
 On Jazzy and later, `loopback_demo` runs the same controller configuration on Nav2's loopback
@@ -41,8 +42,10 @@ ros2 launch vectorfield_bringup loopback_demo.launch.py
 ```
 
 `motion_model` is `differential` (default), `skid_steer`, `omnidirectional` or `ackermann`. The
-robot starts at (0, 0) facing +x on both maps; `open_10x10` is a 10 m × 10 m open area centred on
-the origin, `corridor_door` a 2 m wide corridor along +x with a 0.8 m door at x = 5 m. The
+robot starts at (0, 0) facing +x on every map; `open_10x10` is a 10 m × 10 m open area centred on
+the origin, `corridor_door` a 2 m wide corridor along +x with a 0.8 m door at x = 5 m, and
+`corridor_corner` a 1.2 m wide L-shaped corridor that runs along +x to a sharp 90° left corner at
+(6, 0) and then along +y (send a goal at (6, 6) to take the corner). The
 `vectorfield_bringup` README lists every launch argument.
 
 Send goals with RViz's **2D Goal Pose** tool, or from a terminal:
@@ -55,7 +58,7 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
 Goals worth trying, and what to expect:
 
 - **Behind the robot** (as above). A differential or skid-steer robot first rotates in place
-  (ROTATE_TO_FIELD, yellow status text) until the field is within 45° of its heading, then
+  (ROTATE_TO_FIELD, amber status text) until the field is within 45° of its heading, then
   follows the plan.
 - **At the robot's own position with a new yaw.** The robot only turns in place
   (ROTATE_TO_HEADING, blue) and ends aligned with the goal yaw.
@@ -66,6 +69,8 @@ Goals worth trying, and what to expect:
   enters the XY tolerance.
 - **0.4 m from a wall, or through the door** (`map:=corridor_door`). The robot reaches the goal
   without obstacle contouring: the door is free, so the contour gate stays closed.
+- **Around a sharp corner** (`map:=corridor_corner`, goal (6, 6)). The robot follows the plan
+  through the 90° corner of the 1.2 m corridor without touching its walls.
 
 In RViz, check:
 
@@ -81,19 +86,12 @@ In RViz, check:
 
 `demo_obstacles` adds unmapped obstacles that only the simulated laser sees, among them a 0.4 m
 box 2 m ahead of the start pose. The demo overlays set `obstacle_mode: contour` (except
-Ackermann). To make the robot meet the box on its plan rather than plan around it, keep the box
-out of the global costmap with a small overlay of your own, for example `no_global_obstacles.yaml`:
-
-```yaml
-global_costmap:
-  global_costmap:
-    ros__parameters:
-      plugins: ["static_layer", "inflation_layer"]
-```
+Ackermann). The overlay also turns the global costmap's obstacle layer off (the local costmap
+keeps its own), so the planner keeps the plan through the box and the robot meets it on its path
+instead of planning around it:
 
 ```bash
-ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py \
-  scenarios:=demo_obstacles,$PWD/no_global_obstacles.yaml
+ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py scenarios:=demo_obstacles
 ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose \
   "{pose: {header: {frame_id: map}, pose: {position: {x: 4.0, y: 0.0}, orientation: {w: 1.0}}}}"
 ```
