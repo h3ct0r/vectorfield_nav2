@@ -115,7 +115,7 @@ ros2 launch vectorfield_bringup curve_follower_demo.launch.py             # then
 ros2 run vectorfield_bringup send_curve.py --shape lemniscate_bernoulli --laps 3
 ```
 
-The [quickstart](https://h3ct0r.github.io/vectorfield_nav2/quickstart.html) lists goals to try and what to look for in RViz.
+The [quickstart](https://h3ct0r.github.io/vectorfield_nav2/quickstart.html) lists goals to try and what to look for in RViz. The [tutorials](https://h3ct0r.github.io/vectorfield_nav2/tutorials/getting_started.html) go from a fresh machine to every demo scenario, curve following, offline design with the Python tools, and the [controller on your own robot](https://h3ct0r.github.io/vectorfield_nav2/tutorials/your_robot.html).
 
 ### Using the controller
 
@@ -133,7 +133,7 @@ controller_server:
       obstacle_mode: contour
 ```
 
-Every parameter is in the [parameter reference](https://h3ct0r.github.io/vectorfield_nav2/parameters.html).
+Every parameter is in the [parameter reference](https://h3ct0r.github.io/vectorfield_nav2/parameters.html). Annotated templates to copy into your own `nav2_params.yaml` (differential, omnidirectional, Ackermann) are in [`vectorfield_bringup/config/examples/`](vectorfield_bringup/config/examples/).
 
 ### Native core build and Python tools (macOS)
 

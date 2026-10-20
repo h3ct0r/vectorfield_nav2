@@ -51,9 +51,11 @@ and `nav2_behaviors::X` are renamed to the `/` form.
 | `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` |
 | `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the M5 follower) |
 | `config/humble/` | `collision_monitor.yaml`, the only distro-specific file |
+| `config/examples/` | Templates to copy into your own `nav2_params.yaml` (`nav2_params_vectorfield_differential`, `_omnidirectional`, `_ackermann`), and the rotation-shim overlays `rotation_shim_humble_jazzy` and `rotation_shim_lyrical`; see the "Your robot" tutorial |
 | `maps/` | `open_10x10`, `corridor_door` and `corridor_corner` |
 | `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
 | `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below) |
+| `examples/` | The tutorials' minimal clients, installed like the scripts: `follow_curve_client.py` (a `follow_curve` action client) and `navigate_waypoints.py` (a route of NavigateToPose goals with Nav2's simple commander) |
 
 Overlay rules:
 

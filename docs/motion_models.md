@@ -136,6 +136,9 @@ controller_server:
 ```
 
 On Lyrical the marker topics follow the plugin name: `FollowPath/primary_controller/markers`.
+The Lyrical shim re-checks the heading on every control cycle, which near the goal turns the robot
+back toward the last path pose while the controller turns it to the goal yaw; set the shim's
+`rotate_to_goal_heading: true` so that it makes the final turn itself.
 
 On Humble and Jazzy the shim declares `rotate_to_heading_angular_vel` (1.8) and
 `max_angular_accel` under the same prefix, so both controllers share those values; the plugin
@@ -145,7 +148,8 @@ warns when `rotate_to_heading_angular_vel` exceeds `max_angular_vel` and uses th
 The shim re-aims the robot at the path whenever it re-checks the heading, which undoes an
 obstacle-contour episode. The shim with `obstacle_mode: contour` is supported only on Jazzy with
 `FollowPath.rotate_to_heading_once: true`; in every other combination the plugin logs a warning
-once at configuration. No shim overlay is shipped.
+once at configuration. `vectorfield_bringup/config/examples/` has both layouts as demo overlays
+(`rotation_shim_humble_jazzy.yaml`, `rotation_shim_lyrical.yaml`; see {doc}`tutorials/scenarios`).
 :::
 
 (ackermann-caveats)=

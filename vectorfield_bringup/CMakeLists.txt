@@ -32,6 +32,11 @@ install(
   PROGRAMS scripts/send_curve.py scripts/moving_frame_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )
+# The tutorials' minimal clients: `ros2 run vectorfield_bringup follow_curve_client.py`.
+install(
+  PROGRAMS examples/follow_curve_client.py examples/navigate_waypoints.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # Install the resource directories that exist. The placeholder README.md files
 # describe content that arrives in later milestones and are not installed.

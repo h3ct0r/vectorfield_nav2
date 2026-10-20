@@ -749,7 +749,7 @@ The TB3 loopback wrapper provides `robot_state_publisher` with the TB3 URDF, `ma
 
 **Rules.**
 
-- Under the shim, set `use_rotate_to_field: false`. The docs show both YAML layouts, and no shim overlay is shipped.
+- Under the shim, set `use_rotate_to_field: false`. The docs show both YAML layouts; `vectorfield_bringup/config/examples/` has them as demo overlays, outside the motion-model overlays.
 - `rotate_to_heading_angular_vel > max_angular_vel` is a warning, not a rejection: the effective rate is the minimum. The message names the shim's 1.8 default.
 - The cross-validator ignores names under our prefix that are not ours: `<plugin>.plugin`, and the shim's keys on Humble and Jazzy.
 - Shim plus `obstacle_mode: contour` is supported only on Jazzy (and Kilted) with `FollowPath.rotate_to_heading_once: true`, because a re-check aims the robot back at a path that runs through the obstacle. `configure()` detects the shim and warns once in every other combination. On Humble and Jazzy it detects `<name>.primary_controller`; on Lyrical+ it detects a plugin name ending in `.primary_controller`.

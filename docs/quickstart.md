@@ -1,7 +1,10 @@
 # Quickstart
 
 This page runs the controller and the curve follower in simulation, then the Python tools
-without ROS. The {doc}`visualization` guide explains what RViz shows.
+without ROS. The {doc}`visualization` guide explains what RViz shows. The tutorials go through
+the same steps in more detail ({doc}`tutorials/getting_started`), run every demo scenario
+({doc}`tutorials/scenarios`) and put the controller on your own robot
+({doc}`tutorials/your_robot`).
 
 ## Build
 

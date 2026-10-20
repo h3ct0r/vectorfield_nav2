@@ -15,8 +15,9 @@
 """Checks of the shipped overlays, merged onto the running distro's nav2_params.yaml.
 
 They enforce the overlay rules of plan section 8: velocity_smoother ownership, the omni and
-Ackermann specifics, and that the overlays only name real controller parameters. The controller
-validation of each overlay (validateFromNode) runs in vectorfield_system_tests.
+Ackermann specifics, and that the overlays only name real controller parameters. The copy-paste
+templates of ``config/examples`` follow the same rules. The controller validation of each overlay
+and template (validateFromNode) runs in vectorfield_system_tests.
 """
 
 from pathlib import Path
@@ -30,6 +31,11 @@ PACKAGE = Path(__file__).resolve().parents[1]
 REPOSITORY = PACKAGE.parent
 CONTROLLER = PACKAGE / 'config' / 'controller'
 SCENARIO = PACKAGE / 'config' / 'scenario'
+TEMPLATE_PREFIX = 'nav2_params_vectorfield_'
+EXAMPLES = PACKAGE / 'config' / 'examples'
+TEMPLATES = sorted(EXAMPLES.glob(TEMPLATE_PREFIX + '*.yaml'))
+SHIM = 'nav2_rotation_shim_controller::RotationShimController'
+SHIM_KEYS = {'angular_dist_threshold', 'forward_sampling_distance', 'rotate_to_goal_heading'}
 PARAMETER_FILES = (
     REPOSITORY / 'vectorfield_ros' / 'params' / 'vectorfield_common_params.yaml',
     REPOSITORY / 'vectorfield_nav2_controller' / 'params' / 'vectorfield_legacy_path_params.yaml',
@@ -80,8 +86,11 @@ def test_controller_overlay_replaces_follow_path(model):
 @pytest.mark.parametrize('model', demo.MOTION_MODELS)
 def test_smoother_limits_cover_the_controller(model):
     """Full [x, y, theta] lists, x and theta at least the controller's, y only for omni."""
+    _assert_smoother_covers_the_controller(_merged(model), model)
+
+
+def _assert_smoother_covers_the_controller(merged, model):
     defaults = _defaults()
-    merged = _merged(model)
     limits = {**defaults, **_node(merged, 'controller_server')['FollowPath']}
     smoother = _node(merged, 'velocity_smoother')
     for key in SMOOTHER_LIMITS:
@@ -154,7 +163,11 @@ def test_scenarios_never_set_smoother_limits(path):
 
 
 @pytest.mark.parametrize(
-    'path', sorted(CONTROLLER.glob('*.yaml')) + sorted(SCENARIO.glob('*.yaml')), ids=str
+    'path',
+    sorted(CONTROLLER.glob('*.yaml'))
+    + sorted(SCENARIO.glob('*.yaml'))
+    + sorted(EXAMPLES.glob('*.yaml')),
+    ids=str,
 )
 def test_overlays_never_set_stamped_cmd_vel(path):
     """enable_stamped_cmd_vel stays at each node's distro default (plan section 8)."""
@@ -199,3 +212,97 @@ def test_follower_parameters(model):
         follower['moving_frame_reference']
         == _node(merged, demo.FOLLOWER)['moving_frame_reference']
     )
+
+
+def _template_model(path):
+    return path.stem[len(TEMPLATE_PREFIX) :]
+
+
+def test_every_template_exists():
+    """One template per motion model that has its own Nav2 setup (skid-steer: as differential)."""
+    assert [_template_model(p) for p in TEMPLATES] == [
+        'ackermann',
+        'differential',
+        'omnidirectional',
+    ]
+
+
+@pytest.mark.parametrize('path', TEMPLATES, ids=lambda p: p.stem)
+def test_template_follow_path(path):
+    """A template's FollowPath is ours, names its model and holds only real parameters."""
+    defaults = _defaults()
+    server = _node(params.load_yaml(str(path)), 'controller_server')
+    follow_path = server['FollowPath']
+    assert follow_path['plugin'] == PLUGIN
+    assert follow_path['motion_model'] == _template_model(path)
+    unknown = set(follow_path) - set(defaults) - {'plugin'}
+    assert not unknown, f'{path.name} sets unknown FollowPath parameters {sorted(unknown)}'
+    typed = {k: v for k, v in follow_path.items() if k in defaults}
+    assert all(isinstance(v, type(defaults[k])) for k, v in typed.items()), typed
+    assert server['controller_plugins'] == ['FollowPath']
+    assert server['goal_checker_plugins'] == ['general_goal_checker']
+
+
+@pytest.mark.parametrize('path', TEMPLATES, ids=lambda p: p.stem)
+def test_template_merges_onto_the_stock_file(path):
+    """Merged like a scenario overlay, a template keeps the overlay rules."""
+    model = _template_model(path)
+    merged = params.merge([str(path)])
+    _assert_smoother_covers_the_controller(merged, model)
+    server = _node(merged, 'controller_server')
+    assert server['FollowPath']['plugin'] == PLUGIN
+    checker = server['general_goal_checker']
+    if model == 'ackermann':
+        assert checker['plugin'] == 'nav2_controller::PositionGoalChecker'
+        assert 'yaw_goal_tolerance' not in checker
+    else:
+        assert checker['plugin'] == 'nav2_controller::SimpleGoalChecker'
+        assert checker['yaw_goal_tolerance'] > 0.0
+    monitor = _node(merged, 'collision_monitor')
+    assert monitor['cmd_vel_in_topic'] == 'cmd_vel_smoothed'
+    assert monitor['cmd_vel_out_topic'] == 'cmd_vel'
+
+
+def test_ackermann_template():
+    """Dubins Hybrid-A* with the controller's radius and a stock tree without Spin."""
+    from ament_index_python.packages import get_package_share_directory
+
+    (path,) = [p for p in TEMPLATES if _template_model(p) == 'ackermann']
+    template = params.load_yaml(str(path))
+    follow_path = _node(template, 'controller_server')['FollowPath']
+    assert follow_path['obstacle_mode'] == 'none'
+    planner = _node(template, 'planner_server')['GridBased']
+    assert planner['plugin'] == 'nav2_smac_planner::SmacPlannerHybrid'
+    assert planner['motion_model_for_search'] == 'DUBIN'
+    assert planner['minimum_turning_radius'] == follow_path['min_turning_radius'] > 0.0
+    tree = _node(template, 'bt_navigator')['default_nav_to_pose_bt_xml']
+    prefix = '$(find-pkg-share nav2_bt_navigator)/'
+    assert tree.startswith(prefix)
+    stock = Path(get_package_share_directory('nav2_bt_navigator')) / tree[len(prefix) :]
+    assert stock.is_file()
+    assert 'Spin' not in stock.read_text(encoding='utf-8')
+
+
+@pytest.mark.parametrize('layout', ['humble_jazzy', 'lyrical'])
+def test_rotation_shim_examples(layout):
+    """The shim wraps our controller, with our keys where the distro's shim looks for them."""
+    defaults = _defaults()
+    merged = _merged(
+        'differential', ('kinematic_sim', str(EXAMPLES / f'rotation_shim_{layout}.yaml'))
+    )
+    follow_path = _node(merged, 'controller_server')['FollowPath']
+    assert follow_path['plugin'] == SHIM
+    if layout == 'lyrical':
+        ours = follow_path['primary_controller']
+        assert ours['plugin'] == PLUGIN
+        assert set(follow_path) - {'plugin', 'primary_controller'} <= SHIM_KEYS | set(defaults)
+    else:
+        assert follow_path['primary_controller'] == PLUGIN
+        ours = {
+            k: v for k, v in follow_path.items() if k not in SHIM_KEYS | {'primary_controller'}
+        }
+    unknown = set(ours) - set(defaults) - {'plugin'}
+    assert not unknown, f'rotation_shim_{layout}.yaml sets unknown parameters {sorted(unknown)}'
+    assert ours['use_rotate_to_field'] is False
+    assert ours['obstacle_mode'] == 'none'
+    assert ours['rotate_to_heading_angular_vel'] <= ours['max_angular_vel']

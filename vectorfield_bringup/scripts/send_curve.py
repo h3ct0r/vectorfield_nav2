@@ -47,6 +47,7 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 from tf2_ros import Buffer, TransformException, TransformListener
 
@@ -79,7 +80,10 @@ def parse_arguments(argv):
     )
     parser.add_argument('--shape', choices=sorted(curves.EXAMPLES), default='ellipse')
     parser.add_argument(
-        '--laps', type=int, default=1, help='closed curves: laps to drive (0: until Ctrl-C)'
+        '--laps',
+        type=int,
+        default=1,
+        help='closed curves: laps to drive (0: until Ctrl-C); ignored for open curves',
     )
     parser.add_argument(
         '--speed', type=float, default=0.0, help='desired speed (m/s); 0: the parameter'
@@ -207,7 +211,9 @@ def approach(description, frame, args, client, log):
 def main():
     """Approach, send the goal, report its feedback and result."""
     args = parse_arguments(rclpy.utilities.remove_ros_args(sys.argv)[1:])
-    rclpy.init(args=sys.argv)
+    # Without rclpy's signal handlers, Ctrl-C only raises KeyboardInterrupt: the context stays
+    # valid, so the goal (or the approach) can still be cancelled.
+    rclpy.init(args=sys.argv, signal_handler_options=SignalHandlerOptions.NO)
     client = CurveClient()
 
     def log(text):
@@ -241,7 +247,8 @@ def follow(description, frame, moving, args, client, log):
         goal.frame_odom_topic = f'{frame}/odom'
     goal.reverse_direction = args.reverse
     goal.desired_speed = args.speed
-    goal.laps = max(args.laps, 0)
+    # laps > 0 needs a closed curve; an open one runs to its end.
+    goal.laps = max(args.laps, 0) if description.closed else 0
     goal.max_duration.sec = int(args.max_duration)
     goal.max_duration.nanosec = int((args.max_duration % 1.0) * 1e9)
     source = (' (TF)' if args.tf else f' ({goal.frame_odom_topic})') if moving else ''

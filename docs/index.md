@@ -35,6 +35,17 @@ migration
 ```
 
 ```{toctree}
+:caption: Tutorials
+:maxdepth: 1
+
+tutorials/getting_started
+tutorials/scenarios
+tutorials/curve_following
+tutorials/your_robot
+tutorials/offline_design
+```
+
+```{toctree}
 :caption: Theory & design
 :maxdepth: 1
 

@@ -18,6 +18,9 @@
 /// controller_server, passes vectorfield_ros::validateFromNode() with the stock 3 × 3 m / 0.05 m
 /// local costmap and the TB3 footprint in both obstacle modes, without errors or warnings. The
 /// exception is ackermann.yaml with contour, which reports exactly the Ackermann+contour error.
+/// The copy-paste templates `config/examples/nav2_params_vectorfield_<model>.yaml` pass the same
+/// checks, as written and in both obstacle modes, and so do the two rotation-shim examples under
+/// their distro's plugin prefix.
 
 #include <gtest/gtest.h>
 
@@ -25,6 +28,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 // get_package_share_path() exists from Jazzy on; Lyrical deprecates get_package_share_directory().
@@ -76,18 +80,20 @@ vf::CostmapInfo stockCostmap()
   return costmap;
 }
 
-// The installed controller overlays, sorted by name.
-std::vector<fs::path> controllerOverlays()
+// The installed YAML files of vectorfield_bringup's `config/<subdirectory>` whose names start
+// with `prefix`, sorted by name.
+std::vector<fs::path> installedConfigs(const std::string & subdirectory, const std::string & prefix)
 {
 #if VF_HAS_SHARE_PATH
   const fs::path share = ament_index_cpp::get_package_share_path("vectorfield_bringup");
 #else
   const fs::path share = ament_index_cpp::get_package_share_directory("vectorfield_bringup");
 #endif
-  const fs::path directory = share / "config" / "controller";
+  const fs::path directory = share / "config" / subdirectory;
   std::vector<fs::path> files;
   for (const fs::directory_entry & entry : fs::directory_iterator(directory)) {
-    if (entry.path().extension() == ".yaml") {
+    const std::string name = entry.path().filename().string();
+    if (entry.path().extension() == ".yaml" && name.rfind(prefix, 0) == 0) {
       files.push_back(entry.path());
     }
   }
@@ -95,17 +101,34 @@ std::vector<fs::path> controllerOverlays()
   return files;
 }
 
-// Loads `file` as controller_server's parameter file, with FollowPath.obstacle_mode overridden,
-// and validates FollowPath.
+// The installed controller overlays.
+std::vector<fs::path> controllerOverlays() { return installedConfigs("controller", ""); }
+
+const std::string kTemplatePrefix = "nav2_params_vectorfield_";
+
+// The installed copy-paste templates.
+std::vector<fs::path> exampleTemplates() { return installedConfigs("examples", kTemplatePrefix); }
+
+// The motion model a template is written for: the part of its stem after the prefix.
+std::string templateModel(const fs::path & file)
+{
+  return file.stem().string().substr(kTemplatePrefix.size());
+}
+
+// Loads `file` as controller_server's parameter file, with `<plugin>.obstacle_mode` overridden
+// unless `mode` is empty, and validates the keys under `plugin`.
 vf::ValidationReport validate(
-  const fs::path & file, const std::string & mode, vf::CoreConfig * config)
+  const fs::path & file, const std::string & mode, vf::CoreConfig * config,
+  const std::string & plugin = kPlugin)
 {
   rclcpp::NodeOptions options;
   options.use_global_arguments(false);
   options.arguments({"--ros-args", "--params-file", file.string()});
-  options.parameter_overrides({rclcpp::Parameter(kPlugin + ".obstacle_mode", mode)});
+  if (!mode.empty()) {
+    options.parameter_overrides({rclcpp::Parameter(plugin + ".obstacle_mode", mode)});
+  }
   const auto node = std::make_shared<rclcpp::Node>("controller_server", options);
-  return vr::validateFromNode(node, kPlugin, stockCostmap(), tb3Footprint(), config);
+  return vr::validateFromNode(node, plugin, stockCostmap(), tb3Footprint(), config);
 }
 
 TEST(ShippedConfigs, EveryMotionModelHasAnOverlay)
@@ -138,6 +161,58 @@ TEST(ShippedConfigs, ValidateInBothObstacleModes)
       }
       EXPECT_TRUE(report.warnings.empty()) << report.summary();
     }
+  }
+}
+
+TEST(ShippedConfigs, EveryTemplateModelExists)
+{
+  std::vector<std::string> models;
+  for (const fs::path & file : exampleTemplates()) {
+    models.push_back(templateModel(file));
+  }
+  const std::vector<std::string> expected{"ackermann", "differential", "omnidirectional"};
+  EXPECT_EQ(models, expected);
+}
+
+TEST(ShippedConfigs, TemplatesValidate)
+{
+  for (const fs::path & file : exampleTemplates()) {
+    const std::string model = templateModel(file);
+    // As written (empty: no override), then in both obstacle modes.
+    for (const std::string & mode : std::vector<std::string>{"", "none", "contour"}) {
+      const std::string label = mode.empty() ? std::string("as written") : mode;
+      SCOPED_TRACE(file.filename().string() + " with obstacle_mode " + label);
+      vf::CoreConfig config;
+      const vf::ValidationReport report = validate(file, mode, &config);
+      EXPECT_STREQ(vf::toString(config.motion.motion_model), model.c_str());
+      if (model == "ackermann" && mode == "contour") {
+        ASSERT_EQ(report.errors.size(), 1U) << report.summary();
+        EXPECT_EQ(report.errors[0].code, vf::issue::kAckermannContour) << report.summary();
+      } else {
+        EXPECT_TRUE(report.errors.empty()) << report.summary();
+      }
+      EXPECT_TRUE(report.warnings.empty()) << report.summary();
+    }
+  }
+}
+
+TEST(ShippedConfigs, RotationShimExamplesValidate)
+{
+  // Humble and Jazzy: the vector-field keys sit next to the shim's under FollowPath; Lyrical and
+  // later: under FollowPath.primary_controller.
+  const std::vector<std::pair<std::string, std::string>> examples{
+    {"rotation_shim_humble_jazzy", kPlugin},
+    {"rotation_shim_lyrical", kPlugin + ".primary_controller"}};
+  for (const auto & [stem, plugin] : examples) {
+    const std::vector<fs::path> files = installedConfigs("examples", stem + ".yaml");
+    ASSERT_EQ(files.size(), 1U) << stem;
+    SCOPED_TRACE(files[0].filename().string() + " under " + plugin);
+    vf::CoreConfig config;
+    const vf::ValidationReport report = validate(files[0], "", &config, plugin);
+    EXPECT_STREQ(vf::toString(config.motion.motion_model), "differential");
+    EXPECT_FALSE(config.phases.use_rotate_to_field);
+    EXPECT_TRUE(report.errors.empty()) << report.summary();
+    EXPECT_TRUE(report.warnings.empty()) << report.summary();
   }
 }
 
