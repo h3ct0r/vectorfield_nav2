@@ -114,6 +114,12 @@ void checkExpressionText(const std::string & expression, const char * which)
       std::string(which) + " has " + std::to_string(expression.size()) +
       " characters; the limit is " + std::to_string(kMaxExpressionLength));
   }
+  // muParser folds `a && b` and `a || b` on constants as (int)a && (int)b, which is undefined
+  // behaviour for operands outside the int range (found by the libFuzzer target). A curve needs
+  // no logical operators; comparisons and the ternary `?:` stay available.
+  if (expression.find("&&") != std::string::npos || expression.find("||") != std::string::npos) {
+    reject(std::string(which) + " uses && or ||; logical operators are not supported");
+  }
 }
 
 void validateSpec(const CurveSpec & spec)

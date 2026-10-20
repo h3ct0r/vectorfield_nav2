@@ -207,6 +207,16 @@ TEST(UpstreamRegression, U03_IndependentCurveInstances)
   }
 }
 
+// Logical operators are rejected before parsing: muParser folds constant `&&`/`||` through an
+// int cast, undefined for operands outside the int range (fuzzer seed logical_or_int_overflow).
+// Comparisons and the ternary operator stay available.
+TEST(ExpressionCurve, LogicalOperatorsRejected)
+{
+  expectInvalid(expressionSpec("-1e45 || 1", "sin(s)"), "logical operators are not supported");
+  expectInvalid(expressionSpec("cos(s)", "s > 0 && s < 1"), "y_expression uses && or ||");
+  EXPECT_EQ(rejection(expressionSpec("s < 10 ? cos(s) : 0", "sin(s) * (s >= 0)")), "");
+}
+
 // Size limits: <= 1024 characters per expression, <= 32 parameters, identifier names of at
 // most 100 characters, no duplicates, finite values.
 TEST(ExpressionCurve, Limits)

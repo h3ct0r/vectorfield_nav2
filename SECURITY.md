@@ -39,6 +39,7 @@ Expressions are evaluated with the vendored [muParser](https://github.com/beltof
 - The function table is cleared and only muParser's deterministic built-in functions are defined again; `rnd` is not available.
 - Undeclared names are errors (no variable factory).
 - An expression must produce exactly one result, so comma-separated lists are rejected.
+- The logical operators `&&` and `||` are rejected before parsing: muParser folds them on constants through an `int` cast, which is undefined behaviour for large operands (found by the fuzzer in 0.1.1). Comparisons and the ternary `?:` remain available.
 - Each expression is limited to 1024 characters, and a curve to 32 identifier-validated parameter names.
 - Every evaluation is guarded (mutex, exception capture). A failing or non-finite evaluation produces NaN, which stops the robot and aborts the goal.
 - The expression parser is fuzzed with a libFuzzer target in CI.

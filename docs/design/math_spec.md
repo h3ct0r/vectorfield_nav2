@@ -1654,7 +1654,8 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   ellipse expression on $[0, \pi]$ marked closed; superellipse $n = 1.5$; lissajous $f_x = 2$, $f_y = 4$
   [Spec]: all INVALID_CURVE. Every built-in at its defaults passes.
 - **O12 Expression rejects** (also libFuzzer seeds): `cos(s)+rnd()`, `a=a+1e-4, a*cos(s)`,
-  `cos(s), sin(s)`: INVALID_CURVE.
+  `cos(s), sin(s)`, and any `&&` or `||` [Design, 0.1.1]: INVALID_CURVE. muParser folds constant
+  logical operators through an int cast, undefined for operands outside the int range.
 - **O13 Built-in formulas.** For each built-in at its defaults, $r(0)$ and $r(\pi/2)$ match the
   formulas of {ref}`sec-builtins` within $10^{-12}$; `rounded_rectangle` and `regular_polygon` start at
   the $+x$ side midpoint, are continuous (max step over $2\cdot10^5$ samples below $2L/(2\cdot10^5)$)
