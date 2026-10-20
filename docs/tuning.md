@@ -90,6 +90,8 @@ per goal on the received plan. The full rules are in {ref}`sec-math-validation`.
 | Slows down near obstacles that are not on the path | the braking cap sees them in the rollout, or the clearance slowdown | shorten `collision_check_horizon` within the warning bounds; `clearance_slowdown_distance: 0` |
 | Contour engages in doorways | `obstacle_activation: always` | use `path_blocked` (default) |
 | Stops in front of a blocking obstacle instead of contouring | `obstacle_mode: none`; neither side passes within the side probe; the goal is inside the obstacle; Ackermann: the gap is narrower than about $\lambda + w_{\mathrm{lat}}$ | expected in a dead end; otherwise enable `contour` ({doc}`obstacle_avoidance`) |
+| `obstacle_mode: cbf` stops (`BLOCKED`, `cbf … \| hold`) in front of an obstacle | the field points straight at it (a face across the path, a centred disc), or the gap is narrower than $2\delta_{\mathrm{safe}}$: the accepted CBF deadlock | let the planner route around it (stock global obstacle layer), or use `contour` ({ref}`cbf-mode`) |
+| `obstacle_mode: cbf` slows down in doorways | the approach to the jambs is limited to $\gamma_b h$ | raise `cbf_gain` while `cbf_gain_deceleration` stays quiet, or lower `cbf_margin` |
 | `CONTOUR` episodes end in STOPPED | watchdog limits too low for the obstacle size | raise `obstacle_max_contour_length` or `obstacle_max_contour_time` |
 | `A3-CLAMP` with a moving curve | the curve moves almost as fast as $v_r$ | raise `desired_speed` (per goal or parameter) or slow the frame |
 | `CURV-SAT` on an Ackermann base | the field needs more curvature than $1/R_{\min}$ | lower `convergence_gain` (`ackermann_curvature`) |

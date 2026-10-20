@@ -121,7 +121,9 @@ std::set<std::string> expectedNamespaces(const MarkerContext & c)
   if (c.input->goal.has_value()) {
     s.insert(nsName(Ns::kGoal));
   }
-  if (f.contour.gate_open || f.contour.active) {
+  const vf::CbfSample & cbf = f.cbf;
+  const bool cbf_drawn = cbf.on && cbf.count > 0 && (cbf.active || cbf.h < cbf.delta);
+  if (f.contour.gate_open || f.contour.active || cbf_drawn) {
     s.insert(nsName(Ns::kContour));
   }
   if (c.curve_info != nullptr) {
@@ -548,6 +550,37 @@ TEST(MarkerBuilder, ContourEpisodeShowsKLambdaAndSide)
   const std::string sign = cs.sigma_c > 0 ? "+1" : "-1";
   EXPECT_NE(statusText(a).find(std::string(legend::kFlagContour) + " " + sign), std::string::npos);
   EXPECT_EQ(find(a, Ns::kContour, legend::id::kContourText).text.rfind("contour " + sign, 0), 0U);
+}
+
+// obstacle_mode cbf (math_spec §6.7): the contour namespace shows the δ_safe ring about the
+// evaluation point, the binding normals and the cbf text; the status carries the CBF flag.
+TEST(MarkerBuilder, CbfShowsTheBarrierAndBindingNormals)
+{
+  World world(Vec2(-2.5, -2.5), 9.5, 5.0);
+  world.addDisc(Vec2(2.0, 0.2), 0.15);
+  world.commit();
+  vf::CoreConfig config = vf_viz_test::contourConfig();
+  config.obstacles.obstacle_mode = vf::ObstacleMode::kCbf;
+  Scenario s(config, line(Vec2(-3.0, 0.0), Vec2(6.0, 0.0)), Pose2{Vec2(-1.0, 0.0), 0.0});
+  s.input().goal = vf_viz_test::goalAt(Vec2(6.0, 0.0));
+  s.input().obstacles = world.map();
+  MarkerBuilder builder;
+  ASSERT_TRUE(s.runUntil([](const vf::TrackerOutput & out) { return out.field.cbf.active; }, 400));
+  const MarkerContext c = s.context();
+  expectCycle(builder, c);
+  const MarkerArray & a = builder.markers(c);
+  const vf::CbfSample & cbf = s.output().field.cbf;
+  EXPECT_FALSE(added(a, Ns::kContour, legend::id::kContourCells)) << "no K in cbf mode";
+  const Marker & disc = find(a, Ns::kContour, legend::id::kContourLambdaRing);
+  EXPECT_NEAR(disc.scale.x, 2.0 * cbf.delta, 1e-12);
+  EXPECT_NEAR(disc.pose.position.x, s.output().field.x_eval.x(), 1e-12);
+  EXPECT_TRUE(added(a, Ns::kContour, legend::id::kContourObstacleLine));
+  EXPECT_TRUE(added(a, Ns::kContour, legend::id::kContourSide));
+  EXPECT_EQ(
+    find(a, Ns::kContour, legend::id::kContourGateSamples).points.size(),
+    static_cast<std::size_t>(cbf.count));
+  EXPECT_EQ(find(a, Ns::kContour, legend::id::kContourText).text.rfind("cbf h ", 0), 0U);
+  EXPECT_NE(statusText(a).find(legend::kFlagCbf), std::string::npos);
 }
 
 TEST(MarkerBuilder, Assumption3ClampAndFeedforward)

@@ -143,6 +143,9 @@ TEST(Config, DefaultsAreThePlanDefaults)
   EXPECT_FALSE(config.obstacles.unknown_is_obstacle);
   EXPECT_DOUBLE_EQ(config.obstacles.clearance_slowdown_distance, 0.0);
   EXPECT_DOUBLE_EQ(config.obstacles.clearance_slowdown_gain, 1.0);
+  EXPECT_DOUBLE_EQ(config.obstacles.cbf_gain, 2.0);
+  EXPECT_DOUBLE_EQ(config.obstacles.cbf_margin, 0.05);
+  EXPECT_EQ(config.obstacles.cbf_sites, 3);
   EXPECT_TRUE(config.safety.use_collision_detection);
   EXPECT_DOUBLE_EQ(config.safety.collision_check_horizon, 1.5);
   EXPECT_DOUBLE_EQ(config.safety.stop_margin, 0.10);
@@ -161,7 +164,7 @@ TEST(Config, DefaultsAreThePlanDefaults)
 
 TEST(Config, DefaultsPassWithoutIssues)
 {
-  for (ObstacleMode mode : {ObstacleMode::kNone, ObstacleMode::kContour}) {
+  for (ObstacleMode mode : {ObstacleMode::kNone, ObstacleMode::kContour, ObstacleMode::kCbf}) {
     CoreConfig config;
     config.obstacles.obstacle_mode = mode;
     SCOPED_TRACE(vf::toString(mode));
@@ -392,6 +395,17 @@ TEST(ConfigReject, AckermannWithContour)
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
 }
 
+// math_spec §6.7 [Design, M7]: cbf is valid for every model but Ackermann.
+TEST(ConfigReject, AckermannWithCbf)
+{
+  CoreConfig config = ackermann();
+  config.obstacles.obstacle_mode = ObstacleMode::kCbf;
+  expectOnly(vf::validateConfig(config, std::nullopt), {issue::kAckermannCbfUnsupported}, {});
+  CoreConfig diff = tc();
+  diff.obstacles.obstacle_mode = ObstacleMode::kCbf;
+  expectOnly(vf::validateConfig(diff, stockCostmap()), {}, {});
+}
+
 TEST(ConfigReject, AckermannContourBelowTurningRadius)
 {
   // lambda < R_min + 0.05 is an error; up to R_min + w_lat + 0.05 a warning.
@@ -469,6 +483,22 @@ TEST(ConfigWarn, RotateSpeedAboveMaxAngularVel)
   CoreConfig config = tc();
   config.phases.rotate_to_heading_angular_vel = 1.8;  // the rotation shim's default
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {issue::kRotateAboveMax});
+}
+
+TEST(ConfigWarn, CbfGain)
+{
+  CoreConfig config = tc();
+  config.obstacles.obstacle_mode = ObstacleMode::kCbf;
+  config.obstacles.cbf_gain = 0.5 * config.motion.max_linear_decel / config.field.desired_speed;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  config.obstacles.cbf_gain = 1.01 * config.motion.max_linear_decel / config.field.desired_speed;
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {issue::kCbfGainDeceleration});
+  config.obstacles.cbf_gain = config.node.controller_frequency;
+  expectOnly(
+    vf::validateConfig(config, std::nullopt), {},
+    {issue::kCbfGainDeceleration, issue::kCbfGainDiscrete});
+  config.obstacles.obstacle_mode = ObstacleMode::kNone;  // the rules apply to cbf only
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
 }
 
 TEST(ConfigWarn, DiscreteOvershoot)
@@ -626,6 +656,10 @@ TEST(Config, DomainErrorsSuppressTheRules)
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->phases.final_approach_distance = vf::kNaN; }));
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.obstacle_contour_distance = 0.0; }));
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.obstacle_lookahead = vf::kNaN; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.cbf_gain = 0.0; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.cbf_margin = -0.01; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.cbf_sites = 0; }));
+  EXPECT_TRUE(rejects([](CoreConfig * c) { c->obstacles.cbf_sites = 4; }));
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->safety.collision_check_horizon = 0.0; }));
   EXPECT_TRUE(rejects([](CoreConfig * c) { c->node.controller_frequency = 0.0; }));
   EXPECT_FALSE(rejects([](CoreConfig * c) { c->phases.final_approach_distance = 0.0; }));
@@ -765,7 +799,7 @@ TEST(Config, EnumStringsRoundTrip)
     ASSERT_TRUE(vf::fromString(vf::toString(value), &parsed));
     EXPECT_EQ(parsed, value);
   }
-  for (auto value : {ObstacleMode::kNone, ObstacleMode::kContour}) {
+  for (auto value : {ObstacleMode::kNone, ObstacleMode::kContour, ObstacleMode::kCbf}) {
     ObstacleMode parsed{};
     ASSERT_TRUE(vf::fromString(vf::toString(value), &parsed));
     EXPECT_EQ(parsed, value);

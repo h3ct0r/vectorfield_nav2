@@ -266,8 +266,21 @@ def obstacle_offsets(config):
     )
 
 
-def draw_offsets(ax, config, obstacle_map, color=CONTOUR):
-    """Draw the lambda (dashed), D_in and D'_in (dotted) level sets of the obstacle distance."""
+def cbf_delta(config, footprint):
+    """delta_safe of obstacle_mode cbf at the law's evaluation point (math_spec section 6.7)."""
+    law = vf.resolve_tracking_law(config.motion.motion_model, config.motion.tracking_law)
+    offset = 0.0
+    if law == vf.TrackingLaw.FEEDBACK_LINEARIZATION:
+        sign = -1.0 if config.motion.drive_backward else 1.0
+        offset = sign * config.motion.control_point_offset
+    return footprint.cover_radius((offset, 0.0)) + config.obstacles.cbf_margin
+
+
+def draw_offsets(ax, config, obstacle_map, color=CONTOUR, footprint=None):
+    """Draw the lambda (dashed), D_in and D'_in (dotted) level sets of the obstacle distance.
+
+    With obstacle_mode cbf and a footprint, draw the delta_safe level set (dashed) instead.
+    """
     grid = obstacle_map.grid
     distance = obstacle_map.edt.distance_grid()
     if not np.isfinite(distance).any():
@@ -277,6 +290,8 @@ def draw_offsets(ax, config, obstacle_map, color=CONTOUR):
     xs = ox + (np.arange(grid.width) + 0.5) * res
     ys = oy + (np.arange(grid.height) + 0.5) * res
     levels = sorted(set(obstacle_offsets(config)))
+    if config.obstacles.obstacle_mode == vf.ObstacleMode.CBF and footprint is not None:
+        levels = [cbf_delta(config, footprint)]
     ax.contour(
         xs,
         ys,
@@ -405,7 +420,7 @@ def draw_path_panel(ax, run, title=None):
     draw_curve(ax, scenario.curve, t=scenario.t0)
     if scenario.obstacles:
         scenario.obstacles.draw(ax, color=OBSTACLE)
-        draw_offsets(ax, run.tracker.config, run.obstacle_map)
+        draw_offsets(ax, run.tracker.config, run.obstacle_map, footprint=run.tracker.footprint)
     pose = result.pose
     ax.plot(pose[:, 0], pose[:, 1], color=TRAJECTORY, lw=1.4, label='base_link', zorder=5)
     for k, segment in enumerate(_segments_where(pose[:, :2], run.contour_active)):
@@ -416,6 +431,16 @@ def draw_path_panel(ax, run, title=None):
             lw=2.2,
             zorder=6,
             label='contour active' if k == 0 else None,
+        )
+    for k, segment in enumerate(_segments_where(pose[:, :2], run.cbf_active)):
+        ax.plot(
+            segment[:, 0],
+            segment[:, 1],
+            color=CONTOUR,
+            lw=2.2,
+            ls=(0, (2, 1)),
+            zorder=6,
+            label='cbf active' if k == 0 else None,
         )
     ax.plot(*pose[0, :2], marker='o', ms=6, color=TRAJECTORY, ls='none', zorder=7, label='start')
     outline = robot_outline(pose[-1], run.tracker.footprint.r_circ)

@@ -350,6 +350,8 @@ static_assert(
 inline constexpr std::string_view kFlagBlocked = "BLOCKED";
 /// An active contour episode; followed by the side, e.g. `CONTOUR +1`.
 inline constexpr std::string_view kFlagContour = "CONTOUR";
+/// The CBF filter binds (`obstacle_mode: cbf`, math_spec §6.7).
+inline constexpr std::string_view kFlagCbf = "CBF";
 /// kAssumption3Clamped.
 inline constexpr std::string_view kFlagAssumption3 = "A3-CLAMP";
 /// kCurvatureSaturated.

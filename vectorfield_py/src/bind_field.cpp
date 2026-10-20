@@ -132,6 +132,24 @@ void bindSamples(py::module_ & m)
     .field("has_blocked_sample", &ContourSample::has_blocked_sample, "A gate sample is blocked.")
     .finish();
 
+  using vf::CbfSample;
+  StructBinder<CbfSample>(
+    m, "CbfSample", "CBF-filter quantities of one evaluation (math_spec section 6.7).")
+    .field("on", &CbfSample::on, "The filter ran (obstacle_mode cbf, a map, XY not reached).")
+    .field("active", &CbfSample::active, "The filter changed the field.")
+    .field("hold", &CbfSample::hold, "Active with ||F*|| < 0.05 ||F|| (kBlocked when tracking).")
+    .field("relaxed", &CbfSample::relaxed, "Conflicting push-outs were dropped.")
+    .field("count", &CbfSample::count, "Constraints used (0-3).")
+    .field("delta", &CbfSample::delta, "delta_safe = r_e + cbf_margin (m).")
+    .field("h", &CbfSample::h, "Smallest barrier value h_j (m); inf without constraints.")
+    .field("speed_ratio", &CbfSample::speed_ratio, "||F*|| / ||F||.")
+    .field("F_in", &CbfSample::F_in, "The field before the filter.")
+    .field("x_o", &CbfSample::x_o, "Nearest point of each site (first `count` entries).")
+    .field("n", &CbfSample::n, "Unit normal of each constraint.")
+    .field("h_j", &CbfSample::h_j, "Barrier value of each constraint (m).")
+    .field("binds", &CbfSample::binds, "Whether each constraint binds.")
+    .finish();
+
   using vf::FieldSample;
   StructBinder<FieldSample>(
     m, "FieldSample",
@@ -166,6 +184,7 @@ void bindSamples(py::module_ & m)
     .field("s_goal", &FieldSample::s_goal, "Goal station.")
     .field("x_ref", &FieldSample::x_ref, "Reference-point offset of the active law.")
     .field("contour", &FieldSample::contour, "ContourSample.")
+    .field("cbf", &FieldSample::cbf, "CbfSample.")
     .field("psi_d", &FieldSample::psi_d, "Desired heading (heading tracking).")
     .field("psi_d_dot", &FieldSample::psi_d_dot, "Feedforward psi_d rate.")
     .field("heading_error", &FieldSample::heading_error, "Heading error of the active law.")

@@ -161,6 +161,43 @@ def contour_disc(plt):
     return fig
 
 
+def cbf_disc(plt):
+    """(6) The CBF filter around a disc 0.2 m off a straight path (math_spec section 6.7)."""
+    config = vf.CoreConfig()
+    config.obstacles.obstacle_mode = 'cbf'
+    line = vf.make_curve(vf.CurveSpec.polyline([[-3.0, 0.0], [3.0, 0.0]]))
+    obstacles = Obstacles(circles=[(0.0, 0.2, 0.3)])
+    scenario = simulation.Scenario(config, line, (-3.0, 0.0, 0.0), 40.0, obstacles=obstacles)
+    run = simulation.simulate(scenario)
+    first = int(np.flatnonzero(run.cbf_active)[0])
+    field = plotting.TrackerField(
+        config, line, tuple(run.result.pose[first]), scenario.goal(), run.obstacle_map
+    )
+    extent = (-2.4, 3.3, -1.5, 1.2)
+    fig, ax = plt.subplots(figsize=(7.0, 3.6))
+    X, Y, grid = plotting.grid_points(extent, 30)
+    probe = field.probe(grid)
+    active = probe['cbf_active'][:, None]
+    plotting.draw_quiver(ax, X, Y, np.where(active, np.nan, probe['F']))
+    plotting.draw_quiver(ax, X, Y, np.where(active, probe['F'], np.nan), color=plotting.CONTOUR)
+    plotting.draw_path_panel(ax, run)
+    outline = plotting.robot_outline(run.result.pose[first], run.tracker.footprint.r_circ)
+    ax.plot(outline[:, 0], outline[:, 1], color=plotting.INK, lw=1.0, zorder=7)
+    delta = plotting.cbf_delta(run.tracker.config, run.tracker.footprint)
+    a = math.radians(50.0)
+    ax.annotate(
+        r'$\delta_{safe}$',
+        np.array([0.0, 0.2]) + (0.3 + delta) * np.array([math.cos(a), math.sin(a)]),
+        xytext=(2, 2),
+        textcoords='offset points',
+        color=plotting.INK_SECONDARY,
+        fontsize=8,
+    )
+    _axes(ax, extent)
+    ax.legend(loc='lower center', ncol=5)
+    return fig
+
+
 def models_convergence(plt):
     """(5) |D|(t) of the four motion models on a circle of radius 1.5 m, from 1 m outside."""
     circle = vf.make_curve(vf.CurveSpec.builtin('ellipse', a=1.5, b=1.5))
@@ -216,6 +253,7 @@ FIGURES = {
     'field_decomposition.svg': field_decomposition,
     'terminal_profile.svg': terminal_profile,
     'contour_disc.svg': contour_disc,
+    'cbf_disc.svg': cbf_disc,
     'models_convergence.svg': models_convergence,
 }
 

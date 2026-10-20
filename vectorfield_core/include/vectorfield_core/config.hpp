@@ -112,6 +112,9 @@ enum class ObstacleMode : std::uint8_t
   kNone = 0,
   /// "contour": circulate around blocking obstacles.
   kContour = 1,
+  /// "cbf": a control-barrier-function filter keeps a margin from every obstacle (math_spec §6.7
+  /// [Design, M7]).
+  kCbf = 2,
 };
 
 /// @brief `obstacle_activation` (math_spec §6.4, sec-contour-mods).
@@ -273,6 +276,13 @@ struct ObstacleConfig
   double clearance_slowdown_distance{0.0};
   /// `clearance_slowdown_gain` \f$k_{\mathrm{cl}}\f$.
   double clearance_slowdown_gain{1.0};
+  /// `cbf_gain` \f$\gamma_b\f$ (1/s): the barrier decays at most as \f$\dot h \ge -\gamma_b h\f$
+  /// (`obstacle_mode: cbf`, math_spec §6.7).
+  double cbf_gain{2.0};
+  /// `cbf_margin` \f$m\f$ (m): \f$\delta_{\mathrm{safe}} = r_e + m\f$ (math_spec §6.7).
+  double cbf_margin{0.05};
+  /// `cbf_sites` \f$k \in [1, 3]\f$: obstacle sites constrained by the filter (math_spec §6.7).
+  int cbf_sites{3};
 };
 
 /// @brief Safety group of plan §5.4.
@@ -430,6 +440,8 @@ inline constexpr std::string_view kAckermannRadius = "ackermann_min_turning_radi
 inline constexpr std::string_view kBrakingExceedsWindow = "braking_distance_exceeds_window";
 /// FL with \f$d \le 0\f$.
 inline constexpr std::string_view kFlOffset = "fl_control_point_offset";
+/// `obstacle_mode: cbf` with `motion_model: ackermann` (math_spec §6.7 [Design, M7]).
+inline constexpr std::string_view kAckermannCbfUnsupported = "ackermann_cbf_unsupported";
 /// @}
 
 /// @name Warnings of math_spec §11 (sec-math-validation)
@@ -467,6 +479,11 @@ inline constexpr std::string_view kAckermannContourLookahead = "ackermann_contou
 /// Ackermann with contour: `obstacle_max_contour_length` \f$< D'_{\mathrm{in}} - \lambda +
 /// \pi\lambda\f$, the watchdog can trip on a plain half circulation (math_spec §6.6 [Design, M7]).
 inline constexpr std::string_view kAckermannContourWatchdog = "ackermann_contour_watchdog";
+/// CBF: \f$\gamma_b v_r > a_{\mathrm{dec}}\f$, a head-on approach asks for more deceleration
+/// than the limiter allows (math_spec §6.7 [Design, M7]).
+inline constexpr std::string_view kCbfGainDeceleration = "cbf_gain_deceleration";
+/// CBF: \f$\gamma_b \Delta t \ge 1\f$, the barrier can cross 0 within one cycle (math_spec §6.7).
+inline constexpr std::string_view kCbfGainDiscrete = "cbf_gain_discrete";
 /// Per plan (adviseForPlan()): FL with \f$\kappa_{\mathrm{path}}\,d > 1\f$.
 inline constexpr std::string_view kFlPathCurvature = "fl_path_curvature";
 /// @}

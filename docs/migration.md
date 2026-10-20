@@ -42,7 +42,7 @@ unprefixed on the `curve_follower` node.
 | `groundrobot/d_feedback` (0.1) | `control_point_offset` | 0.2 m | |
 | `groundrobot/move_backwards` | `drive_backward` | false | `allow_reversing` (false) separately forbids speed against the drive direction. |
 | `groundrobot/a`, `groundrobot/b` | none | — | No wheel speeds. Use `motion_model: skid_steer` and `min_in_place_angular_vel` 0.25 to 0.3. |
-| `obstacle_avoidance/flag_follow_obstacle` | `obstacle_mode` (`none`, `contour`) and `obstacle_activation` (`path_blocked`, `always`) | `none`; `path_blocked` | `always` reproduces the upstream activation rule. The demos use `contour`. |
+| `obstacle_avoidance/flag_follow_obstacle` | `obstacle_mode` (`none`, `contour`, `cbf`) and `obstacle_activation` (`path_blocked`, `always`) | `none`; `path_blocked` | `always` reproduces the upstream activation rule. The demos use `contour`. |
 | `obstacle_avoidance/epsilon` | `obstacle_contour_distance` ($\lambda$) | auto from the footprint (0.47 m for a TB3) | Measured to the costmap cells. |
 | `obstacle_avoidance/switch_dist` | `obstacle_full_switch_distance` ($D_{\mathrm{in}}$) | auto: $\lambda$ + 0.15 | $\lambda < D_{\mathrm{in}} \le D'_{\mathrm{in}}$ is enforced. |
 | `obstacle_avoidance/switch_dist_0` | `obstacle_blend_start_distance` ($D'_{\mathrm{in}}$) | auto: $\lambda$ + 0.35 | |

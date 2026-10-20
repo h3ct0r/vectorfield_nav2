@@ -245,9 +245,11 @@ vectorfield_common_params:
     description: "none: obstacles only stop the robot (collision prediction); contour: circulate
       around obstacles that block the path (ackermann: with the turning-radius auto values of
       obstacle_contour_distance, obstacle_full_switch_distance, obstacle_blend_start_distance and
-      obstacle_lookahead)."
+      obstacle_lookahead); cbf: a control-barrier-function filter changes the field as little as
+      possible to keep cbf_margin from every obstacle, and stops (kBlocked) where it cannot pass
+      (not for ackermann)."
     validation:
-      one_of<>: [["none", "contour"]]
+      one_of<>: [["none", "contour", "cbf"]]
   obstacle_activation:
     type: string
     default_value: "path_blocked"
@@ -319,6 +321,28 @@ vectorfield_common_params:
     description: "Gain of the clearance slowdown."
     validation:
       gt<>: [0.0]
+  cbf_gain:
+    type: double
+    default_value: 2.0
+    description: "obstacle_mode cbf: barrier gain gamma (1/s); the clearance h may shrink at most
+      at the rate gamma h, so the robot may approach an obstacle at most at gamma h. A warning
+      when gamma * desired_speed > max_linear_decel."
+    validation:
+      gt<>: [0.0]
+  cbf_margin:
+    type: double
+    default_value: 0.05
+    description: "obstacle_mode cbf: margin m (m) kept beyond the smallest disc around the
+      evaluation point that contains the footprint (delta_safe = r_e + m)."
+    validation:
+      gt_eq<>: [0.0]
+  cbf_sites:
+    type: int
+    default_value: 3
+    description: "obstacle_mode cbf: distinct obstacle sites constrained at once (1-3); two or
+      more keep both sides of a gap or doorway in the filter."
+    validation:
+      bounds<>: [1, 3]
 
   # --- Safety ----------------------------------------------------------------------------------
   use_collision_detection:

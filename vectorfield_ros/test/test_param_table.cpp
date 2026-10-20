@@ -64,6 +64,7 @@ const std::vector<std::string> kEnumStrings = {
   "fixed",
   "none",
   "contour",
+  "cbf",
   "path_blocked",
   "always",
 };
@@ -109,6 +110,9 @@ TEST(CommonParamTable, EveryRowRoundTripsANonDefaultValue)
         break;
       case rclcpp::ParameterType::PARAMETER_BOOL:
         candidates.emplace_back(!default_value.get<bool>());
+        break;
+      case rclcpp::ParameterType::PARAMETER_INTEGER:
+        candidates.emplace_back(default_value.get<std::int64_t>() - 1);
         break;
       case rclcpp::ParameterType::PARAMETER_STRING:
         for (const std::string & text : kEnumStrings) {

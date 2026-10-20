@@ -141,10 +141,10 @@ TEST(CoreParams, ValidateParamsAppliesTheNodeDerivedFields)
 }
 
 // §5.4 "Tests", plugin layer 2: the gpl defaults with the TB3 footprint and the stock costmap
-// give no errors and no warnings in both obstacle modes.
+// give no errors and no warnings in every obstacle mode.
 TEST(CoreParams, ValidateFromNodeDefaultsAreClean)
 {
-  for (const std::string & mode : std::vector<std::string>{"none", "contour"}) {
+  for (const std::string & mode : std::vector<std::string>{"none", "contour", "cbf"}) {
     auto node = makeNode(
       "vf_validate_defaults_" + mode, {rclcpp::Parameter(kPlugin + ".obstacle_mode", mode)});
     vf::CoreConfig config;

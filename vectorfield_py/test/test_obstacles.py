@@ -113,6 +113,9 @@ def test_footprint_checker():
     assert not checker.collides((site[0] + 0.6, site[1], 0.0), grid, edt)
     square = vf.Footprint.polygon([[-0.1, -0.1], [0.1, -0.1], [0.1, 0.1], [-0.1, 0.1]])
     assert square.w_lat == pytest.approx(0.1) and square.r_circ == pytest.approx(0.1 * 2**0.5)
+    assert square.cover_radius((0.0, 0.0)) == pytest.approx(square.r_circ)
+    assert square.cover_radius((0.1, 0.0)) == pytest.approx(0.05**0.5)
+    assert vf.Footprint.circle(0.2).cover_radius((0.2, 0.0)) == pytest.approx(0.4)
     with pytest.raises(vf.ConfigError):
         vf.Footprint.polygon([[0.0, 0.0], [1.0, 0.0]])
     mask[5, 5] = 1

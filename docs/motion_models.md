@@ -15,7 +15,7 @@ laws is in {doc}`theory`; the exact definitions, guards and tolerances are in
 | `differential` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | |
 | `skid_steer` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | Set `min_in_place_angular_vel` (0.25 to 0.3 rad/s) to overcome static friction; the shipped overlay uses 0.25. Optional slip compensation, see {ref}`skid-slip`. |
 | `omnidirectional` | $(v_x, v_y, \omega)$ | `holonomic` | — | ROTATE_TO_HEADING | `max_lateral_vel` bounds $v_y$. Nav2's `min_y_velocity_threshold` (0.5 by default) zeroes the measured lateral speed; the shipped overlay sets 0.001. |
-| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ (also $v < 0$ in a reverse plan segment) | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` uses turning-radius distances ({ref}`ackermann-contour`). See {ref}`ackermann-caveats`. |
+| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ (also $v < 0$ in a reverse plan segment) | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` uses turning-radius distances ({ref}`ackermann-contour`); `cbf` is rejected. See {ref}`ackermann-caveats`. |
 
 Any other model and law pair is rejected when the plugin configures, with a message that names
 the valid laws.

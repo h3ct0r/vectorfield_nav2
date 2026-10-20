@@ -16,7 +16,8 @@
 
 A closed curve without obstacles shows the path field Phi (time-varying curves at --time). An
 open curve, or any curve with obstacles, shows the field the controller commands from --pose:
-the terminal field towards the goal and, near obstacles, the contour field (orange arrows).
+the terminal field towards the goal and, near obstacles, the contour field or, with
+--obstacle-mode cbf, the CBF-filtered field (orange arrows).
 """
 
 import sys
@@ -148,7 +149,8 @@ def _main(argv):
         X, Y, grid = plotting.grid_points(extent, args.grid)
         F = field.vectors(grid)
         if controller and obstacles:
-            active = field.probe(grid)['contour_active']
+            probe = field.probe(grid)
+            active = probe['contour_active'] | probe['cbf_active']
             plotting.draw_quiver(ax, X, Y, np.where(active[:, None], np.nan, F))
             plotting.draw_quiver(
                 ax, X, Y, np.where(active[:, None], F, np.nan), color=plotting.CONTOUR

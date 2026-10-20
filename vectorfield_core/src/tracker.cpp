@@ -22,6 +22,7 @@
 #include <optional>
 #include <utility>
 
+#include "vectorfield_core/cbf.hpp"
 #include "vectorfield_core/contour.hpp"
 
 #include "collision_rollout.hpp"
@@ -44,7 +45,7 @@
 //        FINAL_APPROACH)
 //     D. nominal path field at the evaluation point of the tracking phase
 //     E. contour episode (exit tests, blend weight, watchdog)
-//     F. speed shaping;  G. contour blend -> F
+//     F. speed shaping;  G. contour blend or CBF filter -> F
 //     H. transition 6 (ROTATE_TO_FIELD entry and exit)
 //     I. law or phase target, Ackermann band, kinematic box, reversing backstop
 //     J. STOPPED-entry statuses raised this cycle (transition 2's precedence)
@@ -182,6 +183,8 @@ struct ObstacleEnv
   double resolution{0.05};
   /// `obstacle_mode: contour` and a usable map.
   bool contour_on{false};
+  /// `obstacle_mode: cbf` and a usable map (math_spec §6.7).
+  bool cbf_on{false};
   /// Frozen gate decision.
   bool gate_open{false};
   /// The curve end is the goal and it is blocked.
@@ -627,15 +630,81 @@ double allSitesDistance(const ObstacleEnv & obstacles, const Vec2 & x_eval) noex
 }
 
 // -----------------------------------------------------------------------------------------------
+// CBF filter (math_spec §6.7 [Design, M7])
+
+/// @brief \f$\delta_{\mathrm{safe}} = r_e + m\f$ for the evaluation point x of a pose: \f$r_e\f$
+/// is the radius of the smallest disc centred on x that contains the footprint.
+double cbfDelta(const Model & model, const Pose2 & pose, const Vec2 & x) noexcept
+{
+  const Vec2 offset = rotate(-pose.yaw, Vec2(x - pose.p));
+  return model.checker.footprint().coverRadius(offset) + model.config.obstacles.cbf_margin;
+}
+
+/// @brief The CBF filter of a field at x: the sites of \f$\mathrm{EDT}_{\mathrm{all}}\f$
+/// (nearestCbfSites()), \f$h_j = D_j - \delta_{\mathrm{safe}}\f$, solveCbf(). Fills `out`, if not
+/// null, with the constraints and the solution (evaluation frame).
+Vec2 applyCbf(
+  const StepEnv & env, const Vec2 & x, double delta, const Vec2 & F, CbfSample * out) noexcept
+{
+  const ObstacleEnv & obstacles = env.obstacles;
+  const ObstacleConfig & config = env.model.config.obstacles;
+  CbfSite sites[kCbfMaxSites];
+  const int count =
+    nearestCbfSites(*obstacles.edt_all, obstacles.T_grid_eval.apply(x), config.cbf_sites, sites);
+  CbfConstraint constraints[kCbfMaxSites];
+  for (int j = 0; j < count; ++j) {
+    constraints[j].n = obstacles.T_grid_eval.rotateInverse(sites[j].n);
+    constraints[j].h = sites[j].D - delta;
+  }
+  const CbfSolution solution = solveCbf(F, constraints, count, config.cbf_gain);
+  if (out != nullptr) {
+    CbfSample & cbf = *out;
+    cbf = CbfSample{};
+    cbf.on = true;
+    cbf.delta = delta;
+    cbf.F_in = F;
+    cbf.count = count;
+    for (int j = 0; j < count; ++j) {
+      const auto k = static_cast<std::size_t>(j);
+      cbf.x_o[k] = obstacles.T_grid_eval.applyInverse(sites[j].x_o);
+      cbf.n[k] = constraints[j].n;
+      cbf.h_j[k] = constraints[j].h;
+      cbf.binds[k] = (solution.binds & (1U << j)) != 0U;
+      cbf.h = std::min(cbf.h, constraints[j].h);
+    }
+    cbf.active = solution.active;
+    cbf.relaxed = solution.relaxed;
+    const double norm = F.norm();
+    cbf.speed_ratio = (solution.active && norm > 0.0) ? solution.F.norm() / norm : 1.0;
+    cbf.hold = solution.active && cbf.speed_ratio < kCbfHoldRatio;
+  }
+  return solution.F;
+}
+
+/// @brief The step's constraints applied to another field at the same point (the ROTATE_TO_FIELD
+/// decision on the uncapped field).
+Vec2 refilterCbf(const Model & model, const CbfSample & cbf, const Vec2 & F) noexcept
+{
+  CbfConstraint constraints[kCbfMaxSites];
+  for (int j = 0; j < cbf.count; ++j) {
+    const auto k = static_cast<std::size_t>(j);
+    constraints[j].n = cbf.n[k];
+    constraints[j].h = cbf.h_j[k];
+  }
+  return solveCbf(F, constraints, cbf.count, model.config.obstacles.cbf_gain).F;
+}
+
+// -----------------------------------------------------------------------------------------------
 // Probes (math_spec §7.4; Appendix A field_grid)
 
 /// @brief Probe evaluation: closest point with the frozen hint (never kept), path field with
 /// the law's goal shift, the latched episode where its exit test does not fire, speed shaping
-/// with the step's \f$\gamma\f$ terms, blend. \f$\psi_d\f$ is NaN below the hold speed
+/// with the step's \f$\gamma\f$ terms, blend, and the CBF filter with the step's
+/// \f$\delta_{\mathrm{safe}}\f$ (`cbf_delta`, NaN: off). \f$\psi_d\f$ is NaN below the hold speed
 /// (Appendix C item 5).
 ProbeSample evaluateProbe(
   const StepEnv & env, const TrackerState & st, const Pose2 & pose, const Vec2 & x, double t,
-  double x_ref, const SpeedShaping & shaping) noexcept
+  double x_ref, const SpeedShaping & shaping, double cbf_delta) noexcept
 {
   ProbeSample probe;
   if (!isFinite(x) || !std::isfinite(t)) {
@@ -679,6 +748,11 @@ ProbeSample evaluateProbe(
       sample.Phi_gamma.norm());
     F = blendContour(sample.Phi_gamma, psi, theta);
   }
+  if (env.obstacles.cbf_on && std::isfinite(cbf_delta)) {
+    const Vec2 filtered = applyCbf(env, x, cbf_delta, F, nullptr);
+    probe.cbf_active = !(filtered == F);
+    F = filtered;
+  }
   probe.F = F;
   const double norm = F.norm();
   probe.psi_d = (norm > 0.0 && norm >= env.hold_speed) ? angleOf(F) : kNaN;
@@ -697,10 +771,12 @@ struct ProbeContext
   double time;
   double x_ref;
   SpeedShaping shaping;
+  /// \f$\delta_{\mathrm{safe}}\f$ of the step's CBF filter (NaN: off).
+  double cbf_delta;
 
   ProbeSample operator()(const Vec2 & x, double time_offset) const noexcept
   {
-    return evaluateProbe(*env, *state, base, x, time + time_offset, x_ref, shaping);
+    return evaluateProbe(*env, *state, base, x, time + time_offset, x_ref, shaping, cbf_delta);
   }
 };
 
@@ -907,6 +983,9 @@ Vec2 decisionField(
   model.field.shape(
     uncapped.gamma(), uncapped.gamma_lim, contour.active && contour.theta < 1.0, &decision);
   *gamma = decision.gamma;
+  if (sample.cbf.on) {
+    return refilterCbf(model, sample.cbf, decision.F);
+  }
   if (!contour.active) {
     return decision.F;
   }
@@ -1019,7 +1098,8 @@ Twist2 translationTarget(
   law_input.time_varying = env.time_varying;
   law_input.contour_episode = st->contour.active;
 
-  const ProbeContext probe{&env, st, pose, t, point.x_ref, result->shaping};
+  const double cbf_delta = sample.cbf.on ? sample.cbf.delta : kNaN;
+  const ProbeContext probe{&env, st, pose, t, point.x_ref, result->shaping, cbf_delta};
   const LawOutput law = model.law.track(phase, law_input, probe);
   result->status |= law.status;
   if (std::isfinite(law.psi_d)) {
@@ -1138,6 +1218,13 @@ NominalResult stepNominal(
       contour.obstacle.n_o, contour.obstacle.D_o, model.lambda, st->contour.sigma_c, model.gain,
       sample.Phi_gamma.norm());
     sample.F = blendContour(sample.Phi_gamma, psi, contour.theta);
+  }
+  if (env.obstacles.cbf_on && field_ok && !xy) {
+    // The CBF filter of the shaped field; off once XY is reached (the robot only settles).
+    sample.F = applyCbf(env, point.x, cbfDelta(model, pose, point.x), sample.F, &sample.cbf);
+    if (sample.cbf.active) {
+      sample.uniform_shaping = true;  // F* is no longer eta_1 Phi_S + Phi_T: uniform box
+    }
   }
   fillContourSample(env, *st, contour, point.x, params.visualize, &sample);
 
@@ -1654,6 +1741,7 @@ void prepareObstacles(StepEnv * env, TrackerState * st, StepScratch * scratch) n
   }
   obstacles.contour_on = obstacles.valid && model.contour_allowed &&
                          model.config.obstacles.obstacle_mode == ObstacleMode::kContour;
+  obstacles.cbf_on = obstacles.valid && model.config.obstacles.obstacle_mode == ObstacleMode::kCbf;
   obstacles.use_blocking = obstacles.contour_on && model.config.obstacles.obstacle_activation ==
                                                      ObstacleActivation::kPathBlocked;
   obstacles.blocking = &scratch->blocking;
@@ -1856,6 +1944,16 @@ GoalEnv makeGoalEnv(const Model & model, const TrackerInput & input, TrackerStat
 /// a_{\mathrm{dec}})\f$, released only \f$h_b\f$ above that threshold, never when settled
 /// (a binding cap with XY reached settles); in a rotation phase when the rollout collides before
 /// leaving the rotation. Not evaluated in STOPPED.
+/// @brief The CBF hold (math_spec §6.7, §10.4): the filter binds at the current pose and leaves
+/// less than 5 % of the field speed (released at 10 %). The filter never pushes through an
+/// obstacle, so without it a robot held by the barrier would wait forever without kBlocked.
+bool cbfHolds(const NominalResult & first, bool was_blocked) noexcept
+{
+  const CbfSample & cbf = first.sample.cbf;
+  return cbf.on && cbf.active && isTranslationPhase(first.phase) &&
+         cbf.speed_ratio < (was_blocked ? kCbfReleaseRatio : kCbfHoldRatio);
+}
+
 bool evaluateBlocked(
   const Model & model, bool was_blocked, const NominalResult & first, const TrackerState & next,
   const RolloutResult & rollout, double s_free, bool cap_binds, double resolution) noexcept
@@ -1871,6 +1969,9 @@ bool evaluateBlocked(
   }
   if (first.settled || next.holding || (first.xy_reached && cap_binds)) {
     return false;
+  }
+  if (cbfHolds(first, was_blocked)) {
+    return true;
   }
   // Set below m_s + v_stop^2/(2 a_dec); release h_b above that threshold, so the band stays real
   // when the Ackermann v_stop = v_ack makes the braking term exceed h_b (math_spec §10.4).
@@ -2036,9 +2137,11 @@ TrackerOutput Tracker::step(
   } else {
     final_result = stepNominal(env, &final_state, input.pose, input.t, final_params);
     if (env.obstacles.valid && final_result.phase != Phase::kStopped) {
-      // use_collision_detection: false keeps only kBlocked's current-pose test.
+      // use_collision_detection: false keeps only kBlocked's current-pose test and the CBF hold.
       const Pose2 pose_grid = env.obstacles.T_grid_eval.apply(input.pose);
-      if (checker_.collides(pose_grid, *env.obstacles.grid, *env.obstacles.edt_all)) {
+      const bool hold =
+        !final_result.settled && !final_state.holding && cbfHolds(final_result, state.blocked);
+      if (hold || checker_.collides(pose_grid, *env.obstacles.grid, *env.obstacles.edt_all)) {
         blocked = true;
         final_state = state;
         final_params.zero_target = true;
@@ -2103,6 +2206,8 @@ ProbeSample Tracker::probe(
     env.obstacles.valid && !flip && config_.obstacles.obstacle_mode == ObstacleMode::kContour &&
     config_.obstacles.obstacle_activation == ObstacleActivation::kPathBlocked;
   env.obstacles.blocking = &scratch.blocking;
+  env.obstacles.cbf_on =
+    env.obstacles.valid && config_.obstacles.obstacle_mode == ObstacleMode::kCbf;
 
   const Isometry2 frame = curveFrameAt(input, input.t);
   const BaseGeometry base = evaluateBase(env, state, frame, input.pose, input.t);
@@ -2110,7 +2215,10 @@ ProbeSample Tracker::probe(
     drive_law.evaluationPoint(input.pose, trackingPhase(state.phase, base.final_approach_entry));
   SpeedShaping shaping;
   shaping.gamma_lim = env.gamma_lim;
-  return evaluateProbe(env, state, input.pose, x, input.t + time_offset, point.x_ref, shaping);
+  const double cbf_delta =
+    env.obstacles.cbf_on && !state.xy_latched ? cbfDelta(model, input.pose, point.x) : kNaN;
+  return evaluateProbe(
+    env, state, input.pose, x, input.t + time_offset, point.x_ref, shaping, cbf_delta);
 }
 
 TrackerState Tracker::initialState() noexcept { return TrackerState{}; }

@@ -188,3 +188,78 @@ INSTANTIATE_TEST_SUITE_P(
   });
 
 }  // namespace
+
+namespace
+{
+
+/// Distance from a point to the axis-aligned box [lo, hi].
+double boxDistance(const vf::Vec2 & p, const vf::Vec2 & lo, const vf::Vec2 & hi)
+{
+  const double dx = std::max({lo.x() - p.x(), 0.0, p.x() - hi.x()});
+  const double dy = std::max({lo.y() - p.y(), 0.0, p.y() - hi.y()});
+  return std::hypot(dx, dy);
+}
+
+}  // namespace
+
+// obstacle_mode cbf (math_spec §6.7), layer 2: a box whose near side is 0.12 m beside the plan
+// (inside the footprint's lateral reach) is passed without NoValidControl, the base keeps the
+// footprint at least cbf_margin − res from the box, and the goal succeeds.
+TEST(Cbf, ABoxBesideThePlanIsPassedWithTheMargin)
+{
+  for (const std::string & law :
+       {std::string("feedback_linearization"), std::string("holonomic")}) {
+    SCOPED_TRACE(law);
+    const bool omni = law == "holonomic";
+    HarnessOptions options = modelOptions(omni ? "omnidirectional" : "differential", law);
+    options.parameters.push_back(pluginParameter(options, "obstacle_mode", std::string("cbf")));
+    ServerHarness harness(options);
+    harness.configure();
+    harness.activate();
+    const vf::Vec2 lo(0.8, 0.12);
+    const vf::Vec2 hi(1.2, 0.5);
+    harness.setLethalBox(lo, hi);
+    harness.followPath(mapPlan(straightPlan(vf::Vec2::Zero(), vf::Vec2(2.2, 0.0), 0.05, 0.0)));
+    ASSERT_EQ(harness.runUntilDone(30.0), GoalStatus::kSucceeded) << describe(harness);
+    EXPECT_EQ(countExceptions(harness, "NoValidControl"), 0U) << describe(harness);
+    double clearance = vf::kInf;
+    bool filtered = false;
+    for (const CycleRecord & record : harness.history()) {
+      clearance =
+        std::min(clearance, boxDistance(record.pose_map.p, lo, hi) - options.robot_radius);
+      filtered = filtered || (record.computed && record.diagnostics.output.field.cbf.active);
+    }
+    EXPECT_TRUE(filtered) << "the CBF filter never bound";
+    const double margin = harness.controller()->appliedConfig().obstacles.cbf_margin;
+    EXPECT_GE(clearance, margin - 0.05) << "closest footprint clearance to the box";
+  }
+}
+
+// A box across the plan: the filter holds the robot in front of it (h ≈ 0), the CBF hold raises
+// kBlocked (NoValidControl "BLOCKED"), and the goal ends on patience without a collision.
+TEST(Cbf, ABoxAcrossThePlanHoldsAndExhaustsPatience)
+{
+  HarnessOptions options = modelOptions();
+  options.failure_tolerance = 1.0;
+  options.parameters.push_back(pluginParameter(options, "obstacle_mode", std::string("cbf")));
+  ServerHarness harness(options);
+  harness.configure();
+  harness.activate();
+  const vf::Vec2 lo(1.2, -0.4);
+  const vf::Vec2 hi(1.4, 0.4);
+  harness.setLethalBox(lo, hi);
+  harness.followPath(mapPlan(straightPlan(vf::Vec2::Zero(), vf::Vec2(2.2, 0.0), 0.05, 0.0)));
+  ASSERT_EQ(harness.runUntilDone(20.0), GoalStatus::kAborted) << describe(harness);
+  EXPECT_EQ(harness.result().reason, "PATIENCE_EXCEEDED") << describe(harness);
+  bool held = false;
+  double clearance = vf::kInf;
+  for (const CycleRecord & record : harness.history()) {
+    clearance = std::min(clearance, boxDistance(record.pose_map.p, lo, hi) - options.robot_radius);
+    if (!record.exception.empty()) {
+      EXPECT_NE(record.message.find("BLOCKED"), std::string::npos) << record.message;
+      held = held || (record.computed && record.diagnostics.output.field.cbf.hold);
+    }
+  }
+  EXPECT_TRUE(held) << "kBlocked without the CBF hold";
+  EXPECT_GT(clearance, 0.0);
+}

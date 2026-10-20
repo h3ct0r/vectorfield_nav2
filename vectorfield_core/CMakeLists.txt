@@ -97,6 +97,7 @@ configure_file(
 # step. Modules of later waves start as stubs that name their owner.
 add_library(vectorfield_core
   src/builtin_curves.cpp
+  src/cbf.cpp
   src/collision_predictor.cpp
   src/conditioning.cpp
   src/config.cpp

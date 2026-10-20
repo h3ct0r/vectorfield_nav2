@@ -54,6 +54,8 @@ struct ProbeSample
   bool contour_active{false};
   /// Its circulation side (0 without an episode).
   std::int8_t sigma_c{0};
+  /// The CBF filter changed the field at the point (`obstacle_mode: cbf`, math_spec §6.7).
+  bool cbf_active{false};
 };
 
 /// @brief Non-owning field probe: `probe(x, time_offset)` evaluates the field at point x

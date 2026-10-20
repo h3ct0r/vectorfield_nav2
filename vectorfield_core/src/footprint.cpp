@@ -169,6 +169,18 @@ Span<const Vec2> Footprint::vertices() const noexcept
 
 const FootprintRadii & Footprint::radii() const noexcept { return radii_; }
 
+double Footprint::coverRadius(const Vec2 & point) const noexcept
+{
+  if (vertices_.empty()) {
+    return radius_ + point.norm();
+  }
+  double radius = 0.0;
+  for (const Vec2 & vertex : vertices_) {
+    radius = std::max(radius, (vertex - point).norm());
+  }
+  return radius;
+}
+
 // -----------------------------------------------------------------------------------------------
 // FootprintChecker
 

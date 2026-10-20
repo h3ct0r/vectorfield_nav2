@@ -180,14 +180,19 @@ TEST(ShippedConfigs, EveryMotionModelHasAnOverlay)
   EXPECT_EQ(stems, expected);
 }
 
-TEST(ShippedConfigs, ValidateInBothObstacleModes)
+TEST(ShippedConfigs, ValidateInEveryObstacleMode)
 {
   for (const fs::path & file : controllerOverlays()) {
     const std::string model = file.stem().string();
-    for (const std::string & mode : std::vector<std::string>{"none", "contour"}) {
+    for (const std::string & mode : std::vector<std::string>{"none", "contour", "cbf"}) {
       SCOPED_TRACE(file.filename().string() + " with obstacle_mode " + mode);
       vf::CoreConfig config;
       const vf::ValidationReport report = validate(file, mode, &config);
+      if (mode == "cbf" && model == "ackermann") {
+        // math_spec §6.7: cbf is not supported for cars in 0.x.
+        EXPECT_TRUE(report.hasError(vf::issue::kAckermannCbfUnsupported)) << report.summary();
+        continue;
+      }
       // The file and the override both reached the node.
       EXPECT_STREQ(vf::toString(config.motion.motion_model), model.c_str());
       EXPECT_STREQ(vf::toString(config.obstacles.obstacle_mode), mode.c_str());
@@ -215,8 +220,11 @@ TEST(ShippedConfigs, TemplatesValidate)
 {
   for (const fs::path & file : exampleTemplates()) {
     const std::string model = templateModel(file);
-    // As written (empty: no override), then in both obstacle modes.
-    for (const std::string & mode : std::vector<std::string>{"", "none", "contour"}) {
+    // As written (empty: no override), then in every obstacle mode (cbf: not for cars).
+    for (const std::string & mode : std::vector<std::string>{"", "none", "contour", "cbf"}) {
+      if (mode == "cbf" && model == "ackermann") {
+        continue;
+      }
       const std::string label = mode.empty() ? std::string("as written") : mode;
       SCOPED_TRACE(file.filename().string() + " with obstacle_mode " + label);
       vf::CoreConfig config;

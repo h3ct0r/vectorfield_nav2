@@ -350,6 +350,7 @@ void bindTrackerClass(py::module_ & m)
         py::array_t<double> D(n);
         py::array_t<bool> contour_active(n);
         py::array_t<std::int8_t> sigma_c(n);
+        py::array_t<bool> cbf_active(n);
         for (std::size_t i = 0; i < xs.size(); ++i) {
           const vf::ProbeSample p = t.tracker.probe(xs[i], in, state, s, time_offset);
           const auto k = static_cast<py::ssize_t>(i);
@@ -359,6 +360,7 @@ void bindTrackerClass(py::module_ & m)
           D.mutable_at(k) = p.D;
           contour_active.mutable_at(k) = p.contour_active;
           sigma_c.mutable_at(k) = p.sigma_c;
+          cbf_active.mutable_at(k) = p.cbf_active;
         }
         py::dict out;
         out["F"] = fromPoints(F);
@@ -367,12 +369,13 @@ void bindTrackerClass(py::module_ & m)
         out["D"] = D;
         out["contour_active"] = contour_active;
         out["sigma_c"] = sigma_c;
+        out["cbf_active"] = cbf_active;
         return out;
       },
       py::arg("points"), py::arg("input"), py::arg("state"), py::arg("time_offset") = 0.0,
       py::arg("scratch") = py::none(),
       "probe() at each row of an (N, 2) array: a dict of F (N, 2) and psi_d, s_star, D, "
-      "contour_active, sigma_c (N,). For field plots.")
+      "contour_active, sigma_c, cbf_active (N,). For field plots.")
     .def(
       "streamline",
       [](

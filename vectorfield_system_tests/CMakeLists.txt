@@ -119,6 +119,10 @@ if(BUILD_TESTING)
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
   endforeach()
+  # The CBF obstacle mode (M7): not Ackermann, which rejects it.
+  foreach(_vf_model differential omnidirectional)
+    vf_add_launch_test(test/test_cbf_kinematic.py ${_vf_model})
+  endforeach()
   # Reversing (M7): Smac Hybrid-A* with Reeds-Shepp and allow_reversing.
   foreach(_vf_model differential ackermann)
     vf_add_launch_test(test/test_reversing_kinematic.py ${_vf_model})

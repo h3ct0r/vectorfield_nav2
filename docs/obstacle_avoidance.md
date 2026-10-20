@@ -1,13 +1,15 @@
 # Obstacle avoidance
 
-Two mechanisms act on obstacles. **Collision prediction** is always on (unless
+Three mechanisms act on obstacles. **Collision prediction** is always on (unless
 `use_collision_detection` is false): it slows the robot down and stops it short of a predicted
 collision. **Obstacle contouring** (`obstacle_mode: contour`, default `none`) is the obstacle
 extension of the thesis (§3.4): when the path ahead is blocked, the field circulates around the
-obstacle at a set distance and returns to the path. The underlying field is summarised in
-{doc}`theory`; the exact rules, with their rationale, are in {doc}`design/math_spec`
-({ref}`sec-contour-mods` and {ref}`sec-collision`). The `contour` and `prediction` markers are
-described in {doc}`visualization`.
+obstacle at a set distance and returns to the path. The **CBF mode** (`obstacle_mode: cbf`)
+changes the field as little as possible so that a margin is kept from every obstacle
+({ref}`cbf-mode`). The underlying field is summarised in {doc}`theory`. The exact rules, with
+their rationale, are in {doc}`design/math_spec` ({ref}`sec-contour-mods`, {ref}`sec-cbf` and
+{ref}`sec-collision`). The `contour` and `prediction` markers are described in
+{doc}`visualization`.
 
 ## Obstacle input
 
@@ -197,6 +199,80 @@ contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
   $\lambda + w_{\mathrm{lat}}$, a dead end, or a turn tighter than $R_{\min}$. The contour never
   reverses: it is off while a reverse plan segment is followed ({ref}`reversing`).
 
+(cbf-mode)=
+
+## CBF mode
+
+With `obstacle_mode: cbf`, a control-barrier-function filter acts on the path field every cycle
+({ref}`sec-cbf`, {doc}`design/m7_cbf`). It has no episodes, no gate and no side to choose. The
+barrier is $h = D_o - \delta_{\mathrm{safe}}$. $D_o$ is the obstacle distance at the point where
+the law evaluates the field: the control point for feedback linearization, base_link for
+holonomic and heading tracking. $\delta_{\mathrm{safe}}$ is the radius of the smallest disc
+around that point that holds the footprint, plus `cbf_margin`. With the TB3 footprint that is
+0.47 m at the control point and 0.27 m at base_link. The filter returns the field closest to the
+path field for which $h$ shrinks no faster than $\gamma_b h$ (`cbf_gain`). The robot can then
+approach an obstacle at most at speed $\gamma_b h$, and slide along it at any speed. The filter
+never speeds the robot up. Inside the margin ($h < 0$) it pushes the robot out, no faster than
+the path field's speed.
+
+:::{figure} _static/figures/cbf_disc.svg
+:alt: A robot on a straight path passes a disc 0.2 m off the path, keeping delta_safe from it, then returns to the path and stops at the goal.
+:width: 100%
+
+The CBF filter around a disc 0.2 m off a straight path (differential drive,
+`obstacle_mode: cbf`, defaults). Dashed: $D_o = \delta_{\mathrm{safe}}$ (0.47 m at the control
+point). The control point slides along that level set and the base passes below it. Orange
+arrows are where the filter changes the field, seen from the pose where it first binds (black
+outline); inside the margin they point out. Reproduce it with
+`vf-sim --curve line.csv --pose -3,0,0 --circle 0,0.2,0.3 --obstacle-mode cbf -o cbf.svg`.
+:::
+
+- **Exact or approximate.** Feedback linearization moves its control point exactly along the
+  commanded field, and holonomic bases move base_link along it. For these laws the filter is the
+  CBF condition itself, up to the zero-order hold and the acceleration limits. Heading tracking
+  turns toward the field, so the condition holds only once the heading has converged. The
+  collision rollout runs the filtered pipeline, so it still brakes the robot before a contact.
+  Ackermann is rejected (`ackermann_cbf_unsupported`); cars use the contour mode.
+- **Several obstacles.** `cbf_sites` (3) obstacles are constrained at once: the nearest one, and
+  the nearest of every other obstacle whose direction differs by more than 45°. The two sides of
+  a gap or doorway are therefore both in the filter, and their lateral pushes cancel. With one
+  site, the nearest obstacle switches from one side to the other in the middle of a gap, and the
+  command chatters.
+- **Doorways and walls.** A passage wider than $2\delta_{\mathrm{safe}}$ is passed on the path. Near
+  its jambs the robot slows to about $\gamma_b\sqrt{2ec}$, with $e$ the spare width per side and
+  $c$ the jamb's lateral distance (O58 (b): 0.36 m/s at $e$ = 3 cm). A wall parallel to the path
+  costs no speed. The filter only removes the approaching component.
+- **Stops instead of circulating.** When the field points straight at an obstacle, the filter
+  stops the robot at $h \approx 0$. This happens with a face across the path, or a disc centred on
+  it. The *CBF hold* then raises `STATUS_BLOCKED`: the filter binds and leaves less than 5 % of
+  the field speed. The plugin raises NoValidControl, and Nav2 replans around the obstacle once
+  the global costmap shows it. The follower aborts with `BLOCKED` after `blocked_timeout`. A gap
+  narrower than $2\delta_{\mathrm{safe}}$ also stops the robot. The design note explains why there
+  is no tie-break circulation.
+- **Tuning.** A head-on approach at $v_r$ turns the filter on at $h = v_r/\gamma_b$, and then asks
+  for the deceleration $\gamma_b v_r$. The validator warns when that exceeds `max_linear_decel`
+  (`cbf_gain_deceleration`). A larger `cbf_gain` passes doorways faster but brakes harder.
+  `cbf_margin` should be at least $\mathrm{res}/\sqrt2$, since distances are measured to cell
+  centres.
+
+The `contour` markers show the CBF instead in this mode. They draw the constrained sites, the
+normals of the constraints that bind, the $\delta_{\mathrm{safe}}$ disc about the evaluation
+point (red while $h < 0$), the filter's correction and the text `cbf h 0.12 m | 1/2 bind | 85 %`.
+The status text shows `CBF` while the filter binds.
+
+## Contour or CBF
+
+| | `contour` | `cbf` |
+|---|---|---|
+| Acts | only when the path ahead is blocked (gate), until the obstacle is passed | every cycle, wherever an obstacle is within reach of the barrier |
+| Obstacle on the path | circulates around it on the side the probe chose; rejoins | stops in front of it; `STATUS_BLOCKED`, Nav2 replans |
+| Obstacle beside the path, inside the footprint's reach | gate opens; an episode circulates at $\lambda$ | minimal deviation to $\delta_{\mathrm{safe}}$, then back |
+| Doorways, corridors | unaffected while the footprint fits (gate closed) | passed on the path if wider than $2\delta_{\mathrm{safe}}$; may slow near the jambs |
+| Guarantee | none (thesis extension, latched side, watchdog) | $h \ge 0$ for FL and holonomic up to discretisation; approximate for heading tracking |
+| State | episode, side, $K$, watchdog | none |
+| Ackermann | supported, with turning-radius distances | not supported |
+| Use when | obstacles appear on the path that the planner does not see in time, or the follower must get around them on a fixed curve | the planner routes around obstacles (stock global obstacle layer) and the controller should keep a margin and pass narrow spaces smoothly |
+
 ## Limits
 
 - **Local costmap only.** Contouring and prediction see the rolling local costmap. The blend zone
@@ -206,6 +282,10 @@ contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
 - **Narrow gaps.** Gaps narrower than about $2\lambda$ act as closed for contouring, and obstacles
   closer than twice the inscribed radius merge. A free passage such as a door is not affected,
   because the gate stays closed while the footprint fits along the path.
+- **CBF:** no circulation; obstacles across the path and gaps narrower than
+  $2\delta_{\mathrm{safe}}$ stop the robot ({ref}`cbf-mode`). With feedback linearization the
+  barrier disc is centred on the control point, so lateral clearances exceed the footprint's by
+  up to `control_point_offset`.
 - **Ackermann:** the car contours with larger distances ({ref}`ackermann-contour`). An obstacle
   it cannot drive around without reversing stops it, and Nav2 replans.
 - **Rotation shim:** the shim undoes contour episodes by re-aiming at the path; see

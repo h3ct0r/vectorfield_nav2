@@ -132,6 +132,22 @@ def test_vf_sim_open_path_around_an_obstacle(tmp_path, capsys):
     assert plot.read_text(encoding='utf-8').startswith('<?xml')
 
 
+def test_vf_sim_cbf_passes_an_offset_disc(tmp_path, capsys):
+    """--obstacle-mode cbf: a disc 0.25 m off the path is passed with the barrier kept."""
+    _needs('matplotlib')
+    plot = tmp_path / 'cbf.svg'
+    argv = ['--curve', str(_line_csv(tmp_path)), '--circle', '0,0.25,0.15']
+    assert vf_sim.main(argv + ['--obstacle-mode', 'cbf', '-o', str(plot)]) == 0
+    out = capsys.readouterr().out
+    assert '(settled)' in out and 'cbf active           0.00 s' not in out
+    barrier = float(out.split('min cbf barrier h')[1].split()[0])
+    assert barrier > -0.05
+    assert plot.read_text(encoding='utf-8').startswith('<?xml')
+    field = tmp_path / 'cbf_field.png'
+    argv += ['--obstacle-mode', 'cbf', '--pose', '-1.2,0,0', '-o', str(field)]
+    assert vf_plot.main(argv) == 0
+
+
 def test_vf_sim_rejects_an_invalid_configuration(capsys):
     """A configuration error is reported and exits 2."""
     assert vf_sim.main(['--set', 'desired_speed=1.0']) == 2

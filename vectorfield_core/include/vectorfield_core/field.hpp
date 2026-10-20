@@ -22,6 +22,7 @@
 #ifndef VECTORFIELD_CORE__FIELD_HPP_
 #define VECTORFIELD_CORE__FIELD_HPP_
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
@@ -65,6 +66,40 @@ struct ContourSample
   Vec2 first_blocked_sample{Vec2::Zero()};
   /// At least one gate sample was blocked this cycle.
   bool has_blocked_sample{false};
+};
+
+/// @brief Most obstacle sites the CBF filter constrains (`cbf_sites`, math_spec §6.7).
+inline constexpr int kCbfMaxSites = 3;
+
+/// @brief CBF-filter quantities of one evaluation (math_spec §6.7 [Design, M7]; Appendix A
+/// "cbf"). Points and vectors are in the evaluation frame.
+struct CbfSample
+{
+  /// The filter ran (`obstacle_mode: cbf`, a usable map, XY not reached).
+  bool on{false};
+  /// The filter changed the field: at least one constraint binds.
+  bool active{false};
+  /// CBF hold: active with \f$\lVert F^\star\rVert < 0.05\lVert F\rVert\f$ (kBlocked in a
+  /// translation phase, math_spec §10.4).
+  bool hold{false};
+  /// The push-out requests conflicted; the QP was solved again without them.
+  bool relaxed{false};
+  /// Constraints used, in [0, kCbfMaxSites].
+  int count{0};
+  /// \f$\delta_{\mathrm{safe}} = r_e + m\f$ (m).
+  double delta{0.0};
+  /// \f$\min_j h_j\f$ (m); \f$+\infty\f$ without constraints.
+  double h{kInf};
+  /// \f$\lVert F^\star\rVert / \lVert F\rVert\f$ (1 when inactive or \f$F = 0\f$).
+  double speed_ratio{1.0};
+  /// The field before the filter (\f$\Phi_\gamma\f$).
+  Vec2 F_in{Vec2::Zero()};
+  /// Per constraint j < count: nearest point of the site, unit normal \f$n_j\f$ (away from
+  /// the obstacle), \f$h_j\f$, and whether it binds.
+  std::array<Vec2, kCbfMaxSites> x_o{Vec2::Zero(), Vec2::Zero(), Vec2::Zero()};
+  std::array<Vec2, kCbfMaxSites> n{Vec2::Zero(), Vec2::Zero(), Vec2::Zero()};
+  std::array<double, kCbfMaxSites> h_j{kInf, kInf, kInf};
+  std::array<bool, kCbfMaxSites> binds{false, false, false};
 };
 
 /// @brief Every field quantity of one evaluation (math_spec Appendix A, sec-math-viz).
@@ -162,6 +197,8 @@ struct FieldSample
   /// @{
   /// Contour quantities.
   ContourSample contour;
+  /// CBF filter (`obstacle_mode: cbf`).
+  CbfSample cbf;
   /// @}
 
   /// @name Heading (math_spec §7; Appendix A "heading target")

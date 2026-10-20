@@ -357,7 +357,11 @@ void bindFootprint(py::module_ & m)
     .def_property_readonly("radii", &Footprint::radii, py::return_value_policy::copy)
     .def_property_readonly("w_lat", &Footprint::wLat)
     .def_property_readonly("r_insc", &Footprint::rInsc)
-    .def_property_readonly("r_circ", &Footprint::rCirc);
+    .def_property_readonly("r_circ", &Footprint::rCirc)
+    .def(
+      "cover_radius", &Footprint::coverRadius, py::arg("point"),
+      "Radius of the smallest disc centred on a robot-frame point that contains the footprint "
+      "(the CBF's r_e, math_spec section 6.7).");
 
   py::enum_<vf::FootprintDecision>(m, "FootprintDecision", "Which rule decided a check.")
     .value("FREE_SHORTCUT", vf::FootprintDecision::kFreeShortcut)

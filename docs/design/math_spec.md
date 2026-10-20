@@ -1074,6 +1074,56 @@ Changes for `motion_model: ackermann` only; every other model keeps §6.4–6.5.
   off in reverse segments, §9.4): a manoeuvre that needs a turn tighter than $R_{\min}$ ends in a
   stop and kBlocked, and Nav2 replans.
 
+(sec-cbf)=
+
+### 6.7 CBF mode [Design, M7]
+
+`obstacle_mode: cbf` replaces §6.2–6.6 by a safety filter on the shaped field; the gate, $K$, the
+blocking set, the side probe, the latch and the watchdog are not used. The design note is
+`m7_cbf.md`; the figure `cbf_disc.svg` of {doc}`../obstacle_avoidance` shows it.
+
+- **Barrier.** $h_j(x) = D_j(x) - \delta_{\mathrm{safe}}$ at the law's evaluation point $x$
+  ({ref}`sec-laws-points`), with $\delta_{\mathrm{safe}} = r_e + m$, $m$ = `cbf_margin`, and
+  $r_e = \max_i \lVert v_i - e\rVert$ over the footprint vertices $v_i$ (disc: $R + \lVert e\rVert$), $e$ the
+  robot-frame offset of $x$: $r_e = r_{\mathrm{circ}}$ at base_link (omni, HT, FL in FINAL_APPROACH),
+  $r_e \le r_{\mathrm{circ}} + d$ at $p_c$ (TC: 0.42), the flipped point in a reverse segment. The disc
+  of radius $r_e$ about $x$ contains the footprint at every heading, so $h_j \ge 0$ keeps every
+  footprint point $m$ from every site centre ($m - \mathrm{res}/\sqrt2$ from the cell squares).
+- **Sites.** $j = 1$: the continuous $\mathrm{EDT}_{\mathrm{all}}$ query of §6.1. $j = 2, \dots, k$
+  ($k$ = `cbf_sites` $\le 3$): the nearest site centre among the features of the $7 \times 7$ cells
+  around $x$ whose normal $n_j = (x - f)/\lVert x - f\rVert$ is more than 45° from every normal already
+  taken. Sites at distance 0 are skipped.
+- **Filter.** With $F = \Phi_\gamma$ (after speed shaping, step 4 of {ref}`sec-limiter-order`) and
+  $\gamma_b$ = `cbf_gain`:
+  $$
+  F^\star = \arg\min_{F'} \lVert F' - F\rVert^2 \quad \text{s.t.} \quad n_j^\top F' \ge -\gamma_b h_j,\ j \le k,
+  $$
+  solved exactly by enumeration ($F$, the projections $F + \max(0, -\gamma_b h_j - n_j^\top F)\,n_j$,
+  the pairwise intersections; the feasible candidate of least cost). Infeasible (conflicting
+  pushes, only with some $h_j < 0$): solved again with $\min(-\gamma_b h_j, 0)$, feasible at $F' = 0$.
+  Then $F^\star \leftarrow F^\star \min(1, \lVert F\rVert/\lVert F^\star\rVert)$. With every $h_j \ge 0$ the feasible
+  set is convex and contains 0, so $\lVert F^\star\rVert \le \lVert F\rVert$ without the scaling [Derived];
+  the scaling bounds the push-out inside the margin.
+- **Exactness** [Derived]. FL: $\dot p_c = F$ (§7.3); holonomic: $\dot p = F$; so
+  $\dot h_j = n_j^\top F^\star \ge -\gamma_b h_j$ exactly in continuous time. Under ZOH, $D_j$ is the distance
+  to one point, hence convex: $h_j(x + F^\star\Delta t) \ge (1 - \gamma_b\Delta t)\,h_j(x)$ up to the
+  $O(\lVert F\rVert\omega\Delta t^2)$ arc of the held FL command; this needs $\gamma_b\Delta t < 1$. HT
+  ($\dot p = v\mathbf h$, $v \approx \lVert F\rVert\cos e$) satisfies it only as $e \to 0$. The CommandLimiter can delay
+  the deceleration $\gamma_b v_r$ that a head-on approach needs from $h = v_r/\gamma_b$. The rollout
+  (§10) runs the filtered pipeline with the limiter and the real footprint and stays the backstop.
+- **Where.** The filter runs in every phase while XY is not reached (then the robot only settles,
+  protected by the rollout): on $F$ of the step, on the uncapped field of the ROTATE_TO_FIELD
+  decision (with the step's constraints) and on the probes of $\dot\psi_d$ (with the step's
+  $\delta_{\mathrm{safe}}$). When it binds, the kinematic box is uniform (§8.3).
+- **Hold.** In a translation phase, the filter binding with $\lVert F^\star\rVert < 0.05\lVert F\rVert$ at the
+  current pose sets kBlocked (§10.4); it releases at 0.10. When $F \parallel -n_j$ (a face across the
+  path, where §6.1 makes $n$ exact, or a centred disc on a symmetric grid), $F^\star \to 0$ at
+  $h \approx 0$ and the robot would otherwise wait without kBlocked: the rollout sees no contact. No
+  tie-break circulation exists: a side without the probe is a guess, and a latched one is the
+  contour (`m7_cbf.md`). Near a disc the head-on point is unstable for $G'(0)\rho < 1$
+  ({ref}`sec-contour-trap` with $\rho = R_o + \delta_{\mathrm{safe}}$), so off-centre discs pass.
+- **Ackermann** is a ConfigError (`ackermann_cbf_unsupported`) in 0.x.
+
 (sec-laws)=
 
 ## 7 Tracking laws
@@ -1257,7 +1307,8 @@ For the current phase:
 2. Contour state at $x$: gate, start and exit tests, $\theta$ ({ref}`sec-contour-mods`); decisions use
    the nominal $\Phi$.
 3. Speed shaping → shaped path field $\Phi_\gamma$ ({ref}`sec-limiter-shaping`).
-4. Contour → $F$, with speed $\lVert\Phi_\gamma\rVert$.
+4. Contour → $F$, with speed $\lVert\Phi_\gamma\rVert$; or, with `obstacle_mode: cbf`, the CBF filter
+   $F = F^\star(\Phi_\gamma)$ ({ref}`sec-cbf`) [Design, M7].
 5. Law, or the phase target (rotate law; zero for kBlocked, STOPPED and goal hold), then the
    FOLLOW-only Ackermann $v_{\mathrm{ack}}$ band and the rotate floors.
 6. Kinematic box ({ref}`sec-limiter-box`).
@@ -1640,6 +1691,10 @@ the cap and kBlocked except the current-pose test.
   ($v_{\mathrm{stop}}^2/(2a_{\mathrm{dec}}) = 0.2$ mm), so one cell of sensor flicker would toggle the
   flag, refresh the server's patience timer every other cycle and let the robot creep;
   $h_b = \max(2\,\mathrm{res}, 0.05)$ is a real band.
+- **CBF hold** [Design, M7]: with `obstacle_mode: cbf`, also set in a translation phase (same
+  exclusions) when the filter binds at the current pose with $\lVert F^\star\rVert < 0.05\lVert F\rVert$, kept
+  while below 0.10 ({ref}`sec-cbf`); with `use_collision_detection: false` it is kept beside the
+  current-pose test.
 - Settled precedence ({ref}`sec-phases-table`) applies. kBlocked is not evaluated in STOPPED.
 
 (sec-math-validation)=
@@ -1680,6 +1735,7 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | Ackermann with $R_{\min} \le 0$ | the curvature clamp needs $R_{\min}$ |
 | $\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)$, or $>$ `window_limit` when set (Gen A/B prune_distance) | the goal must enter the window before braking must start |
 | FL with $d \le 0$ [Spec] | $M(\psi)$ divides by $d$; the plan omits this rule (`upstream_audit.md`, item O3) |
+| Ackermann with cbf [Design, M7] | a car cannot follow an arbitrary $F^\star$ ({ref}`sec-cbf`) |
 
 **Warn.**
 
@@ -1694,6 +1750,7 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | $T_h v_{\max} < v_{\max}^2/(2 a_{\mathrm{dec}}) + v_{\max}(2/f + 0.1) + 0.1$, or $T_h v_{\max} > \tfrac12\min(W, H_c) - r_{\mathrm{circ}}$ | the horizon must cover the stopping distance plus two cycles and 0.1 s of latency plus 0.1 m, and stay in the window |
 | Ackermann: $R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1$ | the field's integral curves need more curvature than the car has |
 | $v_r (c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}$ | yaw rate needed to follow the integral curves at $v_r$ |
+| cbf [Design, M7]: $\gamma_b v_r > a_{\mathrm{dec}}$; $\gamma_b\Delta t \ge 1$ | a head-on approach asks for more deceleration than the limiter allows; the barrier can cross 0 within a cycle ({ref}`sec-cbf`) |
 | Ackermann with contour [Design, M7]: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$; $D_{\mathrm{in}} < \lambda + R_{\min}$; $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length` $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ | curvature headroom, turn-in band, gate before the band, watchdog ({ref}`sec-contour-ackermann`) |
 
 At configure, $\kappa_{\mathrm{path}} := 0$; the per-plan checks below use the window's value [Spec].
@@ -1859,6 +1916,23 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   (inside $D_{\mathrm{in}}$): passed without kHeadingInfeasible or collision. $\lambda < R_{\min} + 0.05$:
   ConfigError.
 
+- **O58 CBF** [Design, M7] (TC with `obstacle_mode: cbf`, $m = 0.05$, $\gamma_b = 2$, $k = 3$;
+  $\delta_{\mathrm{safe}}$ = 0.47 FL, 0.27 omni and HT; $h$ measured by brute force to the site centres at
+  the evaluation point). (a) A 0.15 m disc 0.1, 0.2 and 0.3 m off a straight path, FL, HT and omni:
+  settled at the goal, never kBlocked, the filter binds, $\min h \ge -\mathrm{res}$, $\lvert D\rvert < 0.02$
+  at the end. (b) A wall across the path with an opening of half-width $\delta_{\mathrm{safe}} + 0.03$:
+  the contour never engages; with cbf $\lvert D\rvert < 0.02$, speed $\ge 0.6\,v_r$, $\min h \ge -\mathrm{res}$.
+  (c) A 0.3 m disc centred on the path on a grid with the path on a row of cell centres (FL,
+  omni): hold, kBlocked for 120 cycles, at rest, $h \ge 0$, $D = 0$. (d) A wall parallel to the
+  path at 0.45 m: speed $\ge 0.9\,v_r$ over it, $\lvert D\rvert < 0.05$ (FL holds $p_c$ 2 cm off). (e) Two
+  0.15 m discs, the robot 3 cm off their bisector: site centres $\delta_{\mathrm{safe}} + 0.03$ from the
+  bisector: passes, per-cycle change of the target $\omega$ (FL) or $v_y$ (omni) $\le 0.05$;
+  $\delta_{\mathrm{safe}} - 0.02$: three sites hold before the waist with $h \ge 0$, while one site lets FL
+  squeeze through with $\omega$ jumps over ten times larger. (f) ZOH at 20 Hz, FL and omni at 0.4 and
+  0.5 m/s, a wall across the path, a centred disc and discs 0.1 and 0.2 m off it:
+  $\min h \ge -\mathrm{res}$. With `drive_backward`, an offset disc is passed with the filter at the rear
+  control point. Ackermann with cbf: ConfigError.
+
 ### 12.6 Laws
 
 - **O39 FL identity.** Random $\psi$, $F$, $q$, $d > 0$: $\lVert v\mathbf h + q d\omega J\mathbf h - F\rVert \le 10^{-12}$.
@@ -1939,6 +2013,10 @@ there and the predicates defined in this document.
 - **The obstacle contour has no proof.** The latch removes the trap basin of {ref}`sec-contour-trap`, but
   gaps narrower than about $2\lambda$ act as closed, obstacles with no velocity information are treated
   as static, and the watchdog bounds every episode. Ackermann has no contour in 0.x.
+- **The CBF mode does not circulate** [Design, M7]. Faces across the path, centred discs and gaps
+  narrower than $2\delta_{\mathrm{safe}}$ stop the robot (hold, kBlocked); the guarantee is exact only for FL
+  and holonomic in continuous time, approximate under ZOH, the limiter and HT; FL's barrier disc is
+  centred on $p_c$, so lateral clearances exceed the footprint's by up to $d$.
 - **Saturation.** Static fields under uniform scaling keep $\dot D \le 0$; time-varying fields keep it
   under the $\eta$-box but not under its fallback; HT and Ackermann only as $e \to 0$; the acceleration
   stage makes all of these approximate.
@@ -1973,6 +2051,7 @@ Every RViz/Foxglove marker in {doc}`../visualization` is drawn from `FieldSample
 | heading target | ROTATE_TO_FIELD: $\angle F_{\mathrm{trk}}$ (+π if `drive_backward`); ROTATE_TO_HEADING: the goal yaw; HT: $\psi_d$; the arc spans $\operatorname{wrap}(\psi_{\mathrm{tgt}} - \psi)$ |
 | prediction | rollout poses from `StepScratch`, the first colliding pose, $s_{\mathrm{free}}$ |
 | contour | gate open, episode active, $\sigma_c$, $x_o^\star$, $D_o$, $\theta$, `travelled_m`, `elapsed_s`, the blocked gate samples, $K$'s cells; the $\lambda$, $D_{\mathrm{in}}$, $D_{\mathrm{in}}'$ rings are centred at $x_o^\star$ [Spec]; the side arrow is $\sigma_c J n_o$ at $x_{\mathrm{eval}}$ |
+| cbf [Design, M7] | filter on, binding, hold, $\delta_{\mathrm{safe}}$, $\min h_j$, $\lVert F^\star\rVert/\lVert F\rVert$, $F$ before the filter, and per constraint $x_{o,j}$, $n_j$, $h_j$, binding (`FieldSample::cbf`); drawn in the `contour` namespace in cbf mode: the $\delta_{\mathrm{safe}}$ ring centred at $x_{\mathrm{eval}}$, the binding normals, the correction $F^\star - F$ |
 | `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. `Tracker::probe()` shapes with the speed limit $\gamma_{\mathrm{lim}}$ only; the cycle's collision cap is not stored [Spec, M1]. |
 | streamlines | RK4 integration of $\dot x = F(x)$ at the frozen $t$ with step `field_grid_resolution`/2 [Spec] |
 

@@ -159,6 +159,7 @@ struct SteadyStateResult
   int active_cycles{0};
   int rollout_cycles{0};
   int probe_cycles{0};
+  int cbf_active_cycles{0};
 };
 
 // Closed loop on Tracker::step + sim::integrate; counts allocations over the measured cycles.
@@ -192,6 +193,7 @@ SteadyStateResult countSteadyState(
       r.active_cycles += state.contour.active ? 1 : 0;
       r.rollout_cycles += out.predicted.size() > 0 ? 1 : 0;
       r.probe_cycles += out.field.psi_d_dot != 0.0 ? 1 : 0;
+      r.cbf_active_cycles += out.field.cbf.active ? 1 : 0;
     }
     pose = vf::sim::integrate(kinematics, pose, out.cmd, kPeriod);
     measured_twist = out.cmd;
@@ -280,4 +282,31 @@ TEST(OracleNoAlloc, O55_SteadyStateNoAlloc_BuiltinHolonomic)
   EXPECT_GE(r.episode_starts, 1) << "no episode started in the measured window";
   EXPECT_GE(r.active_cycles, 20);
   EXPECT_GE(r.rollout_cycles, 900);
+}
+
+// O55 with the CBF filter (math_spec §6.7): heading tracking (filtered ψ̇_d probes) and FL on the
+// stadium, a box beside the bottom straight that the footprint would graze, three sites.
+TEST(OracleNoAlloc, O55_SteadyStateNoAlloc_Cbf)
+{
+  ObstacleWorld world(Vec2(-4.0, -3.5), 8.0, 7.0);
+  world.addBox(Vec2(-0.15, -0.95), Vec2(0.15, -0.75));
+  world.addBox(Vec2(0.6, -1.5), Vec2(0.9, -1.3));
+  world.commit();
+  const auto curve = makePolyline(stadium(), true);
+  for (const vf::TrackingLaw law :
+       {vf::TrackingLaw::kHeadingTracking, vf::TrackingLaw::kFeedbackLinearization}) {
+    SCOPED_TRACE(vf::toString(law));
+    vf::CoreConfig config = tcConfig(vf::MotionModel::kDifferential, law);
+    config.obstacles.obstacle_mode = vf::ObstacleMode::kCbf;
+    const vf::Tracker tracker(config);
+    vf::TrackerInput input;
+    input.curve = curve.get();
+    input.obstacles = world.map();
+    const SteadyStateResult r =
+      countSteadyState(tracker, input, Pose2{Vec2(-1.2, -1.0), 0.0}, world);
+    EXPECT_EQ(r.allocations, 0);
+    EXPECT_EQ(r.deallocations, 0);
+    EXPECT_GE(r.cbf_active_cycles, 10) << "the filter never bound in the measured window";
+    EXPECT_GE(r.rollout_cycles, 900);
+  }
 }

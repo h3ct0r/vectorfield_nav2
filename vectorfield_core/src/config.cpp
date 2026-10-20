@@ -65,9 +65,10 @@ constexpr std::array<EnumName<OmniHeadingPolicy>, 3> kOmniHeadingPolicyNames{{
   {OmniHeadingPolicy::kFixed, "fixed"},
 }};
 
-constexpr std::array<EnumName<ObstacleMode>, 2> kObstacleModeNames{{
+constexpr std::array<EnumName<ObstacleMode>, 3> kObstacleModeNames{{
   {ObstacleMode::kNone, "none"},
   {ObstacleMode::kContour, "contour"},
+  {ObstacleMode::kCbf, "cbf"},
 }};
 
 constexpr std::array<EnumName<ObstacleActivation>, 2> kObstacleActivationNames{{
@@ -262,6 +263,11 @@ void checkDomain(const CoreConfig & config, ValidationReport * report)
   check.positive("obstacle_max_contour_time", obstacles.obstacle_max_contour_time);
   check.nonNegative("clearance_slowdown_distance", obstacles.clearance_slowdown_distance);
   check.positive("clearance_slowdown_gain", obstacles.clearance_slowdown_gain);
+  check.positive("cbf_gain", obstacles.cbf_gain);
+  check.nonNegative("cbf_margin", obstacles.cbf_margin);
+  check.require(
+    obstacles.cbf_sites >= 1 && obstacles.cbf_sites <= 3,
+    "cbf_sites = " + std::to_string(obstacles.cbf_sites) + " must be in [1, 3]");
 
   check.positive("collision_check_horizon", config.safety.collision_check_horizon);
   check.nonNegative("stop_margin", config.safety.stop_margin);
@@ -657,6 +663,7 @@ ValidationReport validateConfig(
   const bool fl = law == TrackingLaw::kFeedbackLinearization;
   const bool ackermann = model == MotionModel::kAckermann;
   const bool contour = r.obstacles.obstacle_mode == ObstacleMode::kContour;
+  const bool cbf = r.obstacles.obstacle_mode == ObstacleMode::kCbf;
 
   const double v_r = r.field.desired_speed;
   const double k_f = r.field.convergence_gain;
@@ -720,6 +727,12 @@ ValidationReport validateConfig(
       errors, issue::kAckermannContourRadius,
       "obstacle_contour_distance " + num(lambda) + " < min_turning_radius " + num(r_min) +
         " + 0.05: the car cannot follow the circulation around a point obstacle");
+  }
+  if (ackermann && cbf) {
+    addIssue(
+      errors, issue::kAckermannCbfUnsupported,
+      "obstacle_mode cbf is not supported for motion_model ackermann in 0.x: a car cannot follow "
+      "an arbitrary filtered field; use contour");
   }
   if (ackermann && !(r_min > 0.0)) {
     addIssue(
@@ -818,6 +831,20 @@ ValidationReport validateConfig(
   }
   if (ackermann && contour && r_min > 0.0) {
     addAckermannContourWarnings(r, radii, warnings);
+  }
+  const double cbf_gain = r.obstacles.cbf_gain;
+  if (cbf && cbf_gain * v_r > a_dec) {
+    addIssue(
+      warnings, issue::kCbfGainDeceleration,
+      "cbf_gain * desired_speed = " + num(cbf_gain * v_r) + " > max_linear_decel " + num(a_dec) +
+        ": a head-on approach asks for more deceleration than the limiter allows, so the robot "
+        "enters the margin (the collision cap still stops it)");
+  }
+  if (cbf && cbf_gain * dt >= 1.0) {
+    addIssue(
+      warnings, issue::kCbfGainDiscrete,
+      "cbf_gain / controller_frequency = " + num(cbf_gain * dt) +
+        " >= 1: the barrier can cross zero within one cycle");
   }
   return report;
 }

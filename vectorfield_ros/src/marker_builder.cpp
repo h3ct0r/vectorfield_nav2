@@ -457,6 +457,9 @@ private:
       text_.advance(
         std::snprintf(text_.tail(), text_.room(), " %+d", static_cast<int>(f_.contour.sigma_c)));
     }
+    if (f_.cbf.active) {
+      flag(legend::kFlagCbf);
+    }
     if (vf::Status::has(bits, vf::Status::kAssumption3Clamped)) {
       flag(legend::kFlagAssumption3);
     }
@@ -741,6 +744,10 @@ private:
 
   void contour()
   {
+    if (config_.obstacles.obstacle_mode == vf::ObstacleMode::kCbf) {
+      cbf();
+      return;
+    }
     const vf::ContourSample & cs = f_.contour;
     if (!cs.gate_open && !cs.active) {
       return;
@@ -801,6 +808,57 @@ private:
     }
     Marker & label = add(Ns::kContour, legend::id::kContourText, legend::kContourObstacle);
     text(&label, has_obstacle ? cs.x_o : f_.x_eval, kTextLift, text_.view());
+  }
+
+  /// @brief `obstacle_mode: cbf` in the contour namespace (math_spec §6.7): the constraint sites
+  /// (gate-sample points; the nearest one as the obstacle sphere), the normals of the binding
+  /// constraints (site → evaluation point), the \f$\delta_{\mathrm{safe}}\f$ ring about the
+  /// evaluation point (red while h < 0), the filter's correction \f$F^\star - F\f$ (side arrow) and
+  /// a text with h, the binding count and \f$\lVert F^\star\rVert/\lVert F\rVert\f$. Drawn while the
+  /// filter binds or the nearest site is within \f$2\delta_{\mathrm{safe}}\f$.
+  void cbf()
+  {
+    const vf::CbfSample & cbf = f_.cbf;
+    if (!cbf.on || cbf.count <= 0 || !(cbf.active || cbf.h < cbf.delta)) {
+      return;
+    }
+    const auto count = static_cast<std::size_t>(std::min(cbf.count, vf::kCbfMaxSites));
+    Marker & sites = add(Ns::kContour, legend::id::kContourGateSamples, legend::kContourObstacle);
+    sites.scale.x = kGatePointSize;
+    sites.scale.y = kGatePointSize;
+    Marker & normals =
+      add(Ns::kContour, legend::id::kContourObstacleLine, legend::kContourObstacle);
+    line(&normals, kLineWidth);
+    int binding = 0;
+    for (std::size_t j = 0; j < count; ++j) {
+      sites.points.push_back(toPoint(cbf.x_o[j]));
+      if (cbf.binds[j]) {
+        segment(&normals, cbf.x_o[j], f_.x_eval);
+        ++binding;
+      }
+    }
+    if (normals.points.empty()) {
+      drop(&normals);
+    }
+    Marker & nearest =
+      add(Ns::kContour, legend::id::kContourObstaclePoint, legend::kContourObstacle);
+    sphere(&nearest, cbf.x_o[0], kSphereLarge);
+    Marker & disc = add(
+      Ns::kContour, legend::id::kContourLambdaRing,
+      ringColor(cbf.h < 0.0 ? legend::kContourObstacle : legend::kContourLambda));
+    ring(&disc, f_.x_eval, cbf.delta);
+    const Vec2 correction = f_.F - cbf.F_in;
+    if (cbf.active && drawable(correction)) {
+      Marker & m = add(Ns::kContour, legend::id::kContourSide, legend::kContourLambda);
+      arrow(&m, f_.x_eval, f_.x_eval + kSideArrowLength * correction.normalized());
+    }
+    text_.clear();
+    text_.advance(
+      std::snprintf(
+        text_.tail(), text_.room(), "cbf h %.2f m | %d/%zu bind | %.0f %%%s", cbf.h, binding, count,
+        100.0 * cbf.speed_ratio, cbf.hold ? " | hold" : ""));
+    Marker & label = add(Ns::kContour, legend::id::kContourText, legend::kContourObstacle);
+    text(&label, cbf.x_o[0], kTextLift, text_.view());
   }
 
   /// @brief K's cells, drawn in the grid's orientation: the marker pose carries the grid

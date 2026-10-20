@@ -25,6 +25,7 @@
 #ifndef VECTORFIELD_CORE__VECTORFIELD_CORE_HPP_
 #define VECTORFIELD_CORE__VECTORFIELD_CORE_HPP_
 
+#include "vectorfield_core/cbf.hpp"
 #include "vectorfield_core/collision_predictor.hpp"
 #include "vectorfield_core/conditioning.hpp"
 #include "vectorfield_core/config.hpp"

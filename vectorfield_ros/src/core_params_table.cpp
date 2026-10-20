@@ -20,6 +20,7 @@
 // a compile error.
 
 #include <array>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -38,6 +39,11 @@ namespace
 
 rclcpp::ParameterValue toValue(double value) { return rclcpp::ParameterValue(value); }
 rclcpp::ParameterValue toValue(bool value) { return rclcpp::ParameterValue(value); }
+rclcpp::ParameterValue toValue(int value)
+{
+  return rclcpp::ParameterValue(static_cast<std::int64_t>(value));
+}
+rclcpp::ParameterValue toValue(std::int64_t value) { return rclcpp::ParameterValue(value); }
 rclcpp::ParameterValue toValue(const std::string & value) { return rclcpp::ParameterValue(value); }
 
 template <typename Enum, std::enable_if_t<std::is_enum_v<Enum>, int> = 0>
@@ -60,6 +66,19 @@ bool setValue(const rclcpp::ParameterValue & value, double * out)
     default:
       return false;
   }
+}
+
+bool setValue(const rclcpp::ParameterValue & value, int * out)
+{
+  if (value.get_type() != rclcpp::ParameterType::PARAMETER_INTEGER) {
+    return false;
+  }
+  const std::int64_t v = value.get<std::int64_t>();
+  if (v < INT_MIN || v > INT_MAX) {
+    return false;
+  }
+  *out = static_cast<int>(v);
+  return true;
 }
 
 bool setValue(const rclcpp::ParameterValue & value, bool * out)
@@ -141,6 +160,9 @@ constexpr CommonParamRow kRows[] = {
   VF_CORE_ROW(obstacles, unknown_is_obstacle),
   VF_CORE_ROW(obstacles, clearance_slowdown_distance),
   VF_CORE_ROW(obstacles, clearance_slowdown_gain),
+  VF_CORE_ROW(obstacles, cbf_gain),
+  VF_CORE_ROW(obstacles, cbf_margin),
+  VF_CORE_ROW(obstacles, cbf_sites),
   // Safety
   VF_CORE_ROW(safety, use_collision_detection),
   VF_CORE_ROW(safety, collision_check_horizon),

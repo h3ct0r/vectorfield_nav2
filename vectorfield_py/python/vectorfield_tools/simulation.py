@@ -124,10 +124,12 @@ class Run:
     obstacle_map: object = None
     contour_active: np.ndarray = None
     contour_side: np.ndarray = None
+    cbf_active: np.ndarray = None
+    cbf_barrier: np.ndarray = None
 
 
 def simulate(scenario):
-    """Run a Scenario; with obstacles, the contour activity is recorded per period."""
+    """Run a Scenario; with obstacles, the contour and CBF activity is recorded per period."""
     period = scenario.control_period()
     tracker = vf.Tracker(scenario.config)
     eta_psi, x_icr = scenario.slip
@@ -145,12 +147,14 @@ def simulate(scenario):
     if obstacle_map is None:
         result = simulator.run(tracker_input, scenario.duration)
         return Run(scenario, result, simulator.tracker)
-    active, side = [], []
+    active, side, cbf_active, cbf_barrier = [], [], [], []
     for _ in range(int(round(scenario.duration / period))):
         record = simulator.step(tracker_input)
-        contour = simulator.last_output.field.contour
-        active.append(bool(contour.active))
-        side.append(int(contour.sigma_c))
+        field_sample = simulator.last_output.field
+        active.append(bool(field_sample.contour.active))
+        side.append(int(field_sample.contour.sigma_c))
+        cbf_active.append(bool(field_sample.cbf.active))
+        cbf_barrier.append(float(field_sample.cbf.h) if field_sample.cbf.on else math.nan)
         stopped = options.stop_when_stopped and record.phase == vf.Phase.STOPPED
         if (options.stop_when_settled and record.settled) or stopped:
             break
@@ -161,6 +165,8 @@ def simulate(scenario):
         obstacle_map,
         np.array(active, dtype=bool),
         np.array(side, dtype=np.int8),
+        np.array(cbf_active, dtype=bool),
+        np.array(cbf_barrier, dtype=float),
     )
 
 
@@ -191,6 +197,8 @@ class Summary:
     goal_distance: object = None
     min_obstacle_distance: object = None
     contour_time: float = 0.0
+    cbf_time: float = 0.0
+    min_cbf_barrier: object = None
 
     def lines(self):
         """Human-readable summary lines."""
@@ -212,6 +220,9 @@ class Summary:
         if self.min_obstacle_distance is not None:
             out.append(f'closest obstacle     {self.min_obstacle_distance:.3f} m from base_link')
             out.append(f'contour active       {self.contour_time:.2f} s')
+        if self.min_cbf_barrier is not None:
+            out.append(f'cbf active           {self.cbf_time:.2f} s')
+            out.append(f'min cbf barrier h    {self.min_cbf_barrier:.3f} m')
         return out
 
 
@@ -253,6 +264,11 @@ def summarize(run, transient=None, tolerance=DEFAULT_TOLERANCE):
         query = run.obstacle_map.edt.query_points(result.pose[:, :2])
         min_obstacle = float(np.min(query['D_o']))
         contour_time = float(np.count_nonzero(run.contour_active) * period)
+    cbf_time = 0.0
+    min_cbf = None
+    if run.cbf_barrier is not None and np.isfinite(run.cbf_barrier).any():
+        cbf_time = float(np.count_nonzero(run.cbf_active) * period)
+        min_cbf = float(np.nanmin(run.cbf_barrier))
     return Summary(
         duration=duration,
         final_D=float(D[-1]),
@@ -267,4 +283,6 @@ def summarize(run, transient=None, tolerance=DEFAULT_TOLERANCE):
         goal_distance=goal_distance,
         min_obstacle_distance=min_obstacle,
         contour_time=contour_time,
+        cbf_time=cbf_time,
+        min_cbf_barrier=min_cbf,
     )

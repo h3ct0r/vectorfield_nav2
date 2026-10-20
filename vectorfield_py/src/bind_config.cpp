@@ -80,7 +80,9 @@ void bindEnums(py::module_ & m)
      {"FIXED", vf::OmniHeadingPolicy::kFixed}});
   bindParameterEnum<vf::ObstacleMode>(
     m, "ObstacleMode", "`obstacle_mode` (math_spec section 6).",
-    {{"NONE", vf::ObstacleMode::kNone}, {"CONTOUR", vf::ObstacleMode::kContour}});
+    {{"NONE", vf::ObstacleMode::kNone},
+     {"CONTOUR", vf::ObstacleMode::kContour},
+     {"CBF", vf::ObstacleMode::kCbf}});
   bindParameterEnum<vf::ObstacleActivation>(
     m, "ObstacleActivation", "`obstacle_activation` (math_spec section 6.4).",
     {{"PATH_BLOCKED", vf::ObstacleActivation::kPathBlocked},
@@ -175,6 +177,9 @@ void bindGroups(py::module_ & m)
       "clearance_slowdown_distance", &ObstacleConfig::clearance_slowdown_distance,
       "d_cl (m); 0 = off.")
     .field("clearance_slowdown_gain", &ObstacleConfig::clearance_slowdown_gain, "k_cl.")
+    .field("cbf_gain", &ObstacleConfig::cbf_gain, "CBF gain gamma_b (1/s), obstacle_mode cbf.")
+    .field("cbf_margin", &ObstacleConfig::cbf_margin, "CBF margin m (m): delta_safe = r_e + m.")
+    .field("cbf_sites", &ObstacleConfig::cbf_sites, "Obstacle sites the CBF constrains, 1-3.")
     .finish();
 
   using vf::SafetyConfig;
@@ -329,6 +334,7 @@ void bindValidation(py::module_ & m)
     {"ACKERMANN_RADIUS", vf::issue::kAckermannRadius},
     {"BRAKING_EXCEEDS_WINDOW", vf::issue::kBrakingExceedsWindow},
     {"FL_OFFSET", vf::issue::kFlOffset},
+    {"ACKERMANN_CBF_UNSUPPORTED", vf::issue::kAckermannCbfUnsupported},
     {"ROTATE_ABOVE_MAX", vf::issue::kRotateAboveMax},
     {"DISCRETE_OVERSHOOT", vf::issue::kDiscreteOvershoot},
     {"FL_GAIN_OFFSET", vf::issue::kFlGainOffset},
@@ -344,6 +350,8 @@ void bindValidation(py::module_ & m)
     {"ACKERMANN_CONTOUR_TURN_IN", vf::issue::kAckermannContourTurnIn},
     {"ACKERMANN_CONTOUR_LOOKAHEAD", vf::issue::kAckermannContourLookahead},
     {"ACKERMANN_CONTOUR_WATCHDOG", vf::issue::kAckermannContourWatchdog},
+    {"CBF_GAIN_DECELERATION", vf::issue::kCbfGainDeceleration},
+    {"CBF_GAIN_DISCRETE", vf::issue::kCbfGainDiscrete},
     {"INVALID_VALUE", vf::issue::kInvalidValue},
     {"INVALID_FOOTPRINT", vf::issue::kInvalidFootprint},
     {"INVALID_COSTMAP", vf::issue::kInvalidCostmap},

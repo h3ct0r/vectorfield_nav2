@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -229,6 +230,41 @@ TEST_F(FollowerTracking, TranslatingCircleBlockedByABoxResumes)
   EXPECT_NE(result.result->error_code, FollowCurve::Result::ASSUMPTION3_VIOLATED);
   EXPECT_EQ(result.result->laps_completed, 1U);
   EXPECT_GT(robot_->distance() - resumed, 1.0) << "the robot did not resume";
+}
+
+// obstacle_mode cbf (math_spec §6.7 [Design, M7]): a box whose near side is 0.1 m outside a 1 m
+// circle, closer than the square footprint's half side, is passed on the inside: one lap,
+// SUCCEEDED, kBlocked never set, and the footprint's circumscribed disc stays clear of the box.
+TEST_F(FollowerTracking, CbfPassesABoxBesideTheCircle)
+{
+  FollowerSetup setup;
+  setup.start = vf::Pose2{vf::Vec2(1.0, 0.0), 0.5 * vf::kPi};
+  setup.parameters = {rclcpp::Parameter("obstacle_mode", "cbf")};
+  ASSERT_NO_FATAL_FAILURE(start(setup));
+  const double angle = 1.2;
+  const double half = 0.08;
+  const vf::Vec2 centre = (1.0 + 0.1 + half) * vf::Vec2(std::cos(angle), std::sin(angle));
+  robot_->setBoxes({boxAt(centre, half)});
+  const auto handle = send(circleGoal(1.0, 1));
+  ASSERT_TRUE(handle);
+  const ResultFuture future = resultOf(handle);
+  bool blocked = false;
+  double clearance = vf::kInf;
+  const double r_circ = 0.5 * kFootprintSide * std::sqrt(2.0);
+  ASSERT_TRUE(tickUntil(
+    [&]() {
+      blocked = blocked || vf::Status::has(follower_->lastCycle().status, vf::Status::kBlocked);
+      const vf::Vec2 d = (robot_->pose().p - centre).cwiseAbs() - vf::Vec2(half, half);
+      clearance = std::min(clearance, d.cwiseMax(0.0).norm() - r_circ);
+      return ready(future);
+    },
+    40.0));
+  const auto result = waitResult(future, 1.0);
+  expectSucceeded(result);
+  ASSERT_TRUE(result.result);
+  EXPECT_EQ(result.result->laps_completed, 1U);
+  EXPECT_FALSE(blocked);
+  EXPECT_GT(clearance, 0.0);
 }
 
 }  // namespace

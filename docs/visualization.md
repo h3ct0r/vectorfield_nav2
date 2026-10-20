@@ -60,6 +60,7 @@ the code, the shipped RViz configuration and this table.
 | `prediction` | LINE_STRIP of the rollout poses (green up to the first collision), CUBE at the first colliding pose, TEXT `s_free 0.42 m` | collision prediction and braking cap | green → red |
 | `goal` | SPHERE at the goal $g$, small SPHERE at the shifted goal $g_{ref}$ (when the reference point is offset), CYLINDER rings for the XY tolerance and $\sigma_{\mathrm{stop}}$, ARROW for the goal yaw, orange overlay of the last $\sigma_b$ of the curve; $g_{ref}$ and the overlay only once the curve ends at the goal (terminal mode), so a window that stops short of the goal shows neither; with `allow_reversing` the active cusp of the plan is the goal until the robot settles there | terminal field, braking zone, settle radius | white / orange / cyan |
 | `contour` | only while the gate is open or an episode is active: CUBE_LIST of the obstacle component's cells (translucent red); red POINTS at the path samples that tripped the gate; SPHERE at $x^*_o$ with a LINE to the evaluation point; CYLINDER rings at $\lambda$ (orange) and at $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ (amber); ARROW for the circulation side $\sigma_c$; TEXT `contour +1 \| 1.3/5.0 m \| 4/20 s` | why the contour engaged, around which obstacle, on which side, and the watchdog progress | red / orange / amber |
+| `contour` with `obstacle_mode: cbf` | while the CBF filter binds or the nearest site is within $2\delta_{\mathrm{safe}}$: red POINTS at the constrained sites and a SPHERE at the nearest; LINE_LIST of the binding constraint normals to the evaluation point; CYLINDER ring of radius $\delta_{\mathrm{safe}}$ about the evaluation point (orange, red while $h < 0$); ARROW of the correction $F^\star - F$; TEXT `cbf h 0.12 m \| 1/2 bind \| 85 %` (`\| hold` while the hold sets `STATUS_BLOCKED`) | which obstacles constrain the field, how much margin is left and how much speed the filter removed | red / orange |
 | `curve_info` (follower) | ARROWs every 1 m along the curve (traversal direction), SPHERE at the start, TEXT `lap 2/3 \| rem 7.4 m`; for moving frames, an ARROW of the frame velocity | direction, laps, moving-curve motion | white / blue |
 
 ### Status flags
@@ -70,6 +71,7 @@ The flags in the `status` text correspond to the `FieldState` status bits:
 |---|---|---|
 | `BLOCKED` | `STATUS_BLOCKED` | The current pose collides, the free distance ahead is too short to keep moving, or the rotation in place would collide. The command decelerates to zero, and motion resumes by itself when the way clears. |
 | `CONTOUR ±1` | — | An obstacle-contour episode is active, circulating on side +1 or −1. |
+| `CBF` | — | The CBF filter binds: it changed the field to keep the margin (`obstacle_mode: cbf`). |
 | `A3-CLAMP` | `STATUS_ASSUMPTION3_CLAMPED` | The curve moves too fast for the requested speed; the feedforward was clamped (Assumption 3, see {doc}`theory`). |
 | `CURV-SAT` | `STATUS_CURVATURE_SATURATED` | The Ackermann turning-radius limit saturated the angular velocity. |
 | `CANCEL` | — | A cancel is in progress; the robot is decelerating to a stop. |

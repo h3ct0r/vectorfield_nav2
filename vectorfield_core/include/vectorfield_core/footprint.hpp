@@ -70,6 +70,11 @@ public:
   double rInsc() const noexcept { return radii().r_insc; }
   /// @brief \f$r_{\mathrm{circ}}\f$.
   double rCirc() const noexcept { return radii().r_circ; }
+  /// @brief Radius \f$r_e\f$ of the smallest disc centred on a robot-frame point that contains
+  /// the footprint (math_spec §6.7): the largest distance from the point to a vertex, or
+  /// radius + \f$\lVert\f$point\f$\rVert\f$ for a disc. Equal to \f$r_{\mathrm{circ}}\f$ at
+  /// base_link.
+  double coverRadius(const Vec2 & point) const noexcept;
 
 private:
   std::vector<Vec2> vertices_;

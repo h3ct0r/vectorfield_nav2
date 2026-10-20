@@ -109,8 +109,9 @@ def add_obstacle_arguments(argp):
     )
     group.add_argument(
         '--obstacle-mode',
-        choices=['contour', 'none'],
-        help='with obstacles: contour them (default; none for ackermann) or only stop before them',
+        choices=['contour', 'cbf', 'none'],
+        help='with obstacles: contour them (default; none for ackermann), keep a margin with the '
+        'CBF filter (cbf), or only stop before them',
     )
     group.add_argument(
         '--grid-resolution',
