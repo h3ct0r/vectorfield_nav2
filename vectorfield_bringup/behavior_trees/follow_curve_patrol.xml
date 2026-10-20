@@ -1,0 +1,40 @@
+<!--
+  Patrol a closed curve until the tree is halted (for example, the NavigateToPose goal is
+  canceled), with a recovery. vectorfield_behavior_tree's FollowCurve node; docs/behavior_tree.md.
+  Same distro rules as follow_curve.xml.
+
+  The robot first approaches {goal}, the start of the curve, with Nav2 (as follow_curve.xml).
+  It then follows a 4 m x 2 m rounded rectangle about the origin of the follower's global_frame,
+  starting at (2, 0) heading +y, lap after lap (laps="0"). When the follower aborts the goal
+  (BLOCKED by an obstacle, STALE_INPUT, ...), the recovery clears the costmaps and waits 2 s;
+  the patrol then resumes from wherever the robot is, since the vector field converges to the
+  curve from any pose. After 5 recoveries the tree fails. Set laps="N" to patrol N laps and
+  succeed.
+-->
+<root BTCPP_format="4" main_tree_to_execute="FollowCurvePatrol">
+  <BehaviorTree ID="FollowCurvePatrol">
+    <Sequence name="ApproachThenPatrol">
+      <RecoveryNode number_of_retries="3" name="Approach">
+        <PipelineSequence name="ApproachWithReplanning">
+          <RateController hz="1.0">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+          </RateController>
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+        </PipelineSequence>
+        <ClearEntireCostmap name="ClearGlobalCostmap" service_name="global_costmap/clear_entirely_global_costmap"/>
+      </RecoveryNode>
+      <RecoveryNode number_of_retries="5" name="Patrol">
+        <FollowCurve name="PatrolRectangle" shape="rounded_rectangle"
+                     parameters="width=4.0;height=2.0;radius=0.5" laps="0"
+                     server_timeout="1000"
+                     error_code_id="{follow_curve_error_code}" error_msg="{follow_curve_error_msg}"
+                     laps_completed="{laps_completed}"/>
+        <Sequence name="PatrolRecovery">
+          <ClearEntireCostmap name="ClearLocalCostmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+          <ClearEntireCostmap name="ClearGlobalCostmap" service_name="global_costmap/clear_entirely_global_costmap"/>
+          <Wait wait_duration="2.0"/>
+        </Sequence>
+      </RecoveryNode>
+    </Sequence>
+  </BehaviorTree>
+</root>

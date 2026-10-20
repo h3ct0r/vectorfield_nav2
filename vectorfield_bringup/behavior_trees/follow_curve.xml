@@ -1,0 +1,38 @@
+<!--
+  Approach a curve with Nav2, then follow it with the curve follower: vectorfield_behavior_tree's
+  FollowCurve node (docs/behavior_tree.md). One file for every distro: BT.CPP v3 (Humble) ignores
+  BTCPP_format, and the tree uses only nodes and ports that Humble, Jazzy and Lyrical share.
+
+  {goal} is the approach pose: the NavigateToPose goal when bt_navigator runs this tree (scenario
+  overlay follow_curve_bt), bt_runner's goal_pose otherwise. The approach replans at 1 Hz and
+  clears the costmaps when it fails, like Nav2's stock trees. FollowCurve starts only once
+  FollowPath has succeeded, so the follower's Nav2 interlock never sees both running.
+
+  The curve is the built-in ellipse with semi-axes 2 m and 1 m about the origin of the follower's
+  global_frame; it starts at (2, 0) heading +y, so that is the pose to approach. One lap at the
+  follower's speed. Edit the FollowCurve attributes, or give it curve="{curve}" (a blackboard
+  vectorfield_msgs/Curve), for another curve. server_timeout gives the follower 1 s to
+  acknowledge the goal (bt_navigator's default_server_timeout is 20 ms).
+-->
+<root BTCPP_format="4" main_tree_to_execute="FollowCurveWithApproach">
+  <BehaviorTree ID="FollowCurveWithApproach">
+    <Sequence name="ApproachThenFollow">
+      <RecoveryNode number_of_retries="3" name="Approach">
+        <PipelineSequence name="ApproachWithReplanning">
+          <RateController hz="1.0">
+            <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+          </RateController>
+          <FollowPath path="{path}" controller_id="FollowPath"/>
+        </PipelineSequence>
+        <Sequence name="ClearCostmaps">
+          <ClearEntireCostmap name="ClearLocalCostmap" service_name="local_costmap/clear_entirely_local_costmap"/>
+          <ClearEntireCostmap name="ClearGlobalCostmap" service_name="global_costmap/clear_entirely_global_costmap"/>
+        </Sequence>
+      </RecoveryNode>
+      <FollowCurve name="FollowEllipse" shape="ellipse" parameters="a=2.0;b=1.0" laps="1"
+                   server_timeout="1000"
+                   error_code_id="{follow_curve_error_code}" error_msg="{follow_curve_error_msg}"
+                   laps_completed="{laps_completed}"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

@@ -8,7 +8,9 @@ core can be tested, benchmarked and bound to Python without ROS.
 
 An arrow points from a package to a package it depends on. No package may depend, even only for
 tests, on a package above it; tests that need several packages live in
-`vectorfield_system_tests`.
+`vectorfield_system_tests`. `vectorfield_behavior_tree` depends on `vectorfield_msgs` and Nav2's
+`nav2_behavior_tree`, and on `vectorfield_ros` at build time only, for its CMake helpers (dotted);
+it reaches the follower through the `follow_curve` action, not as a package.
 
 ```{graphviz}
 :caption: Package dependencies. Dashed edges belong to the vectorfield_nav2 metapackage.
@@ -23,6 +25,7 @@ digraph packages {
   ros [label="vectorfield_ros"];
   controller [label="vectorfield_nav2_controller"];
   follower [label="vectorfield_curve_follower"];
+  bt [label="vectorfield_behavior_tree"];
   sim [label="vectorfield_sim"];
   py [label="vectorfield_py"];
   bringup [label="vectorfield_bringup"];
@@ -33,23 +36,27 @@ digraph packages {
   ros -> msgs;
   controller -> ros;
   follower -> ros;
+  bt -> msgs;
+  bt -> ros [style=dotted];
   sim -> ros;
   sim -> core;
   py -> core;
   bringup -> controller;
   bringup -> follower;
+  bringup -> bt;
   bringup -> sim;
   bringup -> py;
   system_tests -> bringup;
 
   edge [style=dashed, color="#8899bb"];
-  meta -> {msgs core ros controller follower py sim};
+  meta -> {msgs core ros controller follower bt py sim};
 }
 ```
 
 Distro-specific code is confined to `vectorfield_ros`'s `compat.hpp`, the controller's two
 signature blocks (Gen C on Lyrical and later, Gen A/B on Humble to Kilted) and the
-`VF_CANCEL_RESET_OVERRIDE` macro. The plugin's test harness is the only other exception.
+`VF_CANCEL_RESET_OVERRIDE` macro. The plugin's test harness is the only other exception, besides
+`vectorfield_behavior_tree`'s `bt_compat.hpp` (BT.CPP v3 or v4, and the blackboard node type).
 
 ## Control cycle
 

@@ -117,6 +117,9 @@ if(BUILD_TESTING)
   foreach(_vf_test test_curve_laps test_curve_moving test_curve_open)
     vf_add_launch_test(test/${_vf_test}.py differential TIMEOUT 600)
   endforeach()
+  # The FollowCurve behaviour-tree node (M7) in bt_runner and in bt_navigator, through the real
+  # follower, differential only.
+  vf_add_launch_test(test/test_follow_curve_bt.py differential TIMEOUT 900)
 
   if(VF_NIGHTLY_TESTS)
     message(STATUS "VF_NIGHTLY_TESTS is ON, but no nightly tests exist yet")

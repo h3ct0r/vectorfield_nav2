@@ -46,17 +46,20 @@ initial pose is (0, 0) in the map. Neither demo runs in CI.
 
 The demos never ship a full Nav2 parameter file. `vectorfield_bringup.params.merge()` deep-merges
 the overlays onto the installed `nav2_bringup/params/nav2_params.yaml` of the running distro:
-dictionaries merge key by key, other values (lists included) replace, `FollowPath` and any block
-whose `plugin` changes are replaced wholesale, a bare behaviour-tree name is resolved in
-`nav2_bt_navigator/behavior_trees`, and on Humble `nav2_smac_planner::X`, `nav2_navfn_planner::X`
-and `nav2_behaviors::X` are renamed to the `/` form.
+dictionaries merge key by key, other values (lists included) replace, except that
+`bt_navigator.plugin_lib_names` entries are appended to the stock list, `FollowPath` and any
+block whose `plugin` changes are replaced wholesale, a bare behaviour-tree name is resolved in
+`nav2_bt_navigator/behavior_trees`, then in this package's `behavior_trees`, and on Humble
+`nav2_smac_planner::X`, `nav2_navfn_planner::X` and `nav2_behaviors::X` are renamed to the `/`
+form.
 
 | Path | Contents |
 |---|---|
 | `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` |
-| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the M5 follower) |
+| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the M5 follower), `follow_curve_bt` (bt_navigator runs `behavior_trees/follow_curve.xml`; with `curve_follower_demo`) |
 | `config/humble/` | `collision_monitor.yaml`, the only distro-specific file |
 | `config/examples/` | Templates to copy into your own `nav2_params.yaml` (`nav2_params_vectorfield_differential`, `_omnidirectional`, `_ackermann`), and the rotation-shim overlays `rotation_shim_humble_jazzy` and `rotation_shim_lyrical`; see the "Your robot" tutorial |
+| `behavior_trees/` | Trees with the `FollowCurve` node of `vectorfield_behavior_tree`: `follow_curve.xml` (approach with Nav2, then one lap of an ellipse) and `follow_curve_patrol.xml` (a patrol with a recovery); docs/behavior_tree.md |
 | `maps/` | `open_10x10`, `corridor_door` and `corridor_corner` |
 | `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
 | `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below) |

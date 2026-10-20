@@ -37,6 +37,7 @@
   <exec_depend>rviz2</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_ros_py</exec_depend>
+  <exec_depend>vectorfield_behavior_tree</exec_depend>
   <exec_depend>vectorfield_curve_follower</exec_depend>
   <exec_depend>vectorfield_msgs</exec_depend>
   <exec_depend>vectorfield_nav2_controller</exec_depend>

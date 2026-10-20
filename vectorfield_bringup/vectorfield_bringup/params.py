@@ -18,13 +18,17 @@ The demos never ship a full Nav2 parameter file. They start from the installed
 ``nav2_bringup/params/nav2_params.yaml`` of the running distro, so every stock server keeps the
 configuration its own launch file expects, and deep-merge small overlays onto it:
 
-- dictionaries merge key by key; any other overlay value, lists included, replaces the base value;
+- dictionaries merge key by key; any other overlay value, lists included, replaces the base value,
+  except ``bt_navigator.plugin_lib_names``, whose overlay entries are appended to the base list
+  (Humble's stock file lists every Nav2 behaviour-tree plugin there; later distros list only
+  custom ones);
 - ``controller_server.FollowPath`` is replaced wholesale, so no key of the stock controller
   (DWB or MPPI) leaks into ours, and so is any block whose ``plugin`` changes (for example the
   Ackermann overlay's goal checker and planner);
 - the stock placeholders of :data:`STOCK_PLACEHOLDERS` get their launch-default values;
 - a behaviour-tree file name without a directory (``default_nav_to_pose_bt_xml`` and
-  ``default_nav_through_poses_bt_xml``) is resolved to ``nav2_bt_navigator/behavior_trees``;
+  ``default_nav_through_poses_bt_xml``) is resolved to ``nav2_bt_navigator/behavior_trees`` or,
+  failing that, to this package's ``behavior_trees``;
 - on Humble, ``nav2_smac_planner::X``, ``nav2_navfn_planner::X`` and ``nav2_behaviors::X`` are
   renamed to the ``/`` form, the only names Humble's pluginlib resolves.
 """
@@ -38,6 +42,10 @@ import yaml
 
 #: Paths (suffixes of the key path) whose dictionary an overlay replaces instead of merging.
 WHOLESALE_KEYS = (('controller_server', 'ros__parameters', 'FollowPath'),)
+
+APPEND_KEYS = (('bt_navigator', 'ros__parameters', 'plugin_lib_names'),)
+
+BT_XML_PACKAGES = ('nav2_bt_navigator', 'vectorfield_bringup')
 
 #: bt_navigator keys that name a behaviour-tree file.
 BT_XML_KEYS = ('default_nav_to_pose_bt_xml', 'default_nav_through_poses_bt_xml')
@@ -91,14 +99,17 @@ def _replaces_wholesale(path, base, overlay):
 def deep_merge(base, overlay, _path=()):
     """Return ``base`` with ``overlay`` merged in; neither argument is modified.
 
-    Dictionaries merge recursively. Every other overlay value replaces the base value, and so does
-    a dictionary at a :data:`WHOLESALE_KEYS` path or one that names a different ``plugin``.
+    Dictionaries merge recursively. A list at an :data:`APPEND_KEYS` path is appended to the base
+    list, without repeating an entry. Every other overlay value replaces the base value, and so
+    does a dictionary at a :data:`WHOLESALE_KEYS` path or one that names a different ``plugin``.
     """
     merged = copy.deepcopy(base)
     for key, value in overlay.items():
         path = _path + (key,)
         current = merged.get(key)
-        if (
+        if path in APPEND_KEYS and isinstance(current, list) and isinstance(value, list):
+            merged[key] = current + [entry for entry in value if entry not in current]
+        elif (
             isinstance(current, dict)
             and isinstance(value, dict)
             and not _replaces_wholesale(path, current, value)
@@ -146,27 +157,30 @@ def substitute_values(params, substitutions):
 def resolve_bt_xml(params, share_directory=_share_directory):
     """Return ``params`` with bare behaviour-tree file names made absolute.
 
-    A :data:`BT_XML_KEYS` value without a directory part is looked up in
-    ``nav2_bt_navigator/behavior_trees``; paths and substitutions are left alone.
+    A :data:`BT_XML_KEYS` value without a directory part is looked up in the ``behavior_trees``
+    directory of each :data:`BT_XML_PACKAGES` package in turn (the stock trees first); paths and
+    substitutions are left alone.
 
     Raises:
-        FileNotFoundError: if a bare name is not a stock behaviour tree.
+        FileNotFoundError: if a bare name is neither a stock tree nor one of this package's.
 
     """
-    trees = None
 
     def resolve(key, value):
-        nonlocal trees
         if key not in BT_XML_KEYS or not isinstance(value, str) or not value:
             return value
         if os.path.dirname(value) or '$(' in value:
             return value
-        if trees is None:
-            trees = os.path.join(share_directory('nav2_bt_navigator'), 'behavior_trees')
-        path = os.path.join(trees, value)
-        if not os.path.isfile(path):
-            raise FileNotFoundError(f'{key}: behaviour tree {value!r} not found in {trees}')
-        return path
+        searched = []
+        for package in BT_XML_PACKAGES:
+            trees = os.path.join(share_directory(package), 'behavior_trees')
+            path = os.path.join(trees, value)
+            if os.path.isfile(path):
+                return path
+            searched.append(trees)
+        raise FileNotFoundError(
+            f'{key}: behaviour tree {value!r} not found in {" or ".join(searched)}'
+        )
 
     return _map_values(params, resolve)
 

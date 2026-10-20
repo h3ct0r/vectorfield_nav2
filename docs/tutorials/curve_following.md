@@ -267,3 +267,35 @@ The follower ends its goal with `NAV2_ACTIVE` (1008) and Nav2 drives the robot t
 goal has finished. With `require_nav2_interlock` (the default), a goal is refused with
 `UNSUPPORTED` when the follower cannot see Nav2's `follow_path` action, usually because of a
 namespace or remapping mismatch.
+
+## 9. Behaviour trees
+
+The `FollowCurve` behaviour-tree node ({doc}`../behavior_tree`) sends these goals from a Nav2
+behaviour tree, so a tree can do the approach that `send_curve.py` does and then follow the
+curve. With the `follow_curve_bt` overlay, bt_navigator runs `behavior_trees/follow_curve.xml`
+for every NavigateToPose goal:
+
+```bash
+ros2 launch vectorfield_bringup curve_follower_demo.launch.py scenarios:=follow_curve_bt
+```
+
+Send a NavigateToPose goal to (2, 0) heading +y (RViz's **2D Goal Pose**, or):
+
+```bash
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: map}, pose: {position: {x: 2.0, y: 0.0}, orientation: {z: 0.7071, w: 0.7071}}}}"
+```
+
+The tree plans and drives to the pose, then follows the 2 m × 1 m ellipse that starts there for
+one lap, and the NavigateToPose goal succeeds. The overlay also takes `navigate_to_pose` out of
+the follower's interlock: the navigator's own action stays active while its tree runs the
+follower. Without bt_navigator, `bt_runner` ticks the same tree from the file:
+
+```bash
+ros2 run vectorfield_behavior_tree bt_runner --ros-args -p use_sim_time:=true \
+  -p tree_file:=$(ros2 pkg prefix --share vectorfield_bringup)/behavior_trees/follow_curve.xml \
+  -p "goal_pose:=[2.0, 0.0, 1.5708]"
+```
+
+It prints each node's status changes and exits with 0 when the tree succeeds.
+`follow_curve_patrol.xml` patrols a rounded rectangle until halted and recovers when the
+follower aborts.

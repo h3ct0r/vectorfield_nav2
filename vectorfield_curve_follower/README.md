@@ -23,6 +23,11 @@ ros2 launch vectorfield_bringup curve_follower_demo.launch.py
 ros2 run vectorfield_bringup send_curve.py --shape lemniscate_bernoulli --laps 3
 ```
 
+From a Nav2 behaviour tree, send goals with the `FollowCurve` node of
+[`vectorfield_behavior_tree`](../vectorfield_behavior_tree/README.md). Inside bt_navigator, take
+the navigator's own actions (`navigate_to_pose`, `navigate_through_poses`) out of
+`exclusive_actions`: they stay active while the tree runs the follower.
+
 ## Interfaces
 
 All names are relative, so the node can run in a namespace.

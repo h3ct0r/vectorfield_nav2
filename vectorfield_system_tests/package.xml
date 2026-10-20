@@ -46,6 +46,7 @@
   <test_depend>rclpy</test_depend>
   <test_depend>std_msgs</test_depend>
   <test_depend>tf2_ros_py</test_depend>
+  <test_depend>vectorfield_behavior_tree</test_depend>
   <test_depend>vectorfield_bringup</test_depend>
   <test_depend>vectorfield_core</test_depend>
   <test_depend>vectorfield_curve_follower</test_depend>

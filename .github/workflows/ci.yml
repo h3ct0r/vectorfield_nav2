@@ -92,6 +92,7 @@ jobs:
             vectorfield_ros
             vectorfield_nav2_controller
             vectorfield_curve_follower
+            vectorfield_behavior_tree
             vectorfield_py
             vectorfield_sim
             vectorfield_bringup

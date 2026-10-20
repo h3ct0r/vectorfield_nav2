@@ -62,6 +62,7 @@ Milestones M0 to M5 are complete; M6 (documentation and the 0.1.0 release) is in
 | `vectorfield_ros` | Distro compatibility layer, conversions, shared parameters and validation, and the marker builder and visualizer. |
 | `vectorfield_nav2_controller` | The `nav2_core::Controller` plugin and the legacy path handler for Humble–Kilted. |
 | `vectorfield_curve_follower` | Lifecycle component serving the `follow_curve` action. |
+| `vectorfield_behavior_tree` | The Nav2 behaviour-tree node `FollowCurve` and the `bt_runner` executor ({doc}`behavior_tree`). |
 | `vectorfield_py` | pybind11 bindings (`vectorfield`) and the `vectorfield_tools` command-line tools. |
 | `vectorfield_sim` | Lightweight kinematic simulator built on the core integrator. |
 | `vectorfield_bringup` | Launch files, parameter overlays, maps and RViz/Foxglove/PlotJuggler layouts. |

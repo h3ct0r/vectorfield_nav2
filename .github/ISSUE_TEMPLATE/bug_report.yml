@@ -29,6 +29,7 @@ body:
       options:
         - Nav2 controller plugin (vectorfield_nav2_controller)
         - Curve follower (vectorfield_curve_follower)
+        - Behaviour-tree node (vectorfield_behavior_tree)
         - Core library (vectorfield_core)
         - Python bindings or tools (vectorfield_py)
         - Simulator, bringup or demos

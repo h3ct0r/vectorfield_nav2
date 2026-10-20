@@ -246,6 +246,51 @@ def test_bare_bt_xml_names_resolve_to_nav2_bt_navigator(tmp_path, base_file, sha
     }
 
 
+def test_bare_bt_xml_names_fall_back_to_this_packages_trees(tmp_path, base_file, share):
+    """A bare name that is not a stock tree resolves to vectorfield_bringup/behavior_trees."""
+    trees = tmp_path / 'share' / 'vectorfield_bringup' / 'behavior_trees'
+    trees.mkdir(parents=True)
+    (trees / 'follow_curve.xml').write_text('<root/>', encoding='utf-8')
+    overlay = {
+        'bt_navigator': {'ros__parameters': {'default_nav_to_pose_bt_xml': 'follow_curve.xml'}}
+    }
+    merged = params.merge(
+        [_write(tmp_path, 'o.yaml', overlay)],
+        base=base_file,
+        distro='jazzy',
+        share_directory=share,
+    )
+    assert _params(merged, 'bt_navigator')['default_nav_to_pose_bt_xml'] == str(
+        trees / 'follow_curve.xml'
+    )
+
+
+def test_plugin_lib_names_are_appended(tmp_path, base_file, share):
+    """Overlay plugin_lib_names extend the base list (Humble's lists every stock plugin)."""
+    overlay = {
+        'bt_navigator': {'ros__parameters': {'plugin_lib_names': ['b_bt_node', 'c_bt_node']}}
+    }
+    merged = params.merge(
+        [_write(tmp_path, 'o.yaml', overlay)],
+        base=base_file,
+        distro='humble',
+        share_directory=share,
+    )
+    assert _params(merged, 'bt_navigator')['plugin_lib_names'] == [
+        'a_bt_node',
+        'b_bt_node',
+        'c_bt_node',
+    ]
+    # Jazzy and later list no stock plugins: the overlay list is the list.
+    bare = params.deep_merge({'bt_navigator': {'ros__parameters': {}}}, overlay)
+    assert _params(bare, 'bt_navigator')['plugin_lib_names'] == ['b_bt_node', 'c_bt_node']
+    # Other lists are still replaced.
+    other = params.deep_merge(
+        {'x': {'plugin_lib_names': ['a']}}, {'x': {'plugin_lib_names': ['b']}}
+    )
+    assert other == {'x': {'plugin_lib_names': ['b']}}
+
+
 def test_missing_bt_xml_is_an_error(tmp_path, base_file, share):
     """A bare name that is not a stock tree fails at merge time, not in bt_navigator."""
     overlay = {'bt_navigator': {'ros__parameters': {'default_nav_to_pose_bt_xml': 'nope.xml'}}}

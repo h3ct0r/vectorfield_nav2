@@ -256,6 +256,43 @@ def test_follower_parameters(model):
     )
 
 
+def test_follow_curve_bt_overlay():
+    """follow_curve_bt: bt_navigator runs follow_curve.xml, the follower ignores the navigator.
+
+    The FollowCurve plugin is added to the stock plugin list, and the follower's interlock leaves
+    out the navigator actions (docs/behavior_tree.md).
+    """
+    from ament_index_python.packages import get_package_share_directory
+
+    def share(package):
+        if package == 'vectorfield_bringup':
+            return str(PACKAGE)
+        return get_package_share_directory(package)
+
+    follower_file = REPOSITORY / 'vectorfield_curve_follower' / 'params'
+    follower_file = follower_file / 'vectorfield_follower_params.yaml'
+    if not follower_file.is_file():
+        pytest.skip(f'{follower_file} is not available')
+    (group,) = yaml.safe_load(follower_file.read_text(encoding='utf-8')).values()
+    overlays = demo.overlay_paths(
+        'differential', ['kinematic_sim', 'curve_follower', 'follow_curve_bt'], str(PACKAGE)
+    )
+    merged = params.merge(overlays, share_directory=share)
+    stock = params.load_yaml(params.stock_params_file())['bt_navigator']['ros__parameters']
+
+    navigator = _node(merged, 'bt_navigator')
+    tree = PACKAGE / 'behavior_trees' / 'follow_curve.xml'
+    assert navigator['default_nav_to_pose_bt_xml'] == str(tree)
+    assert tree.is_file()
+    plugins = navigator['plugin_lib_names']
+    assert plugins == stock.get('plugin_lib_names', []) + [
+        'vectorfield_follow_curve_action_bt_node'
+    ]
+    navigators = {'navigate_to_pose', 'navigate_through_poses'}
+    expected = [a for a in group['exclusive_actions']['default_value'] if a not in navigators]
+    assert demo.follower_parameters(merged)['exclusive_actions'] == expected
+
+
 def _template_model(path):
     return path.stem[len(TEMPLATE_PREFIX) :]
 

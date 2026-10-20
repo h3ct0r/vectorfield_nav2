@@ -28,6 +28,7 @@ motion_models
 visualization
 obstacle_avoidance
 curve_follower
+behavior_tree
 tuning
 parameters
 distro_matrix

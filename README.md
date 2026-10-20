@@ -31,7 +31,7 @@ Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implemen
 | M4 | `vectorfield_py` bindings and CLIs, theory pages with generated figures | Done |
 | M5 | `vectorfield_curve_follower` (`follow_curve` action), curve demos and example clients | Done |
 | M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | In progress |
-| M7 | Optional extensions: CBF obstacle mode, reversing, path constraints, Ackermann contouring, 3D core | Optional |
+| M7 | Optional extensions: CBF obstacle mode, reversing, path constraints, Ackermann contouring, 3D core; the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`) is done | Optional |
 
 ## Packages
 
@@ -42,11 +42,12 @@ Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implemen
 | `vectorfield_ros` | Shared ROS 2 layer: distro compatibility, conversions, parameters and validation, RViz marker builder. |
 | `vectorfield_nav2_controller` | The `nav2_core::Controller` plugin. |
 | `vectorfield_curve_follower` | Lifecycle component serving the `follow_curve` action. |
+| `vectorfield_behavior_tree` | Nav2 behaviour-tree node `FollowCurve` for the `follow_curve` action, and `bt_runner`. |
 | `vectorfield_py` | pybind11 bindings (`vectorfield`) and command-line tools (`vectorfield_tools`). |
 | `vectorfield_sim` | Kinematic simulator for headless tests and demos on every distro, including Humble. |
 | `vectorfield_bringup` | Launch files, parameter overlays, maps, RViz/Foxglove/PlotJuggler configs, example clients. |
 | `vectorfield_system_tests` | Cross-package tests, launch tests and config validation (never released). |
-| `vectorfield_nav2` | Metapackage: msgs, core, ros, controller, curve follower, py and sim. |
+| `vectorfield_nav2` | Metapackage: msgs, core, ros, controller, curve follower, behaviour-tree node, py and sim. |
 
 ## Architecture
 
@@ -59,6 +60,7 @@ flowchart BT
   ros["vectorfield_ros"]
   ctrl["vectorfield_nav2_controller"]
   follower["vectorfield_curve_follower"]
+  bt["vectorfield_behavior_tree"]
   sim["vectorfield_sim"]
   py["vectorfield_py"]
   bringup["vectorfield_bringup"]
@@ -68,10 +70,13 @@ flowchart BT
   ros --> msgs
   ctrl --> ros
   follower --> ros
+  bt --> msgs
+  bt -.->|build only| ros
   sim --> ros
   py --> core
   bringup --> ctrl
   bringup --> follower
+  bringup --> bt
   bringup --> sim
   bringup --> py
   tests --> bringup

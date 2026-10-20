@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>vectorfield_behavior_tree</name>
+  <version>0.1.1</version>
+  <description>Nav2 behaviour-tree action node FollowCurve, which sends vectorfield_msgs FollowCurve goals to the vectorfield_nav2 curve follower, and bt_runner, a minimal executor that ticks a behaviour tree from a file.</description>
+  <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
+  <license>Apache-2.0</license>
+  <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
+  <url type="repository">https://github.com/h3ct0r/vectorfield_nav2</url>
+  <url type="bugtracker">https://github.com/h3ct0r/vectorfield_nav2/issues</url>
+  <author email="hector@dcc.ufmg.br">Héctor Azpúrua</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>vectorfield_ros</build_depend>
+
+  <depend condition="$ROS_DISTRO != humble">behaviortree_cpp</depend>
+  <depend condition="$ROS_DISTRO == humble">behaviortree_cpp_v3</depend>
+  <depend>builtin_interfaces</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_behavior_tree</depend>
+  <depend condition="$ROS_DISTRO != humble and $ROS_DISTRO != jazzy and $ROS_DISTRO != kilted">nav2_ros_common</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>vectorfield_msgs</depend>
+
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
