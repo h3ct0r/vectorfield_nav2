@@ -78,7 +78,7 @@ Goals worth trying, and what to expect:
 In RViz, check:
 
 - the status text above the robot, whose colour changes with the phase;
-- the red, green and white field-component arrows at the control point;
+- the red and green field-component arrows and the slate resulting field at the control point;
 - the cyan command arrow;
 - the green prediction line;
 - the goal rings (XY tolerance and $\sigma_{\mathrm{stop}}$) and the orange braking zone;

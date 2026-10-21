@@ -32,7 +32,9 @@ Nav2's `server_name` and `server_timeout`. Outputs: `error_code_id`, `error_msg`
 SUCCESS when the follower succeeds, FAILURE when it aborts (with its error code), SUCCESS when
 the goal is canceled by the server. Halting the node cancels the goal; changed ports while the
 goal runs send a new goal, which the follower takes over. Ports that make no goal fail the node
-with `INVALID_GOAL` without sending anything.
+with `INVALID_GOAL` without sending anything; a goal the follower rejects (it is not active), that
+cannot be sent, or that is not acknowledged within `server_timeout` fails it with
+`GOAL_REJECTED`, `SEND_GOAL_FAILURE` or `TIMEOUT`.
 
 ## Using it
 

@@ -50,11 +50,11 @@ controller, and `~/` in the curve follower.
 | `curve` | Exactly the geometry the field uses, with extension rays |
 | `closest_point` | Projection on the curve, its tangent, and the distance |
 | `control_point` | Where the field is evaluated |
-| `field` | Convergence (red), circulation (green), feedforward (blue) and the resulting field (white) |
+| `field` | Convergence (red), circulation (green), feedforward (blue) and the resulting field (slate) |
 | `command` | The commanded velocity and a 1 s arc of the resulting motion |
 | `heading` | The target heading in the rotate phases |
 | `prediction` | Rollout up to the first collision, the colliding pose, and the free distance |
-| `goal` | Goal, tolerance and settle rings, goal yaw, braking zone |
+| `goal` | Goal (purple), tolerance and settle rings, goal yaw, braking zone |
 | `contour` | Obstacle contouring: blocking samples, obstacle cells, distance rings, chosen side, watchdog |
 | `curve_info` | Curve follower only: traversal direction, start, laps, moving-frame velocity |
 

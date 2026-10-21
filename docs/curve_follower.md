@@ -144,11 +144,16 @@ publish straight to `cmd_vel`, as documented by Nav2.
 | Feedforward clamped for `assumption3_abort_time` | decelerate | `ASSUMPTION3_VIOLATED` (1007) |
 | Non-finite command, deactivation during a goal, failed parameter rebuild | zero command | `UNKNOWN` (1000) |
 | `max_duration` reached | decelerate | `TIMEOUT` (1006) |
+| The follower is not active | goal rejected, no result | `GOAL_REJECTED` (1), set by the client |
 | Cancel | decelerate, then one zero | canceled |
 | Laps done; open curve settled at its end | one zero | `NONE` (0), succeeded |
 
-Goals are never rejected at the action level: they are accepted and validated in the execute
-callback, so every failure carries a code and a message. A new goal preempts the running one; the
+An active follower never rejects a goal at the action level: goals are accepted and validated
+in the execute callback, so every failure carries a code and a message. Only an inactive
+follower (not yet activated, or deactivated) rejects goals; that has no result, and a client such
+as the FollowCurve BT node ({doc}`behavior_tree`) reports it as `GOAL_REJECTED` (1). The client
+side codes `GOAL_REJECTED` (1) and `SEND_GOAL_FAILURE` (2) carry Nav2's values and are never in
+a result from the follower. A new goal preempts the running one; the
 tracker state carries over only when the curve and the goal overrides are identical.
 
 ## Map awareness and keepout zones

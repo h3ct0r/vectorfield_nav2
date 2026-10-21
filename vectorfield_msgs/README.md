@@ -38,13 +38,15 @@ Result `error_code`:
 | Code | Name | Meaning |
 |---|---|---|
 | 0 | `NONE` | Succeeded: laps done, or an open curve's end reached and settled |
+| 1 | `GOAL_REJECTED` | Client side, never in a result (Nav2's value): the follower rejected the goal because it is not active |
+| 2 | `SEND_GOAL_FAILURE` | Client side, never in a result (Nav2's value): the client could not send the goal |
 | 1000 | `UNKNOWN` | Non-finite command, deactivation during a goal, or a failed parameter rebuild |
 | 1001 | `INVALID_CURVE` | The curve was rejected before the first command |
 | 1002 | `UNSUPPORTED` | Open time-varying curve, Odometry child frame differs from the curve frame, TF mode without a reference frame, Nav2 interlock cannot see `follow_path`, or heading infeasible |
 | 1003 | `TF_ERROR` | The curve frame was not transformable for `stale_abort_timeout` |
 | 1004 | `STALE_INPUT` | Pose, odometry, costmap, footprint or moving-frame input stale for `stale_abort_timeout` |
 | 1005 | `BLOCKED` | Blocked for `blocked_timeout`, no progress within `progress_timeout`, or the contour watchdog fired |
-| 1006 | `TIMEOUT` | `max_duration` reached |
+| 1006 | `TIMEOUT` | `max_duration` reached; a client such as the FollowCurve BT node also reports it when the follower does not acknowledge a goal within its `server_timeout` |
 | 1007 | `ASSUMPTION3_VIOLATED` | The curve moves too fast to be tracked at the allowed speed for longer than `assumption3_abort_time` |
 | 1008 | `NAV2_ACTIVE` | A Nav2 motion action was active at goal start or became active during the goal |
 | 1009 | `INVALID_GOAL` | The goal-scoped configuration was rejected, e.g. `desired_speed > max_linear_vel` |

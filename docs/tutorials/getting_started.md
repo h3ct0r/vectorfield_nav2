@@ -195,7 +195,7 @@ The vector-field markers are drawn at the robot and along the plan:
 - the **status text** above the robot: the phase, coloured as in the table above (STOPPED is
   red), and flags such as `BLOCKED` or `CONTOUR +1`;
 - the **field arrows** at the control point, 0.2 m ahead of the robot: convergence toward the
-  path (red), circulation along it (green) and their sum, the field the robot tracks (white);
+  path (red), circulation along it (green) and their sum, the field the robot tracks (slate);
 - the **command** (cyan arrow) and the **predicted path** (green up to the first predicted
   collision);
 - the **goal rings** (the XY tolerance and the settle radius) and the orange **braking zone**;

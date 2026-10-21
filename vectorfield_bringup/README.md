@@ -139,7 +139,7 @@ and the controller's markers, pre-configured with the shared colour legend:
   amber, FINAL_APPROACH cyan, ROTATE_TO_HEADING blue, STOPPED red) and lists active flags such
   as `BLOCKED` or `CONTOUR ±1`;
 - the field at the control point split into convergence (red), circulation (green), feedforward
-  (blue) and the resulting field (white);
+  (blue) and the resulting field (slate);
 - the commanded velocity (cyan) and the predicted path, green up to the first collision;
 - the goal with its tolerance and settle rings and the orange braking zone;
 - during obstacle contouring, the blocking obstacle cells, the distance rings and the chosen

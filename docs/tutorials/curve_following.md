@@ -229,13 +229,15 @@ int main(int argc, char ** argv)
 
 The feedback carries `distance_to_curve` (m), `arc_length` and `remaining_arc_length` (m), `lap`,
 `speed` (m/s) and `phase` (a `FieldState.PHASE_*` value). The result carries `error_code`,
-`error_msg`, `laps_completed`, `distance_travelled` and `total_elapsed_time`. A goal is never
-rejected at the action level: it is accepted and then validated, so every failure ends with a
-code and a message.
+`error_msg`, `laps_completed`, `distance_travelled` and `total_elapsed_time`. An active
+follower never rejects a goal at the action level: it is accepted and then validated, so every
+failure ends with a code and a message. Only an inactive follower rejects goals.
 
 | Code | Name | Typical cause |
 |---|---|---|
 | 0 | `NONE` | success: the laps are done, or the robot settled at the end of an open curve |
+| 1 | `GOAL_REJECTED` | client side, never in a result: the follower is not active and rejected the goal |
+| 2 | `SEND_GOAL_FAILURE` | client side, never in a result: the client could not send the goal |
 | 1001 | `INVALID_CURVE` | a malformed or irregular curve, a closed curve that does not close, `laps` > 0 on an open curve |
 | 1002 | `UNSUPPORTED` | an open time-varying curve, a moving goal without a twist source, the interlock cannot see Nav2 |
 | 1003 | `TF_ERROR` | the curve frame cannot be transformed |

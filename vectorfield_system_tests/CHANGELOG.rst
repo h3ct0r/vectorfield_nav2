@@ -4,6 +4,8 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* A test client that had to abandon its participant (Lyrical) dumps the thread stacks 60 s after
+  it closes: such a process freezes in launch_ros's shutdown after its tests.
 * test_shipped_configs also validates vectorfield_bringup's config/examples templates and
   rotation-shim overlays.
 

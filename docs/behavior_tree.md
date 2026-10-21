@@ -49,8 +49,13 @@ unless `server_name` says otherwise. Give the curve in exactly one of two ways:
 | A parent halts the node | the goal is canceled | from the result, if it arrives within `cancel_timeout` (Humble: `server_timeout`) |
 | The ports change while the goal runs (a new `{curve}`, say) | the new goal is sent; the follower preempts the old one | |
 | Ports that make no goal: neither or both of `curve` and `shape`, malformed `parameters` or `frame_motion`, a negative `max_duration` | FAILURE, no goal sent | `INVALID_GOAL` and the reason |
+| The follower rejects the goal (it is not active) | FAILURE | `GOAL_REJECTED` (1) |
+| The goal cannot be sent (the client's executor was interrupted) | FAILURE | `SEND_GOAL_FAILURE` (2) |
+| The follower does not acknowledge the goal within `server_timeout` | FAILURE; on Lyrical the node also cancels the client's goals | `TIMEOUT` (1006) |
 
-The outputs are reset (`NONE`, empty, 0) when a goal starts. Everything else about a goal is
+The last three rows use the result codes that Nav2's `BtActionNode` reports when no result
+arrives; Lyrical's sets them itself, and on Humble and Jazzy the node does, with the same
+messages. The outputs are reset (`NONE`, empty, 0) when a goal starts. Everything else about a goal is
 checked by the follower, which ends an invalid goal with its code
 ({doc}`tutorials/curve_following`, "Feedback and result codes"). Use the codes in the tree, for
 example to retry only on `BLOCKED` (1005).

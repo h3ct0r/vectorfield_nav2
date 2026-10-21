@@ -106,13 +106,20 @@ GetMap service while map_server is inactive. Until then the coverage build (CI J
 most loaded one, does not register the loopback tests (see `CMakeLists.txt`).
 
 **Lyrical: the test client's participant sometimes discovers nothing.** In about one Lyrical
-launch test in fifteen, after the previous test's container was killed (SIGKILL), the test
-client's own participant gets no /clock, or /clock but no service answer, while the launched
-nodes see each other. The client then starts over with a new node and participant
-(`no /clock ...; new node` or `map_server never answered get_state ...; new node` in the log)
-and leaves the old one undestroyed: destroying it has blocked in rclpy's `destroy_publisher`
-until the CTest timeout. Should start-up hang anyway, the client dumps every thread's stack to
-the log 60 s after its own time-out.
+launch test in twenty, the test client's participant gets no /clock, or /clock but no service
+answer, while the launched nodes see each other. On Lyrical the component container does not
+stop within 15 s of SIGINT, so every launch test ends by killing it (SIGKILL); Humble and Jazzy
+kill it too but have not shown the fault. The client then starts over with a new node and
+participant (`no /clock ...; new node` or `map_server never answered get_state ...; new node`
+in the log) and leaves the old one undestroyed, because destroying it blocks in rclpy's
+`destroy_publisher`. That does not save the test: the fault is in the whole test process. Even
+when the new participant works and every test case passes, launch then freezes while it shuts
+down, in launch_ros's own node (`ros_adapters.py`, `destroy_node` → `destroy_publisher`), until
+the CTest timeout. The client dumps every thread's stack to the log 60 s after it closes when it
+had to start over (that is how the freeze was located), and 60 s after its own start-up
+time-out should start-up hang. Note that `FASTDDS_BUILTIN_TRANSPORTS` cannot turn Fast DDS's
+shared memory off here: with `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`, rmw_fastrtps sets its
+own shared-memory and UDP transports.
 
 ## Controller comparison
 

@@ -64,6 +64,10 @@ namespace compat = vectorfield_ros::compat;
 
 using FollowCurve = vectorfield_msgs::action::FollowCurve;
 
+static_assert(
+  result_code::kGoalRejected == FollowCurve::Result::GOAL_REJECTED, "FollowCurve.action");
+static_assert(
+  result_code::kSendGoalFailure == FollowCurve::Result::SEND_GOAL_FAILURE, "FollowCurve.action");
 static_assert(result_code::kUnknown == FollowCurve::Result::UNKNOWN, "FollowCurve.action");
 static_assert(
   result_code::kInvalidCurve == FollowCurve::Result::INVALID_CURVE, "FollowCurve.action");

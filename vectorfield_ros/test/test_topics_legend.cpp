@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <set>
 #include <string>
@@ -100,6 +102,46 @@ TEST(Legend, PhaseColoursAreDistinct)
   }
   EXPECT_TRUE(legend::phaseColor(Phase::kFollow) == legend::kGreen);
   EXPECT_TRUE(legend::phaseColor(Phase::kStopped) == legend::kRed);
+}
+
+/// WCAG relative luminance of an sRGB colour.
+double luminance(const legend::Rgba & c)
+{
+  const auto linear = [](double v) {
+    return v <= 0.04045 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+}
+
+/// WCAG contrast ratio of two luminances.
+double contrast(double a, double b) { return (std::max(a, b) + 0.05) / (std::min(a, b) + 0.05); }
+
+TEST(Legend, NoColourVanishesOnAWhiteMapOrADarkBackground)
+{
+  const double white = 1.0;
+  const double dark = luminance(legend::Rgba{48.0F / 255.0F, 48.0F / 255.0F, 48.0F / 255.0F, 1.0F});
+  // Every colour of every namespace shows on both; the curve, the closest point, the resulting
+  // field, the goal and curve_info (white until 0.2.0) clear 2.5:1 on both.
+  const legend::Rgba all[] = {
+    legend::kFootprintNormal,     legend::kFootprintCapped,  legend::kFootprintBlocked,
+    legend::kCurveColor,          legend::kCurveRays,        legend::kClosestPointColor,
+    legend::kControlPointColor,   legend::kFieldConvergence, legend::kFieldCirculation,
+    legend::kFieldFeedforward,    legend::kFieldResult,      legend::kCommandColor,
+    legend::kHeadingToField,      legend::kHeadingToGoal,    legend::kPredictionFree,
+    legend::kPredictionCollision, legend::kGoalColor,        legend::kGoalBrakingZone,
+    legend::kGoalTolerance,       legend::kContourObstacle,  legend::kContourLambda,
+    legend::kContourBlend,        legend::kCurveInfoColor,   legend::kCurveInfoFrame};
+  for (const legend::Rgba & c : all) {
+    EXPECT_GE(contrast(luminance(c), white), 1.7) << c.r << " " << c.g << " " << c.b;
+    EXPECT_GE(contrast(luminance(c), dark), 2.5) << c.r << " " << c.g << " " << c.b;
+  }
+  const legend::Rgba both[] = {
+    legend::kCurveColor, legend::kClosestPointColor, legend::kFieldResult, legend::kGoalColor,
+    legend::kCurveInfoColor};
+  for (const legend::Rgba & c : both) {
+    EXPECT_GE(contrast(luminance(c), white), 2.5) << c.r << " " << c.g << " " << c.b;
+    EXPECT_GE(contrast(luminance(c), dark), 2.5) << c.r << " " << c.g << " " << c.b;
+  }
 }
 
 TEST(VizConfig, FieldGridStyleStrings)

@@ -77,6 +77,17 @@ using BtNode = nav2::LifecycleNode;
 using BtNode = rclcpp::Node;
 #endif
 
+/// @brief Whether BtActionNode::tick() starts a new goal in node status `status` (v3, Humble:
+/// IDLE; v4: not active, `BT::isStatusActive`).
+inline bool startsGoal(BT::NodeStatus status)
+{
+#if VF_BTCPP_VERSION >= 4
+  return !BT::isStatusActive(status);
+#else
+  return status == BT::NodeStatus::IDLE;
+#endif
+}
+
 /// @brief Ticks the root of `tree` once and returns its status (v3 `tickRoot`, v4 `tickOnce`).
 inline BT::NodeStatus tickOnce(BT::Tree & tree)
 {

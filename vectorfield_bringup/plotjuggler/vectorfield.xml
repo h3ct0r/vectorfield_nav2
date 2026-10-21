@@ -36,7 +36,7 @@
       <plot mode="TimeSeries" style="Lines" flip_x="false" flip_y="false">
        <range left="0.0" right="1.0" top="1.0" bottom="0.0"/>
        <limitY/>
-       <curve name="/FollowPath/field_state/phase" color="#ffffff"/>
+       <curve name="/FollowPath/field_state/phase" color="#994ce6"/>
        <curve name="/FollowPath/field_state/contour_direction" color="#e61a1a"/>
       </plot>
      </DockArea>

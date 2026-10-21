@@ -16,12 +16,15 @@
 
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <system_error>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "rclcpp/rclcpp.hpp"
@@ -38,6 +41,19 @@ using Result = vectorfield_msgs::action::FollowCurve::Result;
 
 /// The longest max_duration that rclcpp::Duration holds in int64 nanoseconds, rounded down.
 constexpr double kMaxDurationLimit = 9.0e9;
+
+/// True when BtActionNode has Lyrical's on_goal_rejected() (with on_send_goal_failure() and
+/// on_timeout()), which set `error_code_id` when a goal fails without a result.
+template <class Node, class = void>
+struct HasClientErrorHooks : std::false_type
+{
+};
+
+template <class Node>
+struct HasClientErrorHooks<Node, std::void_t<decltype(std::declval<Node &>().on_goal_rejected())>>
+: std::true_type
+{
+};
 
 std::string trim(const std::string & text)
 {
@@ -252,14 +268,51 @@ void FollowCurveAction::on_wait_for_result(std::shared_ptr<const Action::Feedbac
   }
 }
 
+BT::NodeStatus FollowCurveAction::tick()
+{
+  using Base = nav2_behavior_tree::BtActionNode<Action>;
+  if constexpr (HasClientErrorHooks<Base>::value) {
+    return Base::tick();
+  } else {
+    if (compat::startsGoal(status())) {
+      // BtActionNode keeps the last goal's handle; drop it so that a rejection leaves none.
+      goal_handle_.reset();
+      result_received_ = false;
+    }
+    const BT::NodeStatus tick_status = Base::tick();
+    if (tick_status == BT::NodeStatus::FAILURE && should_send_goal_ && !result_received_) {
+      reportClientError();
+    }
+    return tick_status;
+  }
+}
+
+void FollowCurveAction::reportClientError()
+{
+  // The messages of Lyrical's BtActionNode.
+  const auto waited = (node_->now() - time_goal_sent_).to_chrono<std::chrono::milliseconds>();
+  if (waited >= server_timeout_) {
+    setOutput<std::uint16_t>("error_code_id", Result::TIMEOUT);
+    setOutput<std::string>("error_msg", "Behavior Tree action client timed out waiting.");
+  } else if (!goal_handle_) {
+    setOutput<std::uint16_t>("error_code_id", Result::GOAL_REJECTED);
+    setOutput<std::string>("error_msg", "Goal was rejected by the action server.");
+  } else {
+    setOutput<std::uint16_t>("error_code_id", Result::SEND_GOAL_FAILURE);
+    setOutput<std::string>("error_msg", "Failed to send goal to the action server.");
+  }
+}
+
 BT::NodeStatus FollowCurveAction::on_success()
 {
+  result_received_ = true;
   writeOutputs(result_.result.get());
   return BT::NodeStatus::SUCCESS;
 }
 
 BT::NodeStatus FollowCurveAction::on_aborted()
 {
+  result_received_ = true;
   if (result_.result && result_.result->error_code != Result::NONE) {
     writeOutputs(result_.result.get());
     return BT::NodeStatus::FAILURE;
@@ -275,6 +328,7 @@ BT::NodeStatus FollowCurveAction::on_aborted()
 
 BT::NodeStatus FollowCurveAction::on_cancelled()
 {
+  result_received_ = true;
   if (result_.result) {
     writeOutputs(result_.result.get());
   }

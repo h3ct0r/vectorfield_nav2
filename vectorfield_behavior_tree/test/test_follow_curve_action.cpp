@@ -48,8 +48,8 @@ namespace compat = vectorfield_behavior_tree::compat;
 constexpr double kDistance = 4.25;
 
 /// A follow_curve server whose goals succeed, abort or run until canceled. Like the follower's
-/// SimpleActionServer, it accepts every goal and aborts the running goal, with an empty result,
-/// when a new one arrives.
+/// SimpleActionServer, it accepts every goal (unless told to reject them, as an inactive follower
+/// does) and aborts the running goal, with an empty result, when a new one arrives.
 class FakeFollowCurveServer
 {
 public:
@@ -57,7 +57,8 @@ public:
   {
     kSucceed,
     kAbort,
-    kRunUntilCanceled
+    kRunUntilCanceled,
+    kReject
   };
 
   explicit FakeFollowCurveServer(const rclcpp::Node::SharedPtr & node)
@@ -65,8 +66,16 @@ public:
     server_ = rclcpp_action::create_server<FollowCurve>(
       node, "follow_curve",
       [this](const rclcpp_action::GoalUUID &, std::shared_ptr<const FollowCurve::Goal> goal) {
-        const std::lock_guard<std::mutex> lock(mutex_);
-        goals_.push_back(*goal);
+        std::chrono::milliseconds delay{0};
+        {
+          const std::lock_guard<std::mutex> lock(mutex_);
+          goals_.push_back(*goal);
+          if (mode_ == Mode::kReject) {
+            return rclcpp_action::GoalResponse::REJECT;
+          }
+          delay = accept_delay_;
+        }
+        std::this_thread::sleep_for(delay);
         return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
       },
       [this](std::shared_ptr<GoalHandle>) {
@@ -89,6 +98,7 @@ public:
     const std::lock_guard<std::mutex> lock(mutex_);
     mode_ = mode;
     error_code_ = error_code;
+    accept_delay_ = std::chrono::milliseconds(0);
     goals_.clear();
     cancel_requests_ = 0;
     canceled_ = 0;
@@ -98,6 +108,13 @@ public:
   {
     const std::lock_guard<std::mutex> lock(mutex_);
     mode_ = mode;
+  }
+
+  /// Answers each goal request only after `delay` (blocking the server's executor).
+  void setAcceptDelay(std::chrono::milliseconds delay)
+  {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    accept_delay_ = delay;
   }
 
   std::vector<FollowCurve::Goal> goals() const
@@ -151,6 +168,7 @@ private:
   std::vector<FollowCurve::Goal> goals_;
   Mode mode_{Mode::kSucceed};
   std::uint16_t error_code_{FollowCurve::Result::NONE};
+  std::chrono::milliseconds accept_delay_{0};
   int cancel_requests_{0};
   int canceled_{0};
 };
@@ -370,6 +388,33 @@ TEST_F(FollowCurveActionTest, AbortWithoutAnErrorCodeReadsUnknown)
   EXPECT_EQ(tickUntilDone(tree), BT::NodeStatus::FAILURE);
   EXPECT_EQ(blackboard->get<std::uint16_t>("code"), FollowCurve::Result::UNKNOWN);
   EXPECT_FALSE(blackboard->get<std::string>("message").empty());
+}
+
+TEST_F(FollowCurveActionTest, RejectedGoalFailsWithGoalRejected)
+{
+  // An inactive follower rejects goals; Lyrical's BtActionNode and, on Humble and Jazzy, the
+  // node itself report GOAL_REJECTED.
+  server->reset(FakeFollowCurveServer::Mode::kReject);
+  auto tree =
+    makeTree(R"(<FollowCurve shape="ellipse" error_code_id="{code}" error_msg="{message}"/>)");
+  EXPECT_EQ(tickUntilDone(tree), BT::NodeStatus::FAILURE);
+  EXPECT_EQ(server->goals().size(), 1U);
+  EXPECT_EQ(blackboard->get<std::uint16_t>("code"), FollowCurve::Result::GOAL_REJECTED);
+  EXPECT_EQ(blackboard->get<std::string>("message"), "Goal was rejected by the action server.");
+}
+
+TEST_F(FollowCurveActionTest, UnacknowledgedGoalFailsWithTimeout)
+{
+  server->reset(FakeFollowCurveServer::Mode::kSucceed);
+  server->setAcceptDelay(600ms);
+  blackboard->set<std::chrono::milliseconds>("server_timeout", 150ms);
+  auto tree =
+    makeTree(R"(<FollowCurve shape="ellipse" error_code_id="{code}" error_msg="{message}"/>)");
+  EXPECT_EQ(tickUntilDone(tree), BT::NodeStatus::FAILURE);
+  EXPECT_EQ(blackboard->get<std::uint16_t>("code"), FollowCurve::Result::TIMEOUT);
+  EXPECT_FALSE(blackboard->get<std::string>("message").empty());
+  // Let the late goal be accepted and succeed before the next test.
+  std::this_thread::sleep_for(800ms);
 }
 
 TEST_F(FollowCurveActionTest, HaltCancelsTheRunningGoal)

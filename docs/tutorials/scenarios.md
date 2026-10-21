@@ -35,7 +35,7 @@ smoother's limits to cover the controller's:
 ```
 
 **In RViz.** The goal is behind the robot: it turns in place (ROTATE_TO_FIELD, amber) until the
-white field arrow is within 45° of its heading, follows the plan (FOLLOW, green), brakes inside
+slate field arrow is within 45° of its heading, follows the plan (FOLLOW, green), brakes inside
 the orange zone (FINAL_APPROACH, cyan) and stops on the goal. A goal with another heading ends
 with ROTATE_TO_HEADING (blue).
 

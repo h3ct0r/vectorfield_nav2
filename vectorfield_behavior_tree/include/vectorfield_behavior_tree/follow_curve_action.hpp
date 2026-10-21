@@ -57,6 +57,9 @@ std::optional<std::string> parseShapeParameters(
 /// - While the goal runs, each tick rebuilds the goal from the ports and sends it again when it
 ///   changed (for example a new `{curve}`), so the follower preempts the running goal.
 /// - Halting the node cancels the goal (nav2_behavior_tree::BtActionNode::halt()).
+/// - A goal that gets no result fails the node with `GOAL_REJECTED` (the follower is not
+///   active), `SEND_GOAL_FAILURE`, or `TIMEOUT` (no acknowledgement within `server_timeout`).
+///   Lyrical's BtActionNode sets these itself; on Humble and Jazzy, tick() does.
 class FollowCurveAction
 : public nav2_behavior_tree::BtActionNode<vectorfield_msgs::action::FollowCurve>
 {
@@ -86,6 +89,11 @@ public:
   /// @brief Sets the outputs from the result, if any; SUCCESS.
   BT::NodeStatus on_cancelled() override;
 
+  /// @brief BtActionNode::tick(); where BtActionNode lacks Lyrical's on_goal_rejected(),
+  /// on_send_goal_failure() and on_timeout() (Humble, Jazzy), it also sets `error_code_id` and
+  /// `error_msg` as they do when the goal fails without a result.
+  BT::NodeStatus tick() override;
+
   /// @brief The ports of the node, including BtActionNode's basic ports.
   static BT::PortsList providedPorts();
 
@@ -95,6 +103,14 @@ private:
 
   /// Writes `result` (or the reset values when null) to the output ports.
   void writeOutputs(const Action::Result * result);
+
+  /// Sets the outputs of a goal that failed without a result (Humble, Jazzy): TIMEOUT once
+  /// `server_timeout` has passed since it was sent, else GOAL_REJECTED when the follower returned
+  /// no goal handle, else SEND_GOAL_FAILURE.
+  void reportClientError();
+
+  /// A result arrived for the current goal (on_success(), on_aborted() or on_cancelled() ran).
+  bool result_received_{false};
 };
 
 }  // namespace vectorfield_behavior_tree

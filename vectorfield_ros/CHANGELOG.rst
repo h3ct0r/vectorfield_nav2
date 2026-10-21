@@ -2,6 +2,14 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* The status text puts the phase, the command, D and sigma, and the flags on their own lines,
+  lifted above the robot, and every text marker sets its space width (scale.x): RViz 2 drew each
+  space about 0.6 m wide.
+* No white markers: the resulting field is slate, the goal and curve_info are purple, readable on
+  RViz's white map and on a dark background.
+
 0.2.0 (2026-10-20)
 ------------------
 * Parameters cusp_tolerance, cbf_gain, cbf_margin and cbf_sites; CBF markers; REV in the status

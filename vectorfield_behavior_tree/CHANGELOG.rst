@@ -2,6 +2,11 @@
 Changelog for package vectorfield_behavior_tree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* A goal that gets no result fails with GOAL_REJECTED, SEND_GOAL_FAILURE or TIMEOUT in
+  error_code_id: Lyrical's BtActionNode sets them, and the node does on Humble and Jazzy.
+
 0.2.0 (2026-10-20)
 ------------------
 * New package: the Nav2 behaviour-tree node ``FollowCurve`` (plugin library

@@ -66,7 +66,7 @@
           "pointSize": 3,
           "colorField": "range",
           "colorMode": "flat",
-          "flatColor": "#ffffffff"
+          "flatColor": "#738099ff"
         },
         "/FollowPath/markers": {
           "visible": true

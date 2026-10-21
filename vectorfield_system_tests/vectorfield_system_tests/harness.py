@@ -266,7 +266,10 @@ class NavHarness:
 
         Destroying the node of a participant that discovers nothing has blocked for good
         (Lyrical: ``destroy_node``, in ``destroy_publisher``), so it is kept, unused, until the
-        process exits.
+        process exits. This does not save the test: the fault is process-wide, and even when
+        the new participant works, launch later freezes in launch_ros's own ``destroy_node``
+        (``destroy_publisher``) while it shuts down, until the CTest timeout; :meth:`close`
+        then arms a stack dump that shows it.
         """
         self._executor.shutdown(timeout_sec=5.0)
         self._thread.join(timeout=5.0)
@@ -278,10 +281,19 @@ class NavHarness:
         if self._closed:
             return
         self._closed = True
+        self._arm_freeze_dump()
         self._executor.shutdown(timeout_sec=10.0)
         self._thread.join(timeout=10.0)
         self.node.destroy_node()
         rclpy.shutdown(context=self._context)
+
+    def _arm_freeze_dump(self):
+        """After starting over, dump the thread stacks if the process still runs 60 s after close.
+
+        Such processes have frozen in launch's shutdown (Lyrical; see :meth:`_restart`).
+        """
+        if self._closed and self._abandoned:
+            faulthandler.dump_traceback_later(60.0)
 
     # Callbacks -----------------------------------------------------------------------------------
 
@@ -418,6 +430,7 @@ class NavHarness:
             raise
         finally:
             faulthandler.cancel_dump_traceback_later()
+            self._arm_freeze_dump()
 
     def _wait_until_active(self, timeout):
         deadline = time.monotonic() + timeout

@@ -67,6 +67,13 @@ constexpr double kThickArrowShaft = 0.05;
 constexpr double kThickArrowHead = 0.10;
 /// Height of the text markers.
 constexpr double kTextHeight = 0.12;
+/// Width of a space in the text markers. RViz 2 (Humble to Lyrical) reads it from `scale.x`;
+/// with `scale.x` = 0 it keeps the width it computed for a 1 m text, about 0.6 m per space.
+constexpr double kTextSpaceWidth = 0.4 * kTextHeight;
+/// Empty lines appended to the status text beyond its own line count: RViz centres a text on its
+/// anchor, so this lifts the visible lines above the robot in every view, top-down included (by
+/// half as many lines, about 0.37 m).
+constexpr int kStatusExtraPadLines = 6;
 /// Height of the text of `prediction`, `contour` and `curve_info` above their anchor.
 constexpr double kTextLift = 0.3;
 /// Thickness of the CYLINDER rings.
@@ -410,7 +417,7 @@ private:
   static void text(Marker * m, const Vec2 & at, double z, std::string_view value)
   {
     m->pose.position = toPoint(at, z);
-    m->scale.x = 0.0;
+    m->scale.x = kTextSpaceWidth;
     m->scale.y = 0.0;
     m->scale.z = kTextHeight;
     m->text.assign(value.data(), value.size());
@@ -424,30 +431,35 @@ private:
 
   void status()
   {
+    // One group per line (phase; command; D and sigma; flags), so the text stays narrow.
     const std::uint32_t bits = out_.status | f_.status;
     text_.clear();
+    int lines = 2;
     text_.advance(
       std::snprintf(
-        text_.tail(), text_.room(), "%s | v %.2f w %.2f", vf::phaseName(out_.phase), out_.cmd.vx,
+        text_.tail(), text_.room(), "%s\nv %.2f w %.2f", vf::phaseName(out_.phase), out_.cmd.vx,
         out_.cmd.wz));
     if (std::abs(out_.cmd.vy) > kMinVector) {
       text_.advance(std::snprintf(text_.tail(), text_.room(), " vy %.2f", out_.cmd.vy));
     }
-    if (f_.valid && std::isfinite(f_.D)) {
-      text_.advance(std::snprintf(text_.tail(), text_.room(), " | D %.2f m", f_.D));
+    const bool has_d = f_.valid && std::isfinite(f_.D);
+    if (has_d) {
+      text_.advance(std::snprintf(text_.tail(), text_.room(), "\nD %.2f m", f_.D));
+      ++lines;
     }
     if (std::isfinite(f_.sigma)) {
-      text_.advance(std::snprintf(text_.tail(), text_.room(), " | sigma %.2f m", f_.sigma));
+      text_.advance(
+        std::snprintf(text_.tail(), text_.room(), "%ssigma %.2f m", has_d ? " " : "\n", f_.sigma));
+      lines += has_d ? 0 : 1;
     }
     bool first_flag = true;
-    const auto flag = [this, &first_flag](std::string_view name) {
-      if (first_flag) {
-        text_.advance(std::snprintf(text_.tail(), text_.room(), " |"));
-        first_flag = false;
-      }
+    const auto flag = [this, &first_flag, &lines](std::string_view name) {
       text_.advance(
         std::snprintf(
-          text_.tail(), text_.room(), " %.*s", static_cast<int>(name.size()), name.data()));
+          text_.tail(), text_.room(), "%s%.*s", first_flag ? "\n" : " ",
+          static_cast<int>(name.size()), name.data()));
+      lines += first_flag ? 1 : 0;
+      first_flag = false;
     };
     if (vf::Status::has(bits, vf::Status::kBlocked)) {
       flag(legend::kFlagBlocked);
@@ -471,6 +483,9 @@ private:
     }
     if (in_.drive_sign < 0) {
       flag(legend::kFlagReverse);
+    }
+    for (int k = 0; k < lines + kStatusExtraPadLines; ++k) {
+      text_.advance(std::snprintf(text_.tail(), text_.room(), "\n"));
     }
     Marker & m = add(Ns::kStatus, legend::id::kStatusText, legend::phaseColor(out_.phase));
     text(&m, in_.pose.p, legend::kStatusTextHeight, text_.view());

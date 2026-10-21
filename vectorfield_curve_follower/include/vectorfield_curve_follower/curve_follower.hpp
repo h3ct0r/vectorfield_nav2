@@ -32,12 +32,13 @@
 ///   `global_frame`, `robot_base_frame` ← footprint frame, and `moving_frame_reference` ← curve
 ///   frame (TF differencing).
 ///
-/// **Execution model.** Goals are never rejected: the execute callback validates first
-/// (prepareGoal(), the interlock liveness and an active Nav2 action) and terminates an invalid
-/// goal before publishing anything; then it runs one control cycle every 1/`controller_frequency`
-/// on the node's clock (simulated time included), until success, cancel, abort or preemption
-/// (`accept_pending_goal()`, the same validation; the TrackerState is kept only for an identical
-/// spec and identical overrides). Subscriptions only swap immutable snapshots under a mutex; all
+/// **Execution model.** An active follower never rejects a goal (only an inactive one does, as
+/// nav2_util::SimpleActionServer; clients report that as GOAL_REJECTED): the execute callback
+/// validates first (prepareGoal(), the interlock liveness and an active Nav2 action) and
+/// terminates an invalid goal before publishing anything; then it runs one control cycle every
+/// 1/`controller_frequency` on the node's clock (simulated time included), until success, cancel,
+/// abort or preemption (`accept_pending_goal()`, the same validation; the TrackerState is kept
+/// only for an identical spec and identical overrides). Subscriptions only swap immutable snapshots under a mutex; all
 /// conversions, TF lookups, parameter updates and Tracker rebuilds run in the control thread.
 ///
 /// **Testability.** Every decision is taken by the pure helpers (prepareGoal(), GoalSupervisor,

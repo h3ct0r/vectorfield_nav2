@@ -52,6 +52,10 @@ namespace result_code
 {
 /// Succeeded (and canceled).
 inline constexpr std::uint16_t kNone = 0;
+/// Client side, never in a result: the follower rejected the goal (it is not active).
+inline constexpr std::uint16_t kGoalRejected = 1;
+/// Client side, never in a result: the client could not send the goal.
+inline constexpr std::uint16_t kSendGoalFailure = 2;
 /// Deactivation, kNonFinite, a rejected rebuild.
 inline constexpr std::uint16_t kUnknown = 1000;
 /// The curve was rejected.

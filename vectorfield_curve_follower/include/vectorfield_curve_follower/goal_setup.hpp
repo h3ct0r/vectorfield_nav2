@@ -16,7 +16,7 @@
 /// @brief Goal validation and the goal-scoped configuration of a FollowCurve goal (plan §6
 /// "Execution model"). Pure: no node; the caller passes the time and the configuration.
 ///
-/// Goals are never rejected by the action server: execute calls prepareGoal() first and, on a
+/// An active action server never rejects a goal: execute calls prepareGoal() first and, on a
 /// rejection, terminates the goal before publishing anything. The checks, in order:
 /// 1. the goal fields: an unknown `frame_motion`, a negative `max_duration` or a non-finite
 ///    `desired_speed` → INVALID_GOAL;

@@ -4,6 +4,7 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* The laser scan (RViz, Foxglove) and PlotJuggler's phase curve are no longer white.
 * config/examples: annotated nav2_params templates (differential, omnidirectional, Ackermann) and
   the rotation-shim overlays for both key layouts, validated like the controller overlays.
 * examples/follow_curve_client.py and examples/navigate_waypoints.py, the tutorials' clients.

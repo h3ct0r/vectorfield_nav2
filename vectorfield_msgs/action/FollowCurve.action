@@ -9,6 +9,12 @@ uint32 laps                   # closed only; 0 = until cancelled
 builtin_interfaces/Duration max_duration   # 0 = unlimited
 ---
 uint16 NONE=0
+# GOAL_REJECTED and SEND_GOAL_FAILURE are client-side codes with Nav2's values: a client such as
+# the FollowCurve BT node reports them when no result arrives (the follower rejects goals only
+# while inactive). TIMEOUT is also what the BT node reports when the follower does not
+# acknowledge a goal within server_timeout.
+uint16 GOAL_REJECTED=1
+uint16 SEND_GOAL_FAILURE=2
 uint16 UNKNOWN=1000
 uint16 INVALID_CURVE=1001
 uint16 UNSUPPORTED=1002

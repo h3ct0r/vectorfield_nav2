@@ -2,6 +2,11 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* result_code::kGoalRejected and kSendGoalFailure, the client-side codes of an inactive
+  follower's rejection; the docs no longer claim that goals are never rejected.
+
 0.2.0 (2026-10-20)
 ------------------
 * CBF obstacle mode support.

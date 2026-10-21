@@ -61,6 +61,8 @@ constexpr bool operator==(const Rgba & lhs, const Rgba & rhs) noexcept
 }
 
 /// @name Palette
+/// No white: it vanishes on RViz's white map. Teal, slate and purple keep a contrast of at least
+/// 2.8:1 both against white and against RViz's 48/48/48 background.
 /// @{
 /// Green: FOLLOW, normal footprint, collision-free prediction, circulation arrow.
 inline constexpr Rgba kGreen{0.20F, 0.80F, 0.20F, 1.0F};
@@ -77,8 +79,10 @@ inline constexpr Rgba kRed{0.90F, 0.10F, 0.10F, 1.0F};
 inline constexpr Rgba kOrange{1.00F, 0.55F, 0.00F, 1.0F};
 /// Teal: the curve (readable on a white map and on a dark background).
 inline constexpr Rgba kTeal{0.00F, 0.60F, 0.60F, 1.0F};
-/// White: resulting field, goal, curve_info.
-inline constexpr Rgba kWhite{1.00F, 1.00F, 1.00F, 1.0F};
+/// Slate: the resulting field F (a neutral for the sum of the red, green and blue terms).
+inline constexpr Rgba kSlate{0.45F, 0.50F, 0.60F, 1.0F};
+/// Purple: the goal and curve_info.
+inline constexpr Rgba kPurple{0.60F, 0.30F, 0.90F, 1.0F};
 /// Grey: extension rays and the virtual tail vertex.
 inline constexpr Rgba kGrey{0.60F, 0.60F, 0.60F, 1.0F};
 /// Magenta: control point (where the field is evaluated).
@@ -108,7 +112,7 @@ constexpr Rgba phaseColor(vectorfield_core::Phase phase) noexcept
     case vectorfield_core::Phase::kStopped:
       return kRed;
   }
-  return kWhite;
+  return kSlate;
 }
 
 /// @name Colours per namespace (plan §4.1 table)
@@ -135,7 +139,7 @@ inline constexpr Rgba kFieldCirculation = kGreen;
 /// field: feedforward \f$\Phi_T\f$.
 inline constexpr Rgba kFieldFeedforward = kBlue;
 /// field: the resulting field F (thick).
-inline constexpr Rgba kFieldResult = kWhite;
+inline constexpr Rgba kFieldResult = kSlate;
 /// command.
 inline constexpr Rgba kCommandColor = kCyan;
 /// heading: ROTATE_TO_FIELD target.
@@ -147,7 +151,7 @@ inline constexpr Rgba kPredictionFree = kGreen;
 /// prediction: the first colliding pose and the part after it.
 inline constexpr Rgba kPredictionCollision = kRed;
 /// goal: g and g_ref.
-inline constexpr Rgba kGoalColor = kWhite;
+inline constexpr Rgba kGoalColor = kPurple;
 /// goal: the braking zone (the last sigma_b of the curve).
 inline constexpr Rgba kGoalBrakingZone = kOrange;
 /// goal: the xy_tol and sigma_stop rings and the goal-yaw arrow.
@@ -161,7 +165,7 @@ inline constexpr Rgba kContourLambda = kOrange;
 /// contour: the D_in and D'_in rings.
 inline constexpr Rgba kContourBlend = kAmber;
 /// curve_info: direction arrows, start and text.
-inline constexpr Rgba kCurveInfoColor = kWhite;
+inline constexpr Rgba kCurveInfoColor = kPurple;
 /// curve_info: moving-frame velocity.
 inline constexpr Rgba kCurveInfoFrame = kBlue;
 /// @}
@@ -210,7 +214,8 @@ struct NamespaceSpec
 /// @brief Stable ids per namespace. Each constant is the marker id within its namespace.
 namespace id
 {
-/// status: TEXT_VIEW_FACING 0.6 m above base_link.
+/// status: TEXT_VIEW_FACING 0.6 m above base_link, one line per group (phase; command; D and
+/// sigma; flags).
 inline constexpr std::int32_t kStatusText = 0;
 
 /// footprint: LINE_STRIP (closed) at the current pose.

@@ -199,7 +199,7 @@ legend::Rgba expectedColor(Ns ns, std::int32_t id, const MarkerContext & c)
     case Ns::kCurveInfo:
       return id == id_::kCurveInfoFrameVelocity ? legend::kCurveInfoFrame : legend::kCurveInfoColor;
   }
-  return legend::kWhite;
+  return legend::kSlate;
 }
 
 bool finitePoint(const geometry_msgs::msg::Point & p)
@@ -252,6 +252,9 @@ void expectContract(const MarkerArray & a, const MarkerContext & c)
       if (m.type == Marker::TEXT_VIEW_FACING) {
         EXPECT_FALSE(m.text.empty());
         EXPECT_GT(m.scale.z, 0.0);
+        // RViz 2 reads the width of a space from scale.x; 0 would draw each space ~0.6 m wide.
+        EXPECT_GT(m.scale.x, 0.0);
+        EXPECT_LT(m.scale.x, m.scale.z);
       }
       if (m.type == Marker::SPHERE || m.type == Marker::CUBE || m.type == Marker::CYLINDER) {
         EXPECT_GT(m.scale.x, 0.0);
@@ -271,6 +274,20 @@ void expectCycle(MarkerBuilder & builder, const MarkerContext & c)
 const std::string & statusText(const MarkerArray & a)
 {
   return find(a, Ns::kStatus, legend::id::kStatusText).text;
+}
+
+/// The lines of a text (split at '\n'; a trailing '\n' ends an empty last line).
+std::vector<std::string> lines(const std::string & text)
+{
+  std::vector<std::string> out(1);
+  for (const char c : text) {
+    if (c == '\n') {
+      out.emplace_back();
+    } else {
+      out.back() += c;
+    }
+  }
+  return out;
 }
 
 std::vector<Vec2> line(const Vec2 & a, const Vec2 & b) { return {a, b}; }
@@ -601,6 +618,44 @@ TEST(MarkerBuilder, Assumption3ClampAndFeedforward)
   EXPECT_NE(statusText(a).find(legend::kFlagAssumption3), std::string::npos);
   EXPECT_NE(statusText(a).find(legend::kFlagCurvature), std::string::npos);
   EXPECT_EQ(statusText(a).find(legend::kFlagBlocked), std::string::npos);
+}
+
+TEST(MarkerBuilder, StatusTextIsOneGroupPerLineAboveTheRobot)
+{
+  // RViz centres a text on its anchor and lays it out line by line: the status puts the phase,
+  // the command, D and sigma, and the flags on their own lines, without separators, and appends
+  // as many empty lines plus six, so the visible lines sit above base_link in a top-down view.
+  Scenario s(vf::CoreConfig{}, line(Vec2(-1.0, 0.0), Vec2(4.0, 0.0)), Pose2{Vec2(0.0, 0.1), 0.0});
+  s.input().goal = vf_viz_test::goalAt(Vec2(4.0, 0.0));
+  s.run(5);
+  vf::TrackerOutput out = s.output();
+  ASSERT_EQ(out.phase, Phase::kFollow);
+  ASSERT_TRUE(out.field.valid);
+  out.status |= Status::kAssumption3Clamped | Status::kCurvatureSaturated;
+  MarkerContext c = s.context();
+  c.output = &out;
+  MarkerBuilder builder;
+  const MarkerArray & a = builder.markers(c);
+  expectContract(a, c);
+  const std::vector<std::string> all = lines(statusText(a));
+  ASSERT_EQ(all.size(), 14U) << statusText(a);  // 4 visible lines, then 4 + 6 empty ones
+  EXPECT_EQ(all[0], "FOLLOW");
+  EXPECT_EQ(all[1].rfind("v ", 0), 0U);
+  EXPECT_NE(all[1].find(" w "), std::string::npos);
+  EXPECT_EQ(all[2].rfind("D ", 0), 0U);
+  EXPECT_NE(all[2].find(" m sigma "), std::string::npos);
+  EXPECT_EQ(all[3], "A3-CLAMP CURV-SAT");
+  for (std::size_t k = 4; k < all.size(); ++k) {
+    EXPECT_TRUE(all[k].empty()) << k;
+  }
+  EXPECT_EQ(statusText(a).find('|'), std::string::npos);
+  for (std::size_t k = 0; k < 4; ++k) {
+    EXPECT_LE(all[k].size(), 24U) << all[k];
+  }
+
+  // Without flags the status has three visible lines (and 3 + 6 empty ones).
+  out.status = s.output().status;
+  EXPECT_EQ(lines(statusText(builder.markers(c))).size(), 12U);
 }
 
 TEST(MarkerBuilder, NonFiniteInputsDeleteTheMarker)

@@ -34,7 +34,7 @@ All names are relative, so the node can run in a namespace.
 
 | Kind | Name | Notes |
 |---|---|---|
-| Action server | `follow_curve` | `vectorfield_msgs/action/FollowCurve`. Goals are never rejected: they are validated in execute and invalid ones end with an error code before any command |
+| Action server | `follow_curve` | `vectorfield_msgs/action/FollowCurve`. An active follower never rejects a goal: goals are validated in execute and invalid ones end with an error code before any command (an inactive follower rejects goals, `GOAL_REJECTED` on the client side) |
 | Publisher | `cmd_vel_nav` | Feeds Nav2's velocity smoother or collision_monitor; never remap it to the base topic. `Twist`, or `TwistStamped` with `enable_stamped_cmd_vel` (Jazzy and later). Only while a goal executes |
 | Publisher | `~/curve` | The active curve (transient local) |
 | Publishers | `~/markers`, `~/field_grid`, `~/predicted_path`, `~/window`, `~/field_state`, `~/obstacle_distance` | Visualization, including the `curve_info` marker namespace (direction, start, laps, frame velocity) |

@@ -41,8 +41,11 @@ reported as `UNKNOWN`. *Canceled* by the server or another client: SUCCESS, Nav2
 *Halt* (a parent halts the node): the base class cancels the goal and waits for its result.
 *Preemption*: while the goal runs, every tick rebuilds the goal from the ports; when it differs
 (a new `{curve}`, say), the node sends it and the follower preempts the running goal. *Goal not
-acknowledged within `server_timeout`*: FAILURE; Lyrical's base class sets `UNKNOWN` and a message,
-Humble and Jazzy offer no hook and keep the reset outputs.
+acknowledged within `server_timeout`, rejected, or not sent*: FAILURE with `TIMEOUT`,
+`GOAL_REJECTED` or `SEND_GOAL_FAILURE` (the last two added to FollowCurve.action with Nav2's
+values 1 and 2). Lyrical's base class sets them in `on_timeout()`, `on_goal_rejected()` and
+`on_send_goal_failure()`, and warns at construction when an action lacks them; Humble and Jazzy
+offer no hook, so the node's `tick()` sets them after a FAILURE without a result.
 
 **Distro differences.** The only `#if`s are in `bt_compat.hpp`.
 
