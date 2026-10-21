@@ -114,7 +114,13 @@ class TestCbf(unittest.TestCase):
         self.assertLess(clearance, 0.5)
         tracking = [s for s in episode.samples if s.phase in TRACKING_PHASES]
         deviation = max((abs(s.distance) for s in tracking), default=0.0)
-        self.assertGreater(deviation, geometry.ROBOT_RADIUS - 0.1, 'the robot never left the path')
+        # One cell of tolerance, as for the clearance above: 0.119 m has been sampled against the
+        # 0.12 m geometric minimum.
+        self.assertGreater(
+            deviation,
+            geometry.ROBOT_RADIUS - 0.1 - geometry.RESOLUTION,
+            'the robot never left the path',
+        )
         after = [s for s in tracking if s.t > episode.end - 2.0]
         closest = min((abs(s.distance) for s in after), default=math.inf)
         self.assertLess(closest, checks.tracking_limit(MOTION_MODEL), 'no rejoin')
