@@ -62,8 +62,8 @@ form.
 | `behavior_trees/` | Trees with the `FollowCurve` node of `vectorfield_behavior_tree`: `follow_curve.xml` (approach with Nav2, then one lap of an ellipse) and `follow_curve_patrol.xml` (a patrol with a recovery); docs/behavior_tree.md |
 | `maps/` | `open_10x10`, `corridor_door` and `corridor_corner` |
 | `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
-| `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below) |
-| `examples/` | The tutorials' minimal clients, installed like the scripts: `follow_curve_client.py` (a `follow_curve` action client) and `navigate_waypoints.py` (a route of NavigateToPose goals with Nav2's simple commander) |
+| `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below); the field-test kit (below) |
+| `examples/` | The tutorials' minimal clients, installed like the scripts: `follow_curve_client.py` (a `follow_curve` action client) and `navigate_waypoints.py` (a route of NavigateToPose goals with Nav2's simple commander; `--relative` poses in the robot's start frame, `--through` one NavigateThroughPoses goal) |
 
 Overlay rules:
 
@@ -129,6 +129,26 @@ ros2 run vectorfield_bringup send_curve.py --shape moving --tf --laps 0
 
 Start the frame so that the circle passes near the robot (here, the demo's start pose). A NavigateToPose sent while the
 follower runs (RViz's 2D Goal Pose) stops it with `NAV2_ACTIVE`.
+
+## Field tests
+
+The field-test kit for a real robot (docs/tutorials/field_testing.md):
+
+```bash
+ros2 run vectorfield_bringup record_field_test.py --label stage2          # Ctrl-C to stop
+ros2 run vectorfield_bringup field_test_report.py field_test_<date>_<time>_stage2
+ros2 run vectorfield_bringup identify_skid_slip.py --v 0.2 --w 0.6 --pose-topic /odometry/filtered
+```
+
+`record_field_test.py` records the topics the metrics need (TF, odometry, `/plan`, both
+`field_state` topics, the command chain, `speed_limit`, the local costmap, the scan and the
+action statuses) into a timestamped rosbag2 bag and dumps the node parameters next to it.
+`field_test_report.py` reads a bag (sqlite3 or mcap) and writes `report.md`, `metrics.json` and
+plots per goal: cross-track error, time to goal, jerk, phases, status flags, clearance, speed
+limits and localisation jumps, with pass/fail checks. `identify_skid_slip.py` drives a guarded
+turn sequence (or reads a bag) and estimates `skid_yaw_rate_efficiency` and `skid_icr_offset`.
+The metrics live in `vectorfield_bringup.field_metrics` (shared with
+`vectorfield_system_tests`), `.slip`, `.bag` and `.field_report`.
 
 ## What you will see in RViz
 

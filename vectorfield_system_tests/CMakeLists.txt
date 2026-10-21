@@ -123,6 +123,9 @@ if(BUILD_TESTING)
   foreach(_vf_model differential omnidirectional)
     vf_add_launch_test(test/test_cbf_kinematic.py ${_vf_model})
   endforeach()
+  # Skid-slip identification (field-test kit): identify_skid_slip.py recovers vectorfield_sim's
+  # slip through Nav2's command chain.
+  vf_add_launch_test(test/test_skid_slip_kinematic.py skid_steer)
   # Reversing (M7): Smac Hybrid-A* with Reeds-Shepp and allow_reversing.
   foreach(_vf_model differential ackermann)
     vf_add_launch_test(test/test_reversing_kinematic.py ${_vf_model})

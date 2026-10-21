@@ -19,7 +19,8 @@ find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 
 # Python helpers for the launch files: vectorfield_bringup.params.merge() and the shared demo
-# pieces in vectorfield_bringup.demo.
+# pieces in vectorfield_bringup.demo; the field-test kit's field_metrics, slip, bag and
+# field_report.
 ament_python_install_package(${PROJECT_NAME})
 
 install(
@@ -30,6 +31,12 @@ install(
 # The curve follower's example clients keep their names: `ros2 run vectorfield_bringup send_curve.py`.
 install(
   PROGRAMS scripts/send_curve.py scripts/moving_frame_publisher.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+# The field-test kit (docs/tutorials/field_testing.md): `ros2 run vectorfield_bringup
+# record_field_test.py`, `field_test_report.py <bag>` and `identify_skid_slip.py`.
+install(
+  PROGRAMS scripts/record_field_test.py scripts/field_test_report.py scripts/identify_skid_slip.py
   DESTINATION lib/${PROJECT_NAME}
 )
 # The tutorials' minimal clients: `ros2 run vectorfield_bringup follow_curve_client.py`.
@@ -58,6 +65,10 @@ if(BUILD_TESTING)
     APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
   )
   ament_add_pytest_test(test_overlays test/test_overlays.py
+    APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
+  )
+  # The field-test metrics (field_metrics, slip, field_report) on synthetic data.
+  ament_add_pytest_test(test_field_test test/test_field_test.py
     APPEND_ENV PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
   )
 

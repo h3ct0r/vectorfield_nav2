@@ -44,6 +44,7 @@ tutorials/getting_started
 tutorials/scenarios
 tutorials/curve_following
 tutorials/your_robot
+tutorials/field_testing
 tutorials/offline_design
 ```
 

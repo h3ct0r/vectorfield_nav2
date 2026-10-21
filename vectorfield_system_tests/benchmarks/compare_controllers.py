@@ -81,6 +81,12 @@ from geometry_msgs.msg import Twist, TwistStamped  # noqa: E402
 from rcl_interfaces.srv import GetParameters  # noqa: E402
 from rclpy.parameter import parameter_value_to_python  # noqa: E402
 from rclpy.qos import QoSProfile, ReliabilityPolicy  # noqa: E402
+from vectorfield_bringup.field_metrics import (  # noqa: E402
+    BURST_GAP,
+    polyline_distance,
+    rms,
+    second_differences,
+)
 from vectorfield_system_tests.harness import STATUS_NAMES, NavHarness  # noqa: E402
 
 from vectorfield_bringup import demo, params  # noqa: E402
@@ -156,10 +162,6 @@ PLAN_END_TOLERANCE = 0.25
 SIGINT_TIMEOUT = 20.0
 SIGTERM_TIMEOUT = 10.0
 
-#: Commands received less than this apart (wall s) count as one control update, the later of which
-#: the robot keeps. The controller server publishes about every 50 ms, with occasional
-#: back-to-back commands when its loop catches up.
-BURST_GAP = 0.02
 
 #: Metric columns: key -> (header, unit, format).
 METRICS = {
@@ -271,57 +273,8 @@ class RecordingHarness(NavHarness):
 
 
 # Metrics -------------------------------------------------------------------------------------
-
-
-def polyline_distance(points, polyline):
-    """Return the distance of each point (N x 2) to a polyline (M x 2)."""
-    points = np.asarray(points, dtype=float).reshape(-1, 2)
-    if len(polyline) == 1:
-        return np.hypot(*(points - polyline[0]).T)
-    a, b = polyline[:-1], polyline[1:]
-    ab = b - a
-    length2 = np.maximum((ab**2).sum(axis=1), 1e-12)
-    ap = points[:, None, :] - a[None, :, :]
-    s = np.clip((ap * ab[None]).sum(axis=2) / length2[None], 0.0, 1.0)
-    closest = a[None] + s[..., None] * ab[None]
-    return np.min(np.linalg.norm(points[:, None, :] - closest, axis=2), axis=1)
-
-
-def command_updates(samples):
-    """Return the last (wall t, v, w) of each burst of commands (see :data:`BURST_GAP`)."""
-    updates = []
-    for _, wall, v, w in samples:
-        if updates and wall - updates[-1][0] < BURST_GAP:
-            updates[-1] = (wall, v, w)
-        else:
-            updates.append((wall, v, w))
-    return np.array(updates, dtype=float).reshape(-1, 3)
-
-
-def second_differences(samples):
-    """Return the jerks (K x 2: linear, angular) of command samples, and the update period.
-
-    The commands are reduced to one per control update (:func:`command_updates`) and differenced
-    twice with the median interval between updates as the step; the series is split where an
-    interval exceeds 1.5 times that median (a late tick or a dropped command).
-    """
-    updates = command_updates(samples)
-    if len(updates) < 3:
-        return np.zeros((0, 2)), math.nan
-    intervals = np.diff(updates[:, 0])
-    period = float(np.median(intervals))
-    breaks = np.flatnonzero(intervals > 1.5 * period) + 1
-    jerks = [np.zeros((0, 2))]
-    for piece in np.split(updates[:, 1:], breaks):
-        if len(piece) >= 3:
-            jerks.append((piece[2:] - 2.0 * piece[1:-1] + piece[:-2]) / period**2)
-    return np.concatenate(jerks), period
-
-
-def rms(values):
-    """Return the root mean square (NaN for no values)."""
-    values = np.asarray(values, dtype=float)
-    return float(np.sqrt(np.mean(values**2))) if values.size else math.nan
+# polyline_distance(), second_differences() and rms() live in vectorfield_bringup.field_metrics,
+# shared with field_test_report.py.
 
 
 def goal_metrics(nav, episode, goal):

@@ -25,6 +25,11 @@ Examples (with kinematic_sim_demo.launch.py running)::
 
     ros2 run vectorfield_bringup navigate_waypoints.py
     ros2 run vectorfield_bringup navigate_waypoints.py --poses "2,0,0 2,2,1.57 0,0,3.14"
+    ros2 run vectorfield_bringup navigate_waypoints.py --relative --poses "3,0,0 0,0,3.14"
+
+``--relative`` reads the poses in the robot's frame at the start (x ahead, y to the left, yaw from
+its heading), as the field tests do (docs/tutorials/field_testing.md). ``--through`` sends the
+route as one NavigateThroughPoses goal instead, so the plan has corners at the poses.
 
 The exit status is 0 when every pose is reached and 1 otherwise.
 """
@@ -54,6 +59,19 @@ def parse_arguments(argv):
     )
     parser.add_argument('--frame', default='map', help='frame of the poses (default: map)')
     parser.add_argument(
+        '--relative',
+        action='store_true',
+        help='poses relative to the robot pose at the start (x ahead, y left, yaw from heading)',
+    )
+    parser.add_argument(
+        '--base-frame', default='base_link', help='robot frame for --relative (default: base_link)'
+    )
+    parser.add_argument(
+        '--through',
+        action='store_true',
+        help='one NavigateThroughPoses goal through all poses instead of one goal per pose',
+    )
+    parser.add_argument(
         '--localizer',
         default='controller_server',
         help='node to wait for before the first goal: amcl with AMCL, controller_server '
@@ -74,6 +92,42 @@ def make_pose(navigator, frame, x, y, yaw):
     return pose
 
 
+def start_pose(navigator, frame, base_frame, timeout=10.0):
+    """Return the robot's (x, y, yaw) in ``frame`` from TF, or None after ``timeout`` s."""
+    import time
+
+    from rclpy.time import Time
+    from tf2_ros import Buffer, TransformException, TransformListener
+
+    buffer = Buffer()
+    listener = TransformListener(buffer, navigator, spin_thread=False)
+    deadline = time.monotonic() + timeout
+    try:
+        while time.monotonic() < deadline:
+            rclpy.spin_once(navigator, timeout_sec=0.1)
+            try:
+                transform = buffer.lookup_transform(frame, base_frame, Time())
+            except TransformException:
+                continue
+            q = transform.transform.rotation
+            yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y**2 + q.z**2))
+            return transform.transform.translation.x, transform.transform.translation.y, yaw
+    finally:
+        del listener
+    return None
+
+
+def compose(origin, pose):
+    """Return ``pose`` (x, y, yaw in the frame of ``origin``) in the frame ``origin`` is in."""
+    ox, oy, oyaw = origin
+    x, y, yaw = pose
+    return (
+        ox + math.cos(oyaw) * x - math.sin(oyaw) * y,
+        oy + math.sin(oyaw) * x + math.cos(oyaw) * y,
+        math.remainder(oyaw + yaw, 2.0 * math.pi),
+    )
+
+
 def main():
     """Drive the route; return the exit status."""
     args = parse_arguments(rclpy.utilities.remove_ros_args(sys.argv)[1:])
@@ -89,9 +143,22 @@ def main():
     code = 0
     try:
         navigator.waitUntilNav2Active(localizer=args.localizer)
+        if args.relative:
+            origin = start_pose(navigator, args.frame, args.base_frame)
+            if origin is None:
+                navigator.error(f'no transform {args.frame} -> {args.base_frame}')
+                return 1
+            navigator.info(f'start pose ({origin[0]:.2f}, {origin[1]:.2f}, {origin[2]:.2f})')
+            route = [compose(origin, pose) for pose in route]
+        if args.through:
+            text = ' '.join(f'({x:.2f}, {y:.2f}, {yaw:.2f})' for x, y, yaw in route)
+            navigator.info(f'through {len(route)} poses: {text}')
+            navigator.goThroughPoses([make_pose(navigator, args.frame, *pose) for pose in route])
+            route = [route[-1]]
         for index, (x, y, yaw) in enumerate(route, start=1):
-            navigator.info(f'pose {index}/{len(route)}: ({x:.2f}, {y:.2f}, {yaw:.2f})')
-            navigator.goToPose(make_pose(navigator, args.frame, x, y, yaw))
+            if not args.through:
+                navigator.info(f'pose {index}/{len(route)}: ({x:.2f}, {y:.2f}, {yaw:.2f})')
+                navigator.goToPose(make_pose(navigator, args.frame, x, y, yaw))
             while not navigator.isTaskComplete():
                 feedback = navigator.getFeedback()
                 if feedback is not None:

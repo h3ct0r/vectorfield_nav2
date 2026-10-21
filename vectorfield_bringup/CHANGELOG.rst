@@ -4,6 +4,14 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* Field-test kit (docs/tutorials/field_testing.md): scripts/record_field_test.py records the
+  topics the metrics need into a timestamped bag with the node parameters;
+  scripts/field_test_report.py writes a Markdown report, metrics.json and plots per goal from a
+  sqlite3 or mcap bag; scripts/identify_skid_slip.py identifies skid_yaw_rate_efficiency and
+  skid_icr_offset online (guarded) or from a bag. New modules field_metrics (the metrics shared
+  with vectorfield_system_tests), slip, bag and field_report, with unit tests.
+* navigate_waypoints.py: --relative (poses in the robot's start frame) and --through (one
+  NavigateThroughPoses goal).
 * The laser scan (RViz, Foxglove) and PlotJuggler's phase curve are no longer white.
 * config/examples: annotated nav2_params templates (differential, omnidirectional, Ackermann) and
   the rotation-shim overlays for both key layouts, validated like the controller overlays.

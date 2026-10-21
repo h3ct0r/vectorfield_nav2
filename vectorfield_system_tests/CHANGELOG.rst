@@ -4,6 +4,10 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* test_skid_slip_kinematic (skid_steer): identify_skid_slip.py recovers vectorfield_sim's slip
+  within 10 %.
+* compare_controllers.py and geometry.OccupiedCells use vectorfield_bringup.field_metrics, shared
+  with the field-test report.
 * A test client that had to abandon its participant (Lyrical) dumps the thread stacks 60 s after
   it closes: such a process freezes in launch_ros's shutdown after its tests.
 * test_shipped_configs also validates vectorfield_bringup's config/examples templates and

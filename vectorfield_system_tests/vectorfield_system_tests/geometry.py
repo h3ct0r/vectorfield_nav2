@@ -16,7 +16,8 @@
 
 import math
 
-import numpy as np
+# OccupiedCells (the occupied cells of an OccupancyGrid) is shared with field_test_report.py.
+from vectorfield_bringup.field_metrics import OccupiedCells  # noqa: F401
 
 #: nav2_bringup's TB3: the robot_radius of both stock costmaps.
 ROBOT_RADIUS = 0.22
@@ -73,23 +74,3 @@ def box_distance(x, y, box):
     local_x = math.cos(yaw) * dx + math.sin(yaw) * dy
     local_y = -math.sin(yaw) * dx + math.cos(yaw) * dy
     return math.hypot(max(abs(local_x) - 0.5 * size_x, 0.0), max(abs(local_y) - 0.5 * size_y, 0.0))
-
-
-class OccupiedCells:
-    """The occupied cells of an ``OccupancyGrid`` (axis-aligned origin), as squares."""
-
-    def __init__(self, grid, threshold=65):
-        info = grid.info
-        cells = np.asarray(grid.data, dtype=np.int16).reshape(info.height, info.width)
-        rows, columns = np.nonzero(cells >= threshold)
-        self._half = 0.5 * info.resolution
-        self._x = info.origin.position.x + (columns + 0.5) * info.resolution
-        self._y = info.origin.position.y + (rows + 0.5) * info.resolution
-
-    def distance(self, x, y):
-        """Return the distance from (x, y) to the nearest occupied cell (0 inside one)."""
-        if self._x.size == 0:
-            return math.inf
-        gap_x = np.maximum(np.abs(self._x - x) - self._half, 0.0)
-        gap_y = np.maximum(np.abs(self._y - y) - self._half, 0.0)
-        return float(np.min(np.hypot(gap_x, gap_y)))
