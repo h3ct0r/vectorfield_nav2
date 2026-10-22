@@ -69,8 +69,9 @@ optional dependency is missing and 2 for invalid input, curves or configurations
   with a summary (final and post-transient $|D|$, settle time, phases), a plot (`-o`), an animated
   GIF (`--gif`, at most 10 s at 12 fps by default) and the recorded columns (`--csv`).
 - `vf-sim3d`: the same for the experimental 3D core (`vectorfield.d3`): a holonomic multirotor
-  on a 3D curve, with a 3D plot, a GIF and the records; `vf-curve --dim 3` lists, describes and
-  exports 3D curves.
+  on a 3D curve, with a 3D plot, a GIF and the records. `--sphere`, `--box`, `--cylinder` and
+  `--plane` add static obstacles for the CBF safety filter (0.3.0). `vf-curve --dim 3` lists,
+  describes and exports 3D curves.
 - `vf-tune`: `validate_config()` on a parameter file (a Nav2 file with
   `controller_server.ros__parameters.FollowPath`, a node file or flat keys), with a suggested
   change per finding, the per-plan advice for `--curve`, and `--sweep NAME=START:STOP:STEP`

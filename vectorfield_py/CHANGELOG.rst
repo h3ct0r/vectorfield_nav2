@@ -4,6 +4,14 @@ Changelog for package vectorfield_py
 
 Forthcoming
 -----------
+* vectorfield.d3 obstacles (math_spec 14.8): Primitive (sphere, box, cylinder, plane;
+  signed_distance(), validate()), PrimitiveType, VoxelGrid ((nz, ny, nx) masks),
+  DistanceTransform (distances(), feature(), query()), ObstacleSet (add(), set_voxels(),
+  nearest(), sites()), solve_cbf(), ObstaclesConfig as TrackerConfig.obstacles, CbfSample as
+  TrackerOutput.cbf, TrackerOutput.cmd_target_v and TrackerState.blocked; Tracker.step(obstacles=...)
+  and d3.sim.ClosedLoopSimulator(obstacles=...), whose records add h and cbf_active. vf-sim3d
+  --sphere, --box, --cylinder, --plane, --body-radius, --cbf-margin and --cbf-gain: the summary
+  reports the least barrier, the plot and the GIF draw the obstacles, and the CSV adds h.
 * vectorfield.d3 moving frames: CurveFrame (T_eval_curve (4, 4), v, w, moving, at(), velocity()),
   exp_se3(), log_se3(), body_twist(), FrameTwistEstimator, FrameTwistConfig, FrameEstimate and
   FrameSampleResult; Tracker.step(frame=...), TrackerOutput.Phi_T, v_c, frame_velocity and

@@ -61,6 +61,14 @@ curve 2 cm off it.
 | `BM_D3FieldEval_Viviani_Hinted` | Viviani's curve, hint carried | 1.5 µs |
 | `BM_D3FieldEval_Polyline2k_Hinted` | 2000-vertex 3D polyline, hinted window | 0.22 µs |
 | `BM_D3TrackerStep_Helix` | one `Tracker3::step` (field, law, limiter) on the helix | 1.1 µs |
+| `BM_D3CbfSolve_FourSites` | `solveCbf3`, four constraints (floor, two walls, a sphere), every active set enumerated [0.3.0] | 0.14 µs |
+| `BM_D3TrackerStep_Helix_CbfPrimitives` | `Tracker3::step` with the CBF filter acting: a sphere, a floor and a pole (3 sites) [0.3.0] | 1.3 µs |
+| `BM_D3TrackerStep_Helix_CbfVoxels` | same plus a $64^3$ voxel grid (continuous query and $5^3$ window features, 4 sites) [0.3.0] | 3.1 µs |
+| `BM_D3VoxelEdt_64` | 3D distance and feature transform of a $64^3$ grid (262 144 voxels, 5 % occupied) [0.3.0] | 6.6 ms |
+
+The 0.3.0 rows come from a later run in which `BM_D3TrackerStep_Helix` took 1.2 µs. The filter
+adds about 0.1 µs to a step with primitives and about 2 µs with a voxel grid. The voxel EDT runs
+only when the grid changes.
 
 ## Visualization (`vectorfield_ros`)
 

@@ -17,7 +17,9 @@
 Runs ``vectorfield.d3.Tracker`` against a point plant (optionally with a first-order velocity
 lag) at a fixed control period, prints a summary, and optionally writes a 3D plot (mplot3d), an
 animated GIF and the records as CSV. ``--frame-velocity`` and ``--frame-rate`` put the curve in a
-frame that moves with a constant body twist (math_spec 14.7). The 2D tools are unchanged; see
+frame that moves with a constant body twist (math_spec 14.7). ``--sphere``, ``--box``,
+``--cylinder`` and ``--plane`` add static obstacles that the CBF safety filter keeps the body
+sphere away from (math_spec 14.8). The 2D tools are unchanged; see
 ``vf-sim`` for robots in the plane.
 """
 
@@ -38,6 +40,7 @@ EPILOG = """examples:
   vf-sim3d --curve path.csv --open --speed 0.8 --csv run.csv
   vf-sim3d --curve circle:radius=2 --frame-velocity 0.15,0.05,0 -o translating.png
   vf-sim3d --curve helix:cx=0.8 --frame-rate 0,0,0.15 --gif rotating.gif
+  vf-sim3d --curve helix --pose 1,0,0 --sphere 1.35,0,0.5,0.3 --plane 0,0,-0.1,0,0,1 -o avoid.png
 
 exit status: 0 ok, 1 missing optional dependency, 2 invalid input or curve"""
 
@@ -77,6 +80,7 @@ def build_parser():
         default='path_tangent',
         help='yaw policy (default path_tangent)',
     )
+    curves3d.add_obstacle_arguments(argp)
     out = argp.add_argument_group('output')
     _cli.add_output_arguments(out, 'the 3D plot')
     out.add_argument(
@@ -119,19 +123,34 @@ def simulate(
     lag=0.0,
     yaw_policy='path_tangent',
     frame=None,
+    obstacles=None,
+    body_radius=0.25,
+    cbf_margin=0.05,
+    cbf_gain=2.0,
 ):
     """Run the closed loop; returns the dict of arrays of ``d3.sim.ClosedLoopSimulator.run``.
 
     ``frame`` is an optional ``d3.CurveFrame`` at t = 0; a moving frame keeps its twist.
+    ``obstacles`` (a ``d3.ObstacleSet`` or a list of ``d3.Primitive``) turns the CBF filter on
+    for a body sphere of ``body_radius``.
     """
     config = d3.TrackerConfig(desired_speed=speed, convergence_gain=gain, control_frequency=rate)
+    if obstacles is not None and not isinstance(obstacles, d3.ObstacleSet):
+        obstacles = d3.ObstacleSet(list(obstacles))
+    if obstacles is not None and not obstacles.empty:
+        config.obstacles.obstacle_mode = vf.ObstacleMode.CBF
+        config.obstacles.body_radius = body_radius
+        config.obstacles.cbf_margin = cbf_margin
+        config.obstacles.cbf_gain = cbf_gain
+    else:
+        obstacles = None
     config.limits.max_speed = max(config.limits.max_speed, 1.2 * speed)
     yaw_config = config.yaw
     yaw_config.policy = _yaw_policy(yaw_policy)
     config.yaw = yaw_config
     tracker = d3.Tracker(config)
     simulator = d3.sim.ClosedLoopSimulator(
-        tracker, period=1.0 / rate, velocity_time_constant=lag, frame=frame
+        tracker, period=1.0 / rate, velocity_time_constant=lag, frame=frame, obstacles=obstacles
     )
     simulator.reset(np.asarray(start, dtype=float), yaw=yaw)
     if duration is None:
@@ -176,6 +195,14 @@ def summary(run, curve, frame=None):
         w = ', '.join(f'{x:g}' for x in frame.w)
         clamped = int(np.count_nonzero(run['status'] & int(vf.Status.ASSUMPTION3_CLAMPED)))
         lines.append(f'frame        v = ({v}) m/s, w = ({w}) rad/s; Assumption-3 clamps {clamped}')
+    h = run.get('h')
+    if h is not None and np.isfinite(h).any():
+        blocked = int(np.count_nonzero(run['status'] & int(vf.Status.BLOCKED)))
+        active = int(np.count_nonzero(run['cbf_active']))
+        lines.append(
+            f'obstacles    min h {np.min(h):.4f} m; filter active {active} steps; '
+            f'kBlocked {blocked} steps'
+        )
     if not curve.is_closed:
         lines.append(f'settled      {"yes" if run["settled"][-1] else "no"}')
     return lines
@@ -184,25 +211,27 @@ def summary(run, curve, frame=None):
 def write_csv(path, run):
     """Write the records as CSV."""
     columns = ['t', 'x', 'y', 'z', 'yaw', 'vx', 'vy', 'vz', 'wz', 'D', 'sigma', 'phase', 'status']
-    data = np.column_stack(
-        [
-            run['t'],
-            run['position'],
-            run['yaw'],
-            run['v'],
-            run['wz'],
-            run['D'],
-            run['sigma'],
-            run['phase'],
-            run['status'],
-        ]
-    )
+    parts = [
+        run['t'],
+        run['position'],
+        run['yaw'],
+        run['v'],
+        run['wz'],
+        run['D'],
+        run['sigma'],
+        run['phase'],
+        run['status'],
+    ]
+    if 'h' in run and np.isfinite(run['h']).any():
+        columns.append('h')
+        parts.append(run['h'])
+    data = np.column_stack(parts)
     np.savetxt(path, data, delimiter=',', header=','.join(columns), comments='', fmt='%.6g')
     print(f'wrote {path}')
 
 
-def draw(ax, curve, run, field=None, streamline_count=0):
-    """Curve, streamlines, trajectory, start and goal on a 3D axis.
+def draw(ax, curve, run, field=None, streamline_count=0, primitives=()):
+    """Curve, streamlines, trajectory, start, goal and obstacles on a 3D axis.
 
     In a moving frame the curve is drawn where it ends (solid) and where it started (faded);
     streamlines are drawn only for a static curve.
@@ -228,7 +257,11 @@ def draw(ax, curve, run, field=None, streamline_count=0):
     path = run['position']
     ax.plot(*path.T, color=plotting.SERIES[1], lw=1.2, label='trajectory')
     ax.scatter(*path[0], color=plotting.SERIES[1], s=18, label='start')
-    curves3d.set_equal_aspect(ax, np.vstack([points, path]))
+    extent = np.vstack([points, path, curves3d.obstacle_extent(primitives)])
+    curves3d.set_equal_aspect(ax, extent)
+    if primitives:
+        lo, hi = (np.array(lim) for lim in zip(ax.get_xlim(), ax.get_ylim(), ax.get_zlim()))
+        curves3d.draw_obstacles(ax, primitives, lo, hi, color=plotting.OBSTACLE)
 
 
 def _main(argv):
@@ -242,6 +275,7 @@ def _main(argv):
     if not (args.speed > 0 and args.rate > 0):
         raise _cli.InputError('--speed and --rate must be positive')
     frame = frame_from_args(args)
+    primitives = curves3d.primitives_from_args(args)
     run = simulate(
         curve,
         start,
@@ -253,6 +287,10 @@ def _main(argv):
         args.lag,
         args.yaw_policy,
         frame,
+        primitives or None,
+        args.body_radius,
+        args.cbf_margin,
+        args.cbf_gain,
     )
     print(f'curve        {curves3d.describe_spec(spec)}')
     for line in summary(run, curve, frame):
@@ -265,18 +303,26 @@ def _main(argv):
         field = d3.DistanceField(vf.GainFunction(vf.GainType.ATAN, args.gain), args.speed)
         if args.output or args.show:
             fig, ax = curves3d.axes3d(plt)
-            draw(ax, curve, run, field, args.streamlines)
+            draw(ax, curve, run, field, args.streamlines, primitives)
             ax.set_title(curves3d.describe_spec(spec))
             ax.legend(loc='upper left')
             _cli.finish_figure(plt, fig, args)
         if args.gif:
-            frames = animate(plt, curve, run, args.gif, fps=args.fps, seconds=args.gif_seconds)
+            frames = animate(
+                plt,
+                curve,
+                run,
+                args.gif,
+                fps=args.fps,
+                seconds=args.gif_seconds,
+                primitives=primitives,
+            )
             size = os.path.getsize(args.gif) / 1e6
             print(f'wrote {args.gif} ({frames} frames, {size:.2f} MB)')
     return _cli.EXIT_OK
 
 
-def animate(plt, curve, run, path, fps=12.0, seconds=8.0, dpi=72):
+def animate(plt, curve, run, path, fps=12.0, seconds=8.0, dpi=72, primitives=()):
     """Write an animated GIF of the trajectory (time-lapsed to ``seconds``); returns frames."""
     _cli.require('PIL')
     from matplotlib.animation import FuncAnimation, PillowWriter
@@ -291,10 +337,13 @@ def animate(plt, curve, run, path, fps=12.0, seconds=8.0, dpi=72):
     (line,) = ax.plot(*points.T, color=plotting.INK, lw=1.2)
     (trail,) = ax.plot([], [], [], color=plotting.SERIES[1], lw=1.2)
     (body,) = ax.plot([], [], [], marker='o', ms=5, color=plotting.SERIES[1], ls='none')
-    extent = [points, path_points]
+    extent = [points, path_points, curves3d.obstacle_extent(primitives)]
     if moving:
         extent += [curve_points(points, frames[0]), curve_points(points, frames[-1])]
     curves3d.set_equal_aspect(ax, np.vstack(extent))
+    if primitives:
+        lo, hi = (np.array(lim) for lim in zip(ax.get_xlim(), ax.get_ylim(), ax.get_zlim()))
+        curves3d.draw_obstacles(ax, primitives, lo, hi, color=plotting.OBSTACLE)
 
     def update(frame):
         k = indices[frame]

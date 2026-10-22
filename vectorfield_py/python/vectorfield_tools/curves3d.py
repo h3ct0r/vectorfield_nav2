@@ -33,7 +33,7 @@ import numpy as np
 import vectorfield as vf
 from vectorfield import d3
 
-from ._cli import InputError, assignment, number, require
+from ._cli import InputError, assignment, number, numbers, require
 
 DEFAULT_CURVE = 'helix'
 _TYPE_NAMES = {t.name.lower(): t for t in vf.CurveSpec.Type.__members__.values()}
@@ -264,3 +264,166 @@ def axes3d(plt, figsize=(6.0, 5.0)):
     ax.set_ylabel('y (m)')
     ax.set_zlabel('z (m)')
     return fig, ax
+
+
+def add_obstacle_arguments(argp):
+    """Add the 3D obstacle options (CBF filter, math_spec 14.8) to a parser."""
+    group = argp.add_argument_group('obstacles (CBF filter, math_spec 14.8)')
+    group.add_argument(
+        '--sphere', action='append', default=[], metavar='X,Y,Z,R', help='a sphere (repeatable)'
+    )
+    group.add_argument(
+        '--box',
+        action='append',
+        default=[],
+        metavar='X,Y,Z,HX,HY,HZ[,YAW,PITCH,ROLL]',
+        help='a box by centre and half-extents, optionally rotated (rad; repeatable)',
+    )
+    group.add_argument(
+        '--cylinder',
+        action='append',
+        default=[],
+        metavar='X,Y,R[,ZMIN,ZMAX]',
+        help='a vertical pole, infinite without ZMIN,ZMAX (repeatable)',
+    )
+    group.add_argument(
+        '--plane',
+        action='append',
+        default=[],
+        metavar='PX,PY,PZ,NX,NY,NZ',
+        help='a solid half-space: a point and the normal into free space (repeatable)',
+    )
+    group.add_argument(
+        '--body-radius', type=number, default=0.25, help='radius of the body sphere (m, 0.25)'
+    )
+    group.add_argument('--cbf-margin', type=number, default=0.05, help='margin m (m, 0.05)')
+    group.add_argument('--cbf-gain', type=number, default=2.0, help='gamma_b (1/s, 2)')
+
+
+def primitives_from_args(args):
+    """Build the ``d3.Primitive`` list of --sphere / --box / --cylinder / --plane."""
+    out = []
+    for text in args.sphere:
+        x, y, z, r = numbers(text, count=(4,), name='--sphere')
+        out.append(d3.Primitive.sphere(np.array([x, y, z]), r))
+    for text in args.box:
+        v = numbers(text, count=(6, 7, 8, 9), name='--box')
+        angles = (list(v[6:]) + [0.0, 0.0, 0.0])[:3]
+        out.append(d3.Primitive.box(np.array(v[:3]), np.array(v[3:6]), *angles))
+    for text in args.cylinder:
+        v = numbers(text, count=(3, 5), name='--cylinder')
+        if len(v) == 5:
+            if not v[4] > v[3]:
+                raise InputError(f'--cylinder needs ZMIN < ZMAX, got {text!r}')
+            centre = np.array([v[0], v[1], 0.5 * (v[3] + v[4])])
+            out.append(d3.Primitive.cylinder(centre, v[2], 0.5 * (v[4] - v[3])))
+        else:
+            out.append(d3.Primitive.cylinder(np.array([v[0], v[1], 0.0]), v[2]))
+    for text in args.plane:
+        v = numbers(text, count=(6,), name='--plane')
+        out.append(d3.Primitive.plane(np.array(v[:3]), np.array(v[3:])))
+    for primitive in out:
+        primitive.validate()
+    return out
+
+
+def _box_corners(center, half, rotation):
+    signs = np.array([[i, j, k] for i in (-1, 1) for j in (-1, 1) for k in (-1, 1)], dtype=float)
+    return center + (signs * half) @ rotation.T
+
+
+def _plane_polygon(point, normal, lo, hi):
+    """Return the polygon where a plane cuts the box [lo, hi] (empty if it misses)."""
+    corners = np.array(
+        [[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])]
+    )
+    edges = [(a, b) for a in range(8) for b in range(a + 1, 8) if bin(a ^ b).count('1') == 1]
+    side = (corners - point) @ normal
+    hits = []
+    for a, b in edges:
+        if side[a] * side[b] < 0.0 or side[a] == 0.0:
+            t = side[a] / (side[a] - side[b]) if side[a] != side[b] else 0.0
+            hits.append(corners[a] + t * (corners[b] - corners[a]))
+    if len(hits) < 3:
+        return np.empty((0, 3))
+    hits = np.array(hits)
+    centre = hits.mean(axis=0)
+    u = hits[0] - centre
+    u /= np.linalg.norm(u) or 1.0
+    w = np.cross(normal, u)
+    order = np.argsort(np.arctan2((hits - centre) @ w, (hits - centre) @ u))
+    return hits[order]
+
+
+def obstacle_extent(primitives):
+    """Return points (N, 3) bounding the bounded primitives (planes and poles add none)."""
+    points = [np.empty((0, 3))]
+    for p in primitives:
+        if p.type == d3.PrimitiveType.SPHERE:
+            points.append(p.center + p.radius * np.vstack([np.eye(3), -np.eye(3)]))
+        elif p.type == d3.PrimitiveType.BOX:
+            points.append(_box_corners(p.center, p.half_extents, p.rotation))
+        elif p.type == d3.PrimitiveType.CYLINDER and np.isfinite(p.half_height):
+            r, h = p.radius, p.half_height
+            points.append(p.center + np.array([[r, r, h], [-r, -r, -h]]))
+    return np.vstack(points)
+
+
+def draw_obstacles(ax, primitives, lo, hi, color='#a3a19b', alpha=0.25):
+    """Draw spheres, boxes, poles and planes on a 3D axis.
+
+    Unbounded ones (planes, infinite poles) are clipped to the box [lo, hi], the scene's extent.
+    """
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+    u, v = np.meshgrid(np.linspace(0.0, 2.0 * np.pi, 24), np.linspace(0.0, np.pi, 13))
+    for p in primitives:
+        kind = p.type
+        if kind == d3.PrimitiveType.SPHERE:
+            c, r = p.center, p.radius
+            ax.plot_surface(
+                c[0] + r * np.cos(u) * np.sin(v),
+                c[1] + r * np.sin(u) * np.sin(v),
+                c[2] + r * np.cos(v),
+                color=color,
+                alpha=alpha,
+                linewidth=0.0,
+            )
+        elif kind == d3.PrimitiveType.BOX:
+            corners = _box_corners(p.center, p.half_extents, p.rotation)
+            faces = [
+                [0, 1, 3, 2],
+                [4, 5, 7, 6],
+                [0, 1, 5, 4],
+                [2, 3, 7, 6],
+                [0, 2, 6, 4],
+                [1, 3, 7, 5],
+            ]
+            ax.add_collection3d(
+                Poly3DCollection(
+                    [corners[f] for f in faces], facecolor=color, edgecolor=color, alpha=alpha
+                )
+            )
+        elif kind == d3.PrimitiveType.CYLINDER:
+            c, r = p.center, p.radius
+            if np.isfinite(p.half_height):
+                z0, z1 = c[2] - p.half_height, c[2] + p.half_height
+            else:
+                z0, z1 = lo[2], hi[2]
+            a, z = np.meshgrid(np.linspace(0.0, 2.0 * np.pi, 24), np.array([z0, z1]))
+            ax.plot_surface(
+                c[0] + r * np.cos(a),
+                c[1] + r * np.sin(a),
+                z,
+                color=color,
+                alpha=alpha,
+                linewidth=0.0,
+            )
+        elif kind == d3.PrimitiveType.PLANE:
+            polygon = _plane_polygon(p.center, p.normal, lo, hi)
+            if len(polygon):
+                ax.add_collection3d(
+                    Poly3DCollection(
+                        [polygon], facecolor=color, edgecolor='none', alpha=0.5 * alpha
+                    )
+                )

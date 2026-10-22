@@ -23,10 +23,12 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <memory>
 #include <new>
 #include <string>
+#include <vector>
 
 #include "vectorfield_core/d3.hpp"
 
@@ -150,9 +152,14 @@ namespace d3 = vectorfield_core::d3;
 using d3::Vec3;
 
 void expectNoAllocation(
-  const d3::Curve3 & curve, const Vec3 & start, const d3::CurveFrame3 & frame = {})
+  const d3::Curve3 & curve, const Vec3 & start, const d3::CurveFrame3 & frame = {},
+  const d3::ObstacleSet3 * obstacles = nullptr)
 {
-  const d3::Tracker3 tracker{d3::Tracker3Config{}};
+  d3::Tracker3Config config;
+  if (obstacles != nullptr) {
+    config.obstacles.obstacle_mode = vectorfield_core::ObstacleMode::kCbf;
+  }
+  const d3::Tracker3 tracker{config};
   d3::Tracker3State state = d3::Tracker3::initialState();
   d3::sim::PlantState3 plant;
   plant.pose.p = start;
@@ -160,6 +167,7 @@ void expectNoAllocation(
   params.velocity_time_constant = 0.1;
   d3::Tracker3Input input;
   input.curve = &curve;
+  input.obstacles = obstacles;
   input.dt = 0.05;
   const auto cycle = [&](int k) {
     input.pose = plant.pose;
@@ -234,4 +242,53 @@ TEST(D3NoAlloc, MovingFrame)
   frame.twist.v = Vec3::Zero();
   const auto helix = d3::makeCurve3(builtin("helix"), {});
   expectNoAllocation(*helix, Vec3(1.3, 0.2, -0.3), frame);
+}
+
+// The CBF filter (math_spec §14.8): primitives and a voxel grid on the helix (filter active,
+// several sites), and a sphere centred on a line (the hold, kBlocked).
+TEST(D3NoAlloc, CbfObstacles)
+{
+  d3::ObstacleSet3 obstacles;
+  obstacles.add(d3::Primitive3::sphere(Vec3(1.35, 0.0, 0.5), 0.3));
+  obstacles.add(d3::Primitive3::plane(Vec3(0, 0, -0.1), Vec3::UnitZ()));
+  obstacles.add(d3::Primitive3::box(Vec3(-1.4, 0, 0.5), Vec3(0.2, 0.2, 2.0)));
+  obstacles.add(d3::Primitive3::cylinder(Vec3(0, -1.4, 0), 0.15));
+  const int n = 32;
+  std::vector<std::uint8_t> mask(static_cast<std::size_t>(n * n * n), 0);
+  for (int iz = 0; iz < n; ++iz) {
+    for (int iy = 12; iy < 20; ++iy) {
+      mask[static_cast<std::size_t>(2 + n * (iy + n * iz))] = 1;  // a voxel post near (0, 1.2)
+    }
+  }
+  d3::VoxelGrid3 grid;
+  ASSERT_TRUE(grid.setFromMask(mask, n, n, n, 0.1, Vec3(-0.2, 0.0, -0.5)));
+  obstacles.setVoxels(grid);
+  const auto helix = d3::makeCurve3(builtin("helix"), {});
+  expectNoAllocation(*helix, Vec3(1.0, 0.0, 0.0), {}, &obstacles);
+  d3::ObstacleSet3 centred;
+  centred.add(d3::Primitive3::sphere(Vec3(2, 0, 1), 0.5));
+  const d3::PolylineCurve3 line({Vec3(-1, 0, 1), Vec3(5, 0, 1)}, false);
+  expectNoAllocation(line, Vec3(0.5, 0, 1), {}, &centred);
+}
+
+// Rebuilding the voxel EDT of a same-size grid does not allocate.
+TEST(D3NoAlloc, VoxelEdtRebuild)
+{
+  const int n = 24;
+  std::vector<std::uint8_t> mask(static_cast<std::size_t>(n * n * n), 0);
+  mask[100] = 1;
+  d3::VoxelGrid3 grid;
+  ASSERT_TRUE(grid.setFromMask(mask, n, n, n, 0.1, Vec3::Zero()));
+  d3::DistanceTransform3 edt;
+  edt.update(grid);
+  g_allocations.store(0);
+  g_counting.store(true);
+  for (int k = 0; k < 20; ++k) {
+    mask[static_cast<std::size_t>(37 * k + 5)] = 1;
+    grid.setFromMask(mask, n, n, n, 0.1, Vec3::Zero());
+    EXPECT_TRUE(edt.update(grid));
+    edt.query(Vec3(1.2, 1.1, 0.7));
+  }
+  g_counting.store(false);
+  EXPECT_EQ(g_allocations.load(), 0);
 }

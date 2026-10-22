@@ -20,6 +20,7 @@
 #include <cmath>
 #include <string>
 
+#include "vectorfield_core/cbf.hpp"
 #include "vectorfield_core/errors.hpp"
 
 namespace vectorfield_core::d3
@@ -77,6 +78,24 @@ void validateTracker3Config(const Tracker3Config & c)
   require(
     std::isfinite(c.yaw.gain) && c.yaw.gain >= 0.0, "yaw.gain", c.yaw.gain, "finite and >= 0");
   require(std::isfinite(c.yaw.fixed_yaw), "yaw.fixed_yaw", c.yaw.fixed_yaw, "finite");
+  const Obstacles3Config & o = c.obstacles;
+  require(
+    o.obstacle_mode == ObstacleMode::kNone || o.obstacle_mode == ObstacleMode::kCbf,
+    "obstacles.obstacle_mode", static_cast<double>(o.obstacle_mode),
+    "none (0) or cbf (2): contour is planar only");
+  require(
+    std::isfinite(o.body_radius) && o.body_radius >= 0.0, "obstacles.body_radius", o.body_radius,
+    "finite and >= 0");
+  require(
+    std::isfinite(o.cbf_margin) && o.cbf_margin >= 0.0, "obstacles.cbf_margin", o.cbf_margin,
+    "finite and >= 0");
+  require(positive(o.cbf_gain), "obstacles.cbf_gain", o.cbf_gain, "finite and > 0");
+  require(
+    o.cbf_gain < c.control_frequency, "obstacles.cbf_gain", o.cbf_gain,
+    "< control_frequency (cbf_gain * dt < 1, math_spec 14.8)");
+  require(
+    o.cbf_sites >= 1 && o.cbf_sites <= kCbf3MaxSites, "obstacles.cbf_sites", o.cbf_sites,
+    "in [1, 4]");
 }
 
 namespace
@@ -86,6 +105,40 @@ Tracker3Config validated(const Tracker3Config & config)
 {
   validateTracker3Config(config);
   return config;
+}
+
+/// @brief The sites of the CBF filter at the body x and their barriers (math_spec §14.8).
+void sampleObstacles(
+  const Obstacles3Config & config, const ObstacleSet3 & obstacles, const Vec3 & x,
+  Cbf3Sample * cbf) noexcept
+{
+  *cbf = Cbf3Sample{};
+  cbf->on = true;
+  cbf->delta = config.body_radius + config.cbf_margin;
+  cbf->count = obstacles.sites(x, config.cbf_sites, cbf->sites);
+  for (int j = 0; j < cbf->count; ++j) {
+    cbf->h = std::min(cbf->h, cbf->sites[j].D - cbf->delta);
+  }
+}
+
+/// @brief \f$F^\star\f$ of a target F under the sampled sites, with
+/// \f$h_j = D_j - \delta_{\mathrm{safe}}\f$.
+Vec3 filterCbf(const Obstacles3Config & config, const Vec3 & F, Cbf3Sample * cbf) noexcept
+{
+  Cbf3Constraint constraints[kCbf3MaxSites];
+  for (int j = 0; j < cbf->count; ++j) {
+    constraints[j].n = cbf->sites[j].n;
+    constraints[j].h = cbf->sites[j].D - cbf->delta;
+  }
+  const Cbf3Solution solution = solveCbf3(F, constraints, cbf->count, config.cbf_gain);
+  cbf->F_in = F;
+  cbf->F = solution.F;
+  cbf->active = solution.active;
+  cbf->relaxed = solution.relaxed;
+  cbf->binds = solution.binds;
+  const double norm = F.norm();
+  cbf->speed_ratio = (solution.active && norm > 0.0) ? solution.F.norm() / norm : 1.0;
+  return solution.F;
 }
 
 }  // namespace
@@ -117,6 +170,7 @@ Tracker3Output Tracker3::step(
     state.goal_seq = input.goal_seq;
     state.xy_latched = false;
     state.holding = false;
+    state.blocked = false;
     state.phase = Phase::kFollow;
   }
   // Limiter re-seed (initial state, or a gap longer than two periods).
@@ -216,20 +270,49 @@ Tracker3Output Tracker3::step(
   // target is the chord velocity of the body's point of F (inside the kinematic box), not zero.
   const bool stopped = state.phase == Phase::kStopped;
   const bool transport_hold = state.holding && frame.moving && field_ok && !stopped;
-  const bool zero_target = stopped || (state.holding && !transport_hold) || !field_ok;
+  bool zero_target = stopped || (state.holding && !transport_hold) || !field_ok;
+  // The CBF filter (math_spec §14.8) acts at the body on every nonzero translational target: the
+  // law's command after its kinematic box, and the transported goal hold. A filtered target is
+  // boxed again by a uniform scale, which keeps every constraint with h_j >= 0.
+  const ObstacleSet3 * obstacles = input.obstacles;
+  const bool cbf_on = config_.obstacles.obstacle_mode == ObstacleMode::kCbf &&
+                      obstacles != nullptr && !obstacles->empty() && inputs_ok;
+  if (cbf_on) {
+    sampleObstacles(config_.obstacles, *obstacles, input.pose.p, &output.cbf);
+  }
+  bool blocked = false;
   if (transport_hold) {
-    output.box_scale = uniformBoxScale(hold_velocity, config_.limits);
-    output.cmd_target.v = output.box_scale * hold_velocity;
+    const Vec3 v =
+      cbf_on ? filterCbf(config_.obstacles, hold_velocity, &output.cbf) : hold_velocity;
+    output.box_scale = uniformBoxScale(v, config_.limits);
+    output.cmd_target.v = output.box_scale * v;
   } else if (!zero_target) {
-    const LawOutput3 law = law_.command(
+    LawOutput3 law = law_.command(
       output.field, input.speed_limit_scale, config_.desired_speed, config_.assumption3_margin,
       input.pose.yaw, state.last_psi_d);
-    output.cmd_target = law.cmd;
-    output.box_scale = law.c;
-    output.psi_d = law.psi_d;
     output.status |= law.status;
-    state.last_psi_d = law.psi_d;
+    if (cbf_on) {
+      const Vec3 filtered = filterCbf(config_.obstacles, law.cmd.v, &output.cbf);
+      if (output.cbf.active) {
+        law = law_.commandUniform(filtered, output.field.T_d, input.pose.yaw, state.last_psi_d);
+      }
+      // The hold (as math_spec §6.7, §10.4): the filter leaves under 5 % of the field speed
+      // (released at 10 %); FOLLOW or FINAL_APPROACH, never settled or holding (here).
+      output.cbf.hold = output.cbf.active &&
+                        output.cbf.speed_ratio < (state.blocked ? kCbfReleaseRatio : kCbfHoldRatio);
+      blocked = output.cbf.hold;
+    }
+    if (blocked) {
+      zero_target = true;  // kBlocked: the target becomes 0 and the limiter brakes
+      output.status |= Status::kBlocked;
+    } else {
+      output.cmd_target = law.cmd;
+      output.box_scale = law.c;
+      output.psi_d = law.psi_d;
+      state.last_psi_d = law.psi_d;
+    }
   }
+  state.blocked = blocked;
 
   // 6. Limiter.
   const CommandLimiter3 limiter;

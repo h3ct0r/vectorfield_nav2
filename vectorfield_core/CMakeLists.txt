@@ -110,10 +110,12 @@ add_library(vectorfield_core
   src/d3/field.cpp
   src/d3/frame.cpp
   src/d3/law.cpp
+  src/d3/obstacles.cpp
   src/d3/parametric_curve.cpp
   src/d3/polyline_curve.cpp
   src/d3/simulator.cpp
   src/d3/tracker.cpp
+  src/d3/voxel_edt.cpp
   src/expression_curve.cpp
   src/expression_parser.cpp
   src/field.cpp

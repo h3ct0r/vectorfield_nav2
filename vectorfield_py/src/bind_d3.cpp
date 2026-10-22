@@ -15,6 +15,7 @@
 // The experimental 3D core as `vectorfield.d3` (curves, field, Tracker, sim), NumPy in and out.
 // The C++ names drop their `3` suffix here: vectorfield_core::d3::Tracker3 is d3.Tracker.
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -172,6 +173,8 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
   py::array_t<std::uint32_t> status(n);
   py::array_t<bool> settled(n);
   py::array_t<double> frame(std::vector<py::ssize_t>{n, 4, 4});
+  py::array_t<double> h(n);
+  py::array_t<bool> cbf_active(n);
   auto fr = frame.mutable_unchecked<3>();
   auto p = position.mutable_unchecked<2>();
   auto vv = v.mutable_unchecked<2>();
@@ -187,6 +190,8 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
     phase.mutable_at(i) = static_cast<std::int32_t>(r.phase);
     status.mutable_at(i) = r.status;
     settled.mutable_at(i) = r.settled;
+    h.mutable_at(i) = r.h;
+    cbf_active.mutable_at(i) = r.cbf_active;
     for (py::ssize_t j = 0; j < 3; ++j) {
       p(i, j) = r.pose.p[j];
       vv(i, j) = r.cmd.v[j];
@@ -212,6 +217,8 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
   out["status"] = status;
   out["settled"] = settled;
   out["frame"] = frame;
+  out["h"] = h;
+  out["cbf_active"] = cbf_active;
   return out;
 }
 
@@ -592,6 +599,371 @@ void bindFrames3(py::module_ & m)
       "outliers", &d3::FrameTwistEstimator3::outliers, "Samples dropped as outliers.");
 }
 
+// Signed distances of one point (3,) or of (N, 3) points: (D, n) as a float or (N,), and (3,) or
+// (N, 3).
+py::tuple distances3(
+  const DoubleArray & points, const std::function<d3::ObstacleDistance3(const Vec3 &)> & f)
+{
+  if (points.ndim() == 1) {
+    const d3::ObstacleDistance3 d = f(toVec3(points, "point"));
+    return py::make_tuple(d.D, d.n);
+  }
+  const std::vector<Vec3> pts = toPoints3(points, "points");
+  py::array_t<double> D(static_cast<py::ssize_t>(pts.size()));
+  std::vector<Vec3> normals(pts.size());
+  for (std::size_t i = 0; i < pts.size(); ++i) {
+    const d3::ObstacleDistance3 d = f(pts[i]);
+    D.mutable_at(static_cast<py::ssize_t>(i)) = d.D;
+    normals[i] = d.n;
+  }
+  return py::make_tuple(D, fromPoints3(normals));
+}
+
+// A (nz, ny, nx) mask (C order, x fastest, as the planar (height, width) masks) into a grid.
+void setVoxelMask(
+  d3::VoxelGrid3 & grid, const MaskArray & mask, double resolution, const DoubleArray & origin)
+{
+  if (mask.ndim() != 3) {
+    throw py::value_error(
+      "mask must be a (nz, ny, nx) array (mask[iz, iy, ix], nonzero = occupied)");
+  }
+  const Vec3 o = toVec3(origin, "origin");
+  const bool ok = grid.setFromMask(
+    vf::Span<const std::uint8_t>(mask.data(), static_cast<std::size_t>(mask.size())),
+    static_cast<int>(mask.shape(2)), static_cast<int>(mask.shape(1)),
+    static_cast<int>(mask.shape(0)), resolution, o);
+  if (!ok) {
+    throw py::value_error(
+      "invalid voxel grid: each side in [1, 2^20], at most 2^31 - 1 voxels, a finite "
+      "resolution > 0 and a finite origin");
+  }
+}
+
+py::dict siteToDict(const d3::ObstacleSite3 & site)
+{
+  py::dict d;
+  d["x_o"] = site.x_o;
+  d["n"] = site.n;
+  d["D"] = site.D;
+  d["source"] = site.source;
+  return d;
+}
+
+void bindObstacles3(py::module_ & m)
+{
+  py::enum_<d3::PrimitiveType3>(m, "PrimitiveType", "Kind of an analytic obstacle.")
+    .value("SPHERE", d3::PrimitiveType3::kSphere)
+    .value("BOX", d3::PrimitiveType3::kBox)
+    .value("CYLINDER", d3::PrimitiveType3::kCylinder)
+    .value("PLANE", d3::PrimitiveType3::kPlane);
+
+  py::class_<d3::Primitive3>(
+    m, "Primitive",
+    "An analytic obstacle (a convex solid) with an exact signed distance: build it with "
+    "Primitive.sphere / box / cylinder / plane (math_spec 14.8).")
+    .def(py::init<>())
+    .def_static(
+      "sphere",
+      [](const DoubleArray & center, double radius) {
+        return d3::Primitive3::sphere(toVec3(center, "center"), radius);
+      },
+      py::arg("center"), py::arg("radius"), "A ball.")
+    .def_static(
+      "box",
+      [](
+        const DoubleArray & center, const DoubleArray & half_extents, double yaw, double pitch,
+        double roll) {
+        return d3::Primitive3::box(
+          toVec3(center, "center"), toVec3(half_extents, "half_extents"),
+          d3::rotationZYX(yaw, pitch, roll));
+      },
+      py::arg("center"), py::arg("half_extents"), py::arg("yaw") = 0.0, py::arg("pitch") = 0.0,
+      py::arg("roll") = 0.0,
+      "A box with half-extents along its axes, oriented by yaw, pitch, roll (Z-Y'-X''; all "
+      "zero: axis-aligned).")
+    .def_static(
+      "cylinder",
+      [](const DoubleArray & center, double radius, double half_height) {
+        return d3::Primitive3::cylinder(toVec3(center, "center"), radius, half_height);
+      },
+      py::arg("center"), py::arg("radius"), py::arg("half_height") = vf::kInf,
+      "A vertical cylinder; the default half-height (inf) makes an infinite pole.")
+    .def_static(
+      "plane",
+      [](const DoubleArray & point, const DoubleArray & normal) {
+        return d3::Primitive3::plane(toVec3(point, "point"), toVec3(normal, "normal"));
+      },
+      py::arg("point"), py::arg("normal"),
+      "The solid half-space behind the plane through `point`; `normal` points into free space.")
+    .def_readwrite("type", &d3::Primitive3::type, "PrimitiveType.")
+    // Vec3 and Mat3 members are converted by hand: GCC 13 reports a false
+    // -Wmaybe-uninitialized inside pybind11's fixed-size Eigen caster (see Limits.max_axis_speed).
+    .def_property(
+      "center", [](const d3::Primitive3 & p) { return p.center; },
+      [](d3::Primitive3 & p, const DoubleArray & v) { p.center = toVec3(v, "center"); },
+      "Centre, or a point on the plane (3,).")
+    .def_readwrite("radius", &d3::Primitive3::radius, "Sphere or cylinder radius (m).")
+    .def_property(
+      "half_extents", [](const d3::Primitive3 & p) { return p.half_extents; },
+      [](d3::Primitive3 & p, const DoubleArray & v) { p.half_extents = toVec3(v, "half_extents"); },
+      "Box half-extents (3,).")
+    .def_property(
+      "rotation", [](const d3::Primitive3 & p) { return p.rotation; },
+      [](d3::Primitive3 & p, const DoubleArray & v) {
+        if (v.ndim() != 2 || v.shape(0) != 3 || v.shape(1) != 3) {
+          throw py::value_error("rotation must be a (3, 3) matrix");
+        }
+        const auto view = v.unchecked<2>();
+        for (py::ssize_t i = 0; i < 3; ++i) {
+          for (py::ssize_t j = 0; j < 3; ++j) {
+            p.rotation(i, j) = view(i, j);
+          }
+        }
+      },
+      "Box axes as columns (3, 3).")
+    .def_readwrite("half_height", &d3::Primitive3::half_height, "Cylinder half-height (m).")
+    .def_property(
+      "normal", [](const d3::Primitive3 & p) { return p.normal; },
+      [](d3::Primitive3 & p, const DoubleArray & v) { p.normal = toVec3(v, "normal"); },
+      "Plane normal into free space (3,).")
+    .def(
+      "validate", [](const d3::Primitive3 & p) { d3::validatePrimitive3(p); },
+      "Raises ConfigError unless the primitive is well formed.")
+    .def(
+      "signed_distance",
+      [](const d3::Primitive3 & p, const DoubleArray & points) {
+        return distances3(points, [&p](const Vec3 & x) { return d3::signedDistance(p, x); });
+      },
+      py::arg("points"),
+      "(D, n): the signed distance (negative inside) and the outward normal at a point (3,) or "
+      "at (N, 3) points.")
+    .def("__repr__", [](const d3::Primitive3 & p) {
+      return "<vectorfield.d3.Primitive " + py::repr(py::cast(p.type)).cast<std::string>() + ">";
+    });
+
+  py::class_<d3::VoxelGrid3>(
+    m, "VoxelGrid",
+    "A voxel occupancy snapshot: a (nz, ny, nx) mask (mask[iz, iy, ix], nonzero = occupied), "
+    "a voxel edge (m) and the position of the corner of voxel (0, 0, 0).")
+    .def(py::init<>(), "An empty grid.")
+    .def(
+      py::init([](const MaskArray & mask, double resolution, const DoubleArray & origin) {
+        d3::VoxelGrid3 grid;
+        setVoxelMask(grid, mask, resolution, origin);
+        return grid;
+      }),
+      py::arg("mask"), py::arg("resolution"), py::arg("origin"),
+      "A grid from a (nz, ny, nx) mask; raises ValueError on inconsistent arguments.")
+    .def(
+      "set_from_mask", &setVoxelMask, py::arg("mask"), py::arg("resolution"), py::arg("origin"),
+      "Replaces the content; version changes iff the geometry or a voxel changed.")
+    .def_property_readonly(
+      "shape", [](const d3::VoxelGrid3 & g) { return py::make_tuple(g.nz(), g.ny(), g.nx()); },
+      "(nz, ny, nx).")
+    .def_property_readonly("resolution", &d3::VoxelGrid3::resolution, "Voxel edge (m).")
+    .def_property_readonly("origin", &d3::VoxelGrid3::origin, "Corner of voxel (0, 0, 0).")
+    .def_property_readonly("version", &d3::VoxelGrid3::version, "Content stamp (0 when empty).")
+    .def_property_readonly(
+      "mask",
+      [](const d3::VoxelGrid3 & g) {
+        py::array_t<std::uint8_t> out(std::vector<py::ssize_t>{g.nz(), g.ny(), g.nx()});
+        std::copy(g.mask().begin(), g.mask().end(), out.mutable_data());
+        return out;
+      },
+      "A copy of the mask, (nz, ny, nx).")
+    .def(
+      "cell_center",
+      [](const d3::VoxelGrid3 & g, int ix, int iy, int iz) { return g.cellCenter(ix, iy, iz); },
+      py::arg("ix"), py::arg("iy"), py::arg("iz"), "Centre of a voxel (3,).");
+
+  py::class_<d3::DistanceTransform3>(
+    m, "DistanceTransform",
+    "Exact 3D Euclidean distance and feature transform (Felzenszwalb-Huttenlocher, separable) "
+    "between voxel centres.")
+    .def(py::init<>(), "An empty transform.")
+    .def(
+      py::init([](const d3::VoxelGrid3 & grid) {
+        d3::DistanceTransform3 edt;
+        edt.update(grid);
+        return edt;
+      }),
+      py::arg("grid"), "The transform of `grid`.")
+    .def(
+      "update", &d3::DistanceTransform3::update, py::arg("grid"),
+      py::call_guard<py::gil_scoped_release>(),
+      "Rebuilds iff the grid's version changed; True iff it rebuilt.")
+    .def(
+      "build", &d3::DistanceTransform3::build, py::arg("grid"),
+      py::call_guard<py::gil_scoped_release>(), "Rebuilds unconditionally.")
+    .def_property_readonly("has_sites", &d3::DistanceTransform3::hasSites)
+    .def(
+      "distances",
+      [](const d3::DistanceTransform3 & e) {
+        py::array_t<double> out(std::vector<py::ssize_t>{e.nz(), e.ny(), e.nx()});
+        auto view = out.mutable_unchecked<3>();
+        for (int iz = 0; iz < e.nz(); ++iz) {
+          for (int iy = 0; iy < e.ny(); ++iy) {
+            for (int ix = 0; ix < e.nx(); ++ix) {
+              view(iz, iy, ix) = e.distance(ix, iy, iz);
+            }
+          }
+        }
+        return out;
+      },
+      "Distances (m) between voxel centres and the nearest occupied voxel centre, (nz, ny, nx).")
+    .def(
+      "squared_distance_cells",
+      [](const d3::DistanceTransform3 & e, int ix, int iy, int iz) {
+        if (ix < 0 || iy < 0 || iz < 0 || ix >= e.nx() || iy >= e.ny() || iz >= e.nz()) {
+          throw py::index_error("voxel out of bounds");
+        }
+        return e.squaredDistanceCells(ix, iy, iz);
+      },
+      py::arg("ix"), py::arg("iy"), py::arg("iz"), "Exact squared distance (voxel units^2).")
+    .def(
+      "feature",
+      [](const d3::DistanceTransform3 & e, int ix, int iy, int iz) -> py::object {
+        if (ix < 0 || iy < 0 || iz < 0 || ix >= e.nx() || iy >= e.ny() || iz >= e.nz()) {
+          throw py::index_error("voxel out of bounds");
+        }
+        int fx = 0;
+        int fy = 0;
+        int fz = 0;
+        if (!e.feature(ix, iy, iz, &fx, &fy, &fz)) {
+          return py::none();
+        }
+        return py::make_tuple(fx, fy, fz);
+      },
+      py::arg("ix"), py::arg("iy"), py::arg("iz"),
+      "The nearest occupied voxel (ix, iy, iz), or None without sites.")
+    .def(
+      "query",
+      [](const d3::DistanceTransform3 & e, const DoubleArray & points) {
+        return distances3(points, [&e](const Vec3 & x) { return e.query(x); });
+      },
+      py::arg("points"),
+      "(D, n) of the continuous query (trilinear blend of feature vectors); D = inf outside "
+      "the grid.");
+
+  py::class_<d3::ObstacleSet3>(
+    m, "ObstacleSet",
+    "The static obstacles of a scene in the evaluation frame: primitives and an optional voxel "
+    "grid (its distance transform is rebuilt only when the grid changes).")
+    .def(py::init<>())
+    .def(
+      py::init([](const std::vector<d3::Primitive3> & primitives) {
+        d3::ObstacleSet3 set;
+        for (const auto & p : primitives) {
+          set.add(p);
+        }
+        return set;
+      }),
+      py::arg("primitives"), "A set of primitives (each validated).")
+    .def("add", &d3::ObstacleSet3::add, py::arg("primitive"), "Adds a validated primitive.")
+    .def("clear_primitives", &d3::ObstacleSet3::clearPrimitives)
+    .def_property_readonly(
+      "primitives", [](const d3::ObstacleSet3 & s) { return s.primitives(); },
+      "The primitives (a copy).")
+    .def(
+      "set_voxels", &d3::ObstacleSet3::setVoxels, py::arg("grid"),
+      py::call_guard<py::gil_scoped_release>(),
+      "Copies a VoxelGrid; True iff its distance transform was rebuilt.")
+    .def("clear_voxels", &d3::ObstacleSet3::clearVoxels)
+    .def_property_readonly("has_voxels", &d3::ObstacleSet3::hasVoxels)
+    .def_property_readonly("voxels", &d3::ObstacleSet3::voxels, "The VoxelGrid (a copy).")
+    .def_property_readonly("empty", &d3::ObstacleSet3::empty)
+    .def(
+      "nearest",
+      [](const d3::ObstacleSet3 & s, const DoubleArray & points) {
+        return distances3(points, [&s](const Vec3 & x) { return s.nearest(x); });
+      },
+      py::arg("points"), "(D, n) of the nearest obstacle at a point (3,) or (N, 3) points.")
+    .def(
+      "sites",
+      [](const d3::ObstacleSet3 & s, const DoubleArray & point, int count) {
+        d3::ObstacleSite3 sites[d3::kCbf3MaxSites];
+        const int n = s.sites(toVec3(point, "point"), count, sites);
+        py::list out;
+        for (int j = 0; j < n; ++j) {
+          out.append(siteToDict(sites[j]));
+        }
+        return out;
+      },
+      py::arg("point"), py::arg("count") = d3::kCbf3MaxSites,
+      "The CBF sites at a point, nearest first: dicts with x_o, n, D and source (primitive "
+      "index, -1 for voxels).");
+
+  py::class_<d3::Obstacles3Config>(
+    m, "ObstaclesConfig", "Obstacle handling of the 3D tracker (TrackerConfig.obstacles).")
+    .def(py::init<>())
+    .def_readwrite(
+      "obstacle_mode", &d3::Obstacles3Config::obstacle_mode,
+      "vectorfield.ObstacleMode: NONE or CBF (CONTOUR is planar only).")
+    .def_readwrite("body_radius", &d3::Obstacles3Config::body_radius, "Body sphere radius (m).")
+    .def_readwrite("cbf_margin", &d3::Obstacles3Config::cbf_margin, "Margin m (m).")
+    .def_readwrite("cbf_gain", &d3::Obstacles3Config::cbf_gain, "gamma_b (1/s).")
+    .def_readwrite("cbf_sites", &d3::Obstacles3Config::cbf_sites, "Sites k in [1, 4].");
+
+  // Getters by value: GCC 15 reports a false -Wmaybe-uninitialized in def_readonly here.
+  py::class_<d3::Cbf3Sample>(m, "CbfSample", "The CBF filter of one cycle (TrackerOutput.cbf).")
+    .def_property_readonly(
+      "on", [](const d3::Cbf3Sample & c) { return c.on; }, "Mode CBF with obstacles.")
+    .def_property_readonly(
+      "active", [](const d3::Cbf3Sample & c) { return c.active; }, "The filter changed the target.")
+    .def_property_readonly(
+      "relaxed", [](const d3::Cbf3Sample & c) { return c.relaxed; },
+      "Conflicting push-outs were dropped.")
+    .def_property_readonly(
+      "hold", [](const d3::Cbf3Sample & c) { return c.hold; }, "The hold condition (kBlocked).")
+    .def_property_readonly(
+      "count", [](const d3::Cbf3Sample & c) { return c.count; }, "Constrained sites.")
+    .def_property_readonly(
+      "delta", [](const d3::Cbf3Sample & c) { return c.delta; },
+      "delta_safe = body_radius + cbf_margin.")
+    .def_property_readonly(
+      "h", [](const d3::Cbf3Sample & c) { return c.h; }, "Least barrier min_j D_j - delta_safe.")
+    .def_property_readonly(
+      "speed_ratio", [](const d3::Cbf3Sample & c) { return c.speed_ratio; }, "|F*| / |F|.")
+    .def_property_readonly(
+      "F_in", [](const d3::Cbf3Sample & c) { return c.F_in; }, "Target before the filter (3,).")
+    .def_property_readonly(
+      "F", [](const d3::Cbf3Sample & c) { return c.F; }, "F* (3,).")
+    .def_property_readonly(
+      "binds", [](const d3::Cbf3Sample & c) { return c.binds; }, "Bit j: site j binds.")
+    .def_property_readonly(
+      "sites",
+      [](const d3::Cbf3Sample & c) {
+        py::list out;
+        for (int j = 0; j < c.count; ++j) {
+          out.append(siteToDict(c.sites[j]));
+        }
+        return out;
+      },
+      "The sites (dicts with x_o, n, D, source), nearest first.");
+
+  m.def(
+    "solve_cbf",
+    [](const DoubleArray & F, const DoubleArray & normals, const DoubleArray & h, double gain) {
+      const std::vector<Vec3> n = toPoints3(normals, "normals");
+      if (h.ndim() != 1 || static_cast<std::size_t>(h.shape(0)) != n.size()) {
+        throw py::value_error("h must be a (k,) array matching the (k, 3) normals");
+      }
+      if (n.size() > static_cast<std::size_t>(d3::kCbf3MaxSites)) {
+        throw py::value_error("at most 4 constraints");
+      }
+      d3::Cbf3Constraint c[d3::kCbf3MaxSites];
+      for (std::size_t j = 0; j < n.size(); ++j) {
+        c[j].n = n[j];
+        c[j].h = h.at(static_cast<py::ssize_t>(j));
+      }
+      const d3::Cbf3Solution s = d3::solveCbf3(toVec3(F, "F"), c, static_cast<int>(n.size()), gain);
+      return py::make_tuple(s.F, s.active, s.relaxed, static_cast<int>(s.binds));
+    },
+    py::arg("F"), py::arg("normals"), py::arg("h"), py::arg("gain"),
+    "The 3D CBF filter: argmin |F' - F| s.t. n_j . F' >= -gain h_j (k <= 4 unit normals); "
+    "returns (F*, active, relaxed, binds).");
+}
+
 void bindTracker3(py::module_ & m, py::module_ & sim)
 {
   bindFrames3(m);
@@ -649,13 +1021,16 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
     .def_readwrite(
       "control_frequency", &d3::Tracker3Config::control_frequency, "Control rate (Hz).")
     .def_readwrite("limits", &d3::Tracker3Config::limits, "Limits.")
-    .def_readwrite("yaw", &d3::Tracker3Config::yaw, "YawConfig.");
+    .def_readwrite("yaw", &d3::Tracker3Config::yaw, "YawConfig.")
+    .def_readwrite(
+      "obstacles", &d3::Tracker3Config::obstacles, "ObstaclesConfig (math_spec 14.8).");
 
   py::class_<d3::Tracker3State>(m, "TrackerState", "Cross-cycle state (copyable).")
     .def(py::init<>())
     .def_readonly("phase", &d3::Tracker3State::phase, "Phase.")
     .def_readonly("xy_latched", &d3::Tracker3State::xy_latched, "Goal latch.")
     .def_readonly("holding", &d3::Tracker3State::holding, "Goal hold.")
+    .def_readonly("blocked", &d3::Tracker3State::blocked, "CBF hold of the last step.")
     .def("copy", [](const d3::Tracker3State & s) { return s; });
 
   py::class_<d3::Tracker3Output>(m, "TrackerOutput", "Outputs of one cycle.")
@@ -685,7 +1060,11 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       "Curve velocity at the foot (transport velocity for an open curve in a moving frame).")
     .def_readonly(
       "frame_velocity", &d3::Tracker3Output::frame_velocity, "Frame velocity at the body (3,).")
-    .def_readonly("x_star_curve", &d3::Tracker3Output::x_star_curve, "Foot in the curve frame.");
+    .def_readonly("x_star_curve", &d3::Tracker3Output::x_star_curve, "Foot in the curve frame.")
+    .def_property_readonly(
+      "cmd_target_v", [](const d3::Tracker3Output & o) { return o.cmd_target.v; },
+      "Target velocity before the limiter (3,).")
+    .def_readonly("cbf", &d3::Tracker3Output::cbf, "CbfSample of this cycle.");
 
   py::class_<d3::Tracker3>(m, "Tracker", "The minimal 3D tracker (experimental).")
     .def(py::init<const d3::Tracker3Config &>(), py::arg("config") = d3::Tracker3Config{})
@@ -697,9 +1076,13 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
         const d3::Tracker3 & tracker, const Curve3Box & curve, const DoubleArray & position,
         double yaw, const d3::Tracker3State & state, double t, double dt,
         const py::object & measured_v, double measured_wz, std::uint32_t goal_seq,
-        double speed_limit_scale, bool cancel, const py::object & frame) {
+        double speed_limit_scale, bool cancel, const py::object & frame,
+        const py::object & obstacles) {
         d3::Tracker3Input input;
         input.curve = curve.curve.get();
+        if (!obstacles.is_none()) {
+          input.obstacles = obstacles.cast<const d3::ObstacleSet3 *>();
+        }
         if (!frame.is_none()) {
           input.frame = frame.cast<d3::CurveFrame3>();
         }
@@ -722,8 +1105,10 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       py::arg("state") = d3::Tracker3State{}, py::arg("t") = 0.0, py::arg("dt") = 0.05,
       py::arg("measured_v") = py::none(), py::arg("measured_wz") = 0.0, py::arg("goal_seq") = 0U,
       py::arg("speed_limit_scale") = 1.0, py::arg("cancel") = false, py::arg("frame") = py::none(),
+      py::arg("obstacles") = py::none(),
       "One control cycle; returns (TrackerOutput, next TrackerState). `frame`: the CurveFrame "
-      "of this cycle (default identity, static).");
+      "of this cycle (default identity, static); `obstacles`: an ObstacleSet in the evaluation "
+      "frame (used with obstacles.obstacle_mode CBF).");
 
   sim.def(
     "integrate",
@@ -753,7 +1138,7 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       py::init([](
                  const d3::Tracker3 & tracker, double period, double velocity_time_constant,
                  bool stop_when_settled, bool stop_when_stopped, const py::object & frame,
-                 const py::object & frame_motion) {
+                 const py::object & frame_motion, const py::object & obstacles) {
         d3::sim::SimulationOptions3 options;
         options.period = period;
         options.plant.velocity_time_constant = velocity_time_constant;
@@ -763,13 +1148,18 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
           options.frame = frame.cast<d3::CurveFrame3>();
         }
         options.frame_motion = frameMotion(frame_motion);
+        if (!obstacles.is_none()) {
+          options.obstacles = obstacles.cast<d3::ObstacleSet3>();
+        }
         return Simulator3Box{d3::sim::ClosedLoopSimulator3(tracker, options)};
       }),
       py::arg("tracker"), py::arg("period") = 0.05, py::arg("velocity_time_constant") = 0.0,
       py::arg("stop_when_settled") = true, py::arg("stop_when_stopped") = true,
       py::arg("frame") = py::none(), py::arg("frame_motion") = py::none(),
+      py::arg("obstacles") = py::none(),
       "`frame`: the CurveFrame at the reset time, moved with its constant twist; "
-      "`frame_motion(t) -> CurveFrame` overrides it (math_spec 14.7).")
+      "`frame_motion(t) -> CurveFrame` overrides it (math_spec 14.7). `obstacles`: an "
+      "ObstacleSet (copied) for the tracker's CBF mode (math_spec 14.8).")
     .def(
       "frame_at", [](const Simulator3Box & s, double t) { return s.simulator.frameAt(t); },
       py::arg("t"), "The curve frame at time t.")
@@ -806,7 +1196,8 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       "Steps for `duration` seconds (or until settled / a cancel completes; cancel_at is "
       "relative to the current time) and returns every record since reset as a dict of "
       "arrays: t, position (N, 3), yaw, v (N, 3), wz, D, sigma, s_star, F (N, 3), phase, "
-      "status, settled, frame (N, 4, 4).")
+      "status, settled, frame (N, 4, 4), h (the nearest obstacle's barrier, inf without the "
+      "filter), cbf_active.")
     .def_property_readonly(
       "position", [](const Simulator3Box & s) { return s.simulator.pose().p; }, "Position (3,).")
     .def_property_readonly(
@@ -830,6 +1221,7 @@ void bindD3(py::module_ & m)
   py::module_ sim3 = d3m.def_submodule("sim", "3D plant integration and closed-loop simulator.");
   bindCurves3(d3m);
   bindField3(d3m);
+  bindObstacles3(d3m);
   bindTracker3(d3m, sim3);
 }
 

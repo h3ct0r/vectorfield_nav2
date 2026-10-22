@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "vectorfield_core/d3/frame.hpp"
+#include "vectorfield_core/d3/obstacles.hpp"
 #include "vectorfield_core/d3/tracker.hpp"
 #include "vectorfield_core/d3/types.hpp"
 #include "vectorfield_core/status.hpp"
@@ -81,6 +82,9 @@ struct SimulationOptions3
   /// Optional frame motion; when set it gives the frame (and the twist the tracker sees) at
   /// every step and `frame` is ignored.
   FrameMotion3 frame_motion;
+  /// Static obstacles in the evaluation frame, used when a step's input has none (with
+  /// `obstacle_mode` kCbf; math_spec §14.8).
+  ObstacleSet3 obstacles;
 };
 
 /// @brief One recorded step.
@@ -108,6 +112,11 @@ struct SimulationRecord3
   Vec3 F{Vec3::Zero()};
   /// The curve frame \f$T_{\mathrm{eval}\leftarrow\mathcal F}\f$ at the start of the step.
   Isometry3 T_eval_curve{Isometry3::Identity()};
+  /// Barrier of the nearest obstacle, \f$\min_j D_j - \delta_{\mathrm{safe}}\f$ (m; +inf
+  /// without the filter).
+  double h{kInf};
+  /// The CBF filter changed the target.
+  bool cbf_active{false};
 };
 
 /// @brief Closed loop of a Tracker3 and the plant at a fixed period (ZOH). The simulator owns

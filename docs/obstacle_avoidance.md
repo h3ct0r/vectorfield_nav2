@@ -275,6 +275,9 @@ normals of the constraints that bind, the $\delta_{\mathrm{safe}}$ disc about th
 point (red while $h < 0$), the filter's correction and the text `cbf h 0.12 m | 1/2 bind | 85 %`.
 The status text shows `CBF` while the filter binds.
 
+The experimental 3D core has the same filter for a spherical body among spheres, boxes, poles,
+planes and voxels ({ref}`core-3d-obstacles`, 0.3.0).
+
 ## Contour or CBF
 
 | | `contour` | `cbf` |

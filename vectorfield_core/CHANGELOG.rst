@@ -4,6 +4,21 @@ Changelog for package vectorfield_core
 
 Forthcoming
 -----------
+* 3D core (experimental): obstacle avoidance by a 3D CBF safety filter (math_spec §14.8
+  [Design, 0.3.0], m7_3d.md "Obstacles"). New d3/obstacles.hpp: analytic Primitive3 obstacles
+  (sphere, oriented box, vertical cylinder or infinite pole, solid half-space) with exact
+  signedDistance() and outward normals; VoxelGrid3 and DistanceTransform3, the exact separable
+  Felzenszwalb-Huttenlocher distance and feature transform in 3D (rebuilt only when the grid
+  changes) with a trilinear continuous query; ObstacleSet3 (primitives plus voxels, sites() for
+  the filter); solveCbf3(), the exact active-set QP over up to four constraints. Tracker3Config::
+  obstacles (Obstacles3Config: obstacle_mode none or cbf, body_radius, cbf_margin, cbf_gain,
+  cbf_sites), Tracker3Input::obstacles, Tracker3State::blocked, Tracker3Output::cbf; the filter
+  acts on every nonzero translational target, and its hold sets kBlocked with the planar 5 % /
+  10 % band. VelocityLaw3::commandUniform(), SimulationOptions3::obstacles, SimulationRecord3::h
+  and cbf_active. Without obstacles Tracker3 is bit-identical. Oracles O3D-15 to O3D-23
+  (test_d3_obstacles, test_oracle_d3_cbf), no-allocation cases with obstacles and for the voxel
+  EDT rebuild, and the benchmarks BM_D3CbfSolve_FourSites, BM_D3TrackerStep_Helix_Cbf* and
+  BM_D3VoxelEdt_64.
 * 3D core (experimental): moving curve frames (math_spec §14.7 [Design, 0.3.0], m7_3d.md "Moving
   frames"). New d3/frame.hpp: CurveFrame3 {T_eval_curve, FrameTwist3 twist, moving},
   expSE3()/logSE3()/bodyTwist()/extrapolate()/frameVelocity(), and FrameTwistEstimator3 (log_SE(3)

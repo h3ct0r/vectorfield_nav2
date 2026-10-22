@@ -304,6 +304,38 @@ def moving_frame_3d(plt):
     return fig
 
 
+def cbf_sphere_3d(plt):
+    """(9) The 3D CBF filter: the helix past two spheres, one outward and one inward of it."""
+    curve = d3.make_curve(d3.CurveSpec.builtin('helix'))
+    primitives = [
+        d3.Primitive.sphere(np.array([1.35, 0.0, 0.5]), 0.3),
+        d3.Primitive.sphere(np.array([-0.7, 0.0, 0.75]), 0.25),
+    ]
+    config = d3.TrackerConfig(desired_speed=0.5)
+    config.obstacles.obstacle_mode = vf.ObstacleMode.CBF
+    config.obstacles.body_radius = 0.2
+    config.obstacles.cbf_margin = 0.05
+    simulator = d3.sim.ClosedLoopSimulator(
+        d3.Tracker(config), obstacles=d3.ObstacleSet(primitives)
+    )
+    simulator.reset(np.array([1.0, 0.0, 0.0]))
+    run = simulator.run(curve, 60.0)
+    fig, ax = curves3d.axes3d(plt, figsize=(6.0, 5.0))
+    points = curve.sample(ds=0.04)
+    ax.plot(*points.T, color=plotting.INK, lw=1.2, label='helix')
+    path = run['position'][::2]
+    ax.plot(*path.T, color=plotting.SERIES[1], lw=1.1, label='Tracker3 with the CBF filter')
+    ax.scatter(*path[0], color=plotting.SERIES[1], s=14)
+    ax.scatter(*path[-1], color=plotting.SERIES[1], marker='x', s=24)
+    extent = np.vstack([points, run['position'], curves3d.obstacle_extent(primitives)])
+    curves3d.set_equal_aspect(ax, extent, margin=0.05)
+    lo, hi = (np.array(lim) for lim in zip(ax.get_xlim(), ax.get_ylim(), ax.get_zlim()))
+    curves3d.draw_obstacles(ax, primitives, lo, hi, color=plotting.OBSTACLE, alpha=0.35)
+    ax.view_init(elev=22.0, azim=-62.0)
+    ax.legend(loc='upper left')
+    return fig
+
+
 FIGURES = {
     'field_ellipse.svg': field_ellipse,
     'field_decomposition.svg': field_decomposition,
@@ -313,6 +345,7 @@ FIGURES = {
     'models_convergence.svg': models_convergence,
     'viviani_3d.svg': viviani_3d,
     'moving_frame_3d.svg': moving_frame_3d,
+    'cbf_sphere_3d.svg': cbf_sphere_3d,
 }
 
 

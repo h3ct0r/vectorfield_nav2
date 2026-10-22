@@ -2140,8 +2140,9 @@ there and the predicates defined in this document.
   out to a waypoint and back along the same line is one, and a 177°+ corner may be one
   [Design, 0.2.1]. Orientations that a smoother derived from a headingless plan are taken at face
   value (nav2_smoother marks a leg reverse when it leaves toward $-x$ of an identity yaw).
-- **The 3D core** ({ref}`sec-3d`) is experimental. It has no obstacles and no rotate phases, and
-  its open curves must be static in their frame (moving frames: §14.7 [Design, 0.3.0]). The
+- **The 3D core** ({ref}`sec-3d`) is experimental. It has no rotate phases, its obstacles are
+  static, a spherical body and the CBF filter only (§14.8 [Design, 0.3.0]: no contour, no
+  rollout), and its open curves must be static in their frame (moving frames: §14.7). The
   ZOH equilibrium $D_{\mathrm{zoh}}$ of §14.3 applies to every holonomic law.
 
 (sec-3d)=
@@ -2273,7 +2274,7 @@ latched and $\lVert p - g\rVert \le \sigma_{\mathrm{stop}} = \mathrm{tol}/2$. Go
 §9.2: the target is zero while $\mathrm{hold}_k = \text{settled}_k \vee (\mathrm{hold}_{k-1}
 \wedge \text{latched})$. A cancel enters STOPPED, latched until `goal_seq` changes. The cancel
 completes once $\lVert v\rVert < 0.01$ m/s and $\lvert\omega\rvert < 0.01$ rad/s. There are no
-obstacles, rotate phases or rollouts.
+rotate phases or rollouts. Obstacles enter only through the CBF filter of §14.8 [0.3.0].
 
 (sec-3d-oracles)=
 
@@ -2289,12 +2290,22 @@ obstacles, rotate phases or rollouts.
 | O3D-6 | $v_r - p_T \le \eta \le v_r + p_T$ (time-varying, random) | $10^{-12}$ |
 | O3D-7 | closed loop (Tracker3, 0.5 m/s, 20 Hz ZOH), helix and Viviani: $D < 0.01$ m after the transient; helix: $D = D_{\mathrm{zoh}}$ | 3 % |
 | O3D-8 | open polyline: settled within $\sigma_{\mathrm{stop}}$ of the goal; cancel → STOPPED | — |
-| O3D-9 | steady-state `Tracker3::step` performs no allocation (static and moving frames) | 0 |
+| O3D-9 | steady-state `Tracker3::step` performs no allocation (static and moving frames; with obstacles and a voxel EDT rebuild [0.3.0]) | 0 |
 | O3D-10 | closed curve in a translating frame, $u = R v_{\mathcal F}$: $\Phi_T = (I - TT^\top)u$, $v_c = u$ [0.3.0] | $10^{-9}$ |
 | O3D-11 | $v_c$ = central difference ($10^{-5}$ s) of $T(t)\,r_{\mathcal F}(u^\star, t)$, rotating frame, moving expression [0.3.0] | $10^{-6}$ |
 | O3D-12 | closed loop, 2 m circle in a frame translating at 0.16 m/s: $D < 0.01$ m after the transient [0.3.0] | — |
 | O3D-13 | closed loop, helix in a frame rotating at 0.15 rad/s (vertical and tilted axis): $D < 0.02$ m until the goal, no kAssumption3Clamped, settled and held [0.3.0] | — |
 | O3D-14 | FrameTwistEstimator3 under a constant twist, heading crossing $\pm\pi$: estimate = twist [0.3.0] | $10^{-6}$ |
+| O3D-15 | voxel EDT on random grids (6 shapes, 4 densities): squared distances = brute force, each feature an occupied voxel at that distance [0.3.0] | 0 |
+| O3D-16 | `solveCbf3`, 4000 random problems with $k \le 4$, $h_j \ge 0$: feasible and KKT (multipliers $\ge 0$ on binding constraints) [0.3.0] | $10^{-9}$ |
+| O3D-17 | closed loop (0.5 m/s, 20 Hz, $r_b = 0.2$, $m = 0.05$), line, sphere 0.2 m off it: passes, $h \ge -10^{-3}$, then $D < 0.01$ m [0.3.0] | — |
+| O3D-18 | helix, sphere 0.35 m outward of it: passes, $h \ge -10^{-3}$, rejoins ($D < 0.015$ m) and settles [0.3.0] | — |
+| O3D-19 | sphere centred on the line: kBlocked from the hold on without toggling, at rest, $0 \le h < 0.02$ m [0.3.0] | — |
+| O3D-20 | ground plane under a descending helix: $z \ge \delta_{\mathrm{safe}} - 10^{-3}$, follows to the end above the goal [0.3.0] | — |
+| O3D-21 | walls $\lvert y\rvert \le 0.6$ around the helix ($\lvert y\rvert \le 1$): $h \ge -10^{-3}$, no kBlocked, settled [0.3.0] | — |
+| O3D-22 | between two spheres (a 7 cm gap): both bind, target change $\le 0.08$ m/s per step, at most 2 reversals [0.3.0] | — |
+| O3D-23 | $64^3$ voxelised sphere (0.05 m) off the line: true barrier $\ge -\mathrm{res}$ [0.3.0] | — |
+| O3D-24 | no obstacles, or obstacles the filter never meets: bit-identical to `obstacle_mode` none (static and rotating frame) [0.3.0] | 0 |
 
 (sec-3d-frames)=
 
@@ -2335,6 +2346,68 @@ $$
   duplicates, $\Delta t$ window, outliers ($\lVert v\rVert$, $\lVert\omega\rVert$), LPF and
   staleness. Extrapolation uses $T_k\exp(\tau\hat\xi)$.
 - **Static frame** (identity, not moving): no mapping, so results are bit-identical to 0.2.
+
+(sec-3d-obstacles)=
+
+### 14.8 Obstacles [Design, 0.3.0]
+
+Static obstacles in the evaluation frame and a spherical body of radius $r_b$ = `body_radius`
+centred at $p$ ({doc}`m7_3d`, "Obstacles"). `obstacle_mode` is none or cbf; contour (§6.4) is
+planar only, so it is a ConfigError.
+
+- **Primitives** (convex solids). The signed distance $D$ is exact (negative inside),
+  $n = \nabla D$ and $x_o = x - Dn$ is the nearest surface point.
+  - Sphere $(c, R)$: $D = \lVert x - c\rVert - R$, with $n = +z$ at the centre.
+  - Box $(c, h, Q)$, with the axes the columns of $Q$: let $q = Q^\top(x - c)$ and
+    $d = \lvert q\rvert - h$. Outside, $D = \lVert\max(d, 0)\rVert$ and
+    $n = Q(\operatorname{sign} q \odot \max(d, 0))/D$. Inside, $D = \max_i d_i$ and
+    $n = \operatorname{sign}(q_i)\,Q e_i$ for the first maximiser $i$.
+  - Vertical cylinder $(c, R, H)$; $H = \infty$ is a pole. Let $d_r = \lVert(x - c)_{xy}\rVert - R$
+    and $d_z = \lvert x_z - c_z\rvert - H$. Outside, $D = \lVert(\max(d_r, 0), \max(d_z, 0))\rVert$;
+    inside, $D = \max(d_r, d_z)$.
+  - Plane through $p_0$ with unit normal $\nu$ into free space: $D = \nu^\top(x - p_0)$.
+- **Voxels.** A uint8 grid (x fastest) with edge res. $\mathrm{EDT}_3$ is the separable
+  Felzenszwalb–Huttenlocher transform: one lower envelope per line along z, then y, then x, each
+  carrying the flat index of the nearest occupied voxel (the feature). Squared distances between
+  voxel centres are exact integers (int64 comparisons, sides $\le 2^{20}$). The transform is rebuilt
+  only when the grid's content stamp changes. The continuous query blends $v_c = x - f(c)$ over the
+  eight voxel centres around $x$ with trilinear weights when every pair has $v_a^\top v_b \ge 0$ and
+  none is zero; otherwise it takes the feature of the voxel containing $x$ (§6.1 in 3D). There is no
+  voxel site outside the grid. $D$ is measured to occupied voxel *centres*, so $h \ge 0$ keeps the
+  body $m - \tfrac{\sqrt3}{2}\mathrm{res}$ from the voxel cubes.
+- **Sites.** Each primitive gives one site. The voxels give the continuous query, then the nearest
+  features of the $5^3$ voxels around $x$ whose normals are more than 45° from the voxel normals
+  already taken; voxel sites at distance 0 are skipped. The $k$ = `cbf_sites` $\le 4$ sites with the
+  least $D$ are constrained (ties keep primitives in order, then voxels).
+- **Filter.** $h_j = D_j - \delta_{\mathrm{safe}}$ with $\delta_{\mathrm{safe}} = r_b + m$,
+  $m$ = `cbf_margin`, and
+  $$
+  F^\star = \arg\min_{F'} \lVert F' - F\rVert^2 \quad \text{s.t.} \quad n_j^\top F' \ge -\gamma_b h_j,\ j \le k.
+  $$
+  The optimum is the least-cost feasible candidate among $F$ and the projections of $F$ onto
+  $\{n_j^\top F' = -\gamma_b h_j,\ j \in S\}$ for every $S$ with $\lvert S\rvert \le 3$ whose normals
+  are independent (Gram determinant $> 10^{-10}$) [Derived: by Carathéodory the KKT multipliers can be
+  supported on an independent subset, whose affine projection is unique]. The relaxation and the
+  scaling $\lVert F^\star\rVert \le \lVert F\rVert$ are those of §6.7.
+- **Where.** $F$ is the law's command after its kinematic box (§14.4). When the filter binds,
+  $F^\star$ is boxed again by a uniform scale $c \le 1$, which keeps every constraint with
+  $h_j \ge 0$; the yaw policy then uses $F^\star$ as the kField source. The transported goal hold
+  (§14.7) is filtered too. Zero targets (STOPPED, the goal hold in a static frame, an invalid field)
+  are not: the filter never pushes a body at rest. Unlike §6.7 the filter stays on after the XY
+  latch, because Tracker3 has no rollout to protect the settle.
+- **Exactness** [Derived]. $\dot p = v$ under ZOH, and $D_j$ of a convex solid is convex, so
+  $h_j(p + F^\star\Delta t) \ge (1 - \gamma_b\Delta t)\,h_j(p)$ when $\gamma_b\Delta t < 1$, which is
+  enforced (`cbf_gain` $<$ `control_frequency`). For planes the bound is exact. The CommandLimiter
+  can delay the deceleration $\gamma_b v_r$ of a head-on approach, so keep
+  $\gamma_b v_r \le a_{\mathrm{dec}}$ (2 · 0.5 = 1 m/s² by default). Only $k$ sites are
+  constrained.
+- **Hold.** In FOLLOW or FINAL_APPROACH, a binding filter with $\lVert F^\star\rVert < 0.05\lVert F\rVert$
+  sets kBlocked and makes the target zero, so the limiter brakes. The hold releases at 0.10
+  (`Tracker3State::blocked`). It is cleared by a `goal_seq` change and is not evaluated in STOPPED
+  or while holding the goal. Head-on ($F \parallel -n_j$) the body stops with
+  $h \approx 0.05\,v_r/\gamma_b$.
+- **Moving frames.** The obstacles are static in the evaluation frame while the curve may move
+  (§14.7). Moving obstacles are out of scope: they need $\partial_t D$ in $\dot h$.
 
 (sec-math-viz)=
 

@@ -27,6 +27,7 @@ equations are in {doc}`design/math_spec` §14, and the design rationale is in
 | `Tracker3`, `Tracker3Config` | `Tracker`, `TrackerConfig` | FOLLOW, FINAL_APPROACH, settled and goal hold, cancel → STOPPED |
 | `sim::integrate`, `sim::ClosedLoopSimulator3` | `d3.sim.integrate`, `d3.sim.ClosedLoopSimulator` | Point plant with an optional velocity lag $\tau$, closed loop |
 | `CurveFrame3`, `FrameTwistEstimator3`, `expSE3()`, `logSE3()` | `CurveFrame`, `FrameTwistEstimator`, `exp_se3()`, `log_se3()` | Curves in a moving frame, the frame twist from sampled poses [0.3.0] |
+| `Primitive3`, `VoxelGrid3`, `DistanceTransform3`, `ObstacleSet3`, `solveCbf3()` | `Primitive`, `VoxelGrid`, `DistanceTransform`, `ObstacleSet`, `solve_cbf()` | Static obstacles and the 3D CBF safety filter [0.3.0] |
 
 The 3D core is compiled into the same `vectorfield_core` library as the planar core. Include
 `vectorfield_core/d3.hpp`; the planar umbrella header does not include it. It reuses the planar
@@ -79,6 +80,7 @@ vf-sim3d --curve viviani --pose 2.5,0.5,0.6 --streamlines 10 --gif viviani.gif
 vf-sim3d --curve 'cos(s); sin(s); 0.3*sin(2*s)' --lag 0.1 --csv run.csv
 vf-sim3d --curve helix:cx=0.8 --frame-rate 0,0,0.15 --gif rotating.gif
 vf-sim3d --curve circle:radius=2 --frame-velocity 0.15,0.05,0 -o translating.png
+vf-sim3d --curve helix --pose 1,0,0 --sphere 1.35,0,0.5,0.3 --cylinder 0,-1.4,0.1 -o avoid.png
 vf-curve --dim 3 --list
 vf-curve --dim 3 --curve torus_knot:p=3,q=2 --export knot.csv --export knot.yaml --plot -o knot.png
 ```
@@ -146,6 +148,69 @@ $\pm\pi$), drops outliers, low-pass filters the twist and marks old input stale.
 moving frame adds to the residual distance: 8 mm on a 2 m circle translating at 0.16 m/s, and
 17 mm on the helix above (math_spec §14.7).
 
+(core-3d-obstacles)=
+
+## Obstacles
+
+[0.3.0] With `obstacles.obstacle_mode = CBF`, `Tracker3` keeps a spherical body away from static
+obstacles. It uses a control-barrier-function safety filter, the 3D form of the planar
+{ref}`cbf-mode`. The equations are in math_spec §14.8, and the design rationale is in
+{doc}`design/m7_3d`, "Obstacles".
+
+- **Obstacles** live in the evaluation frame. They are analytic primitives: spheres, boxes
+  (axis-aligned, or rotated by yaw, pitch and roll), vertical cylinders (finite, or infinite
+  poles) and planes (the solid half-space behind the normal: ground, ceiling, walls). A voxel
+  grid can be added, given as a `(nz, ny, nx)` uint8 mask with a resolution and the origin of
+  its corner. Its exact 3D distance transform is rebuilt only when the grid changes.
+- **Body.** A sphere of radius `body_radius`. With `cbf_margin` $m$, the barrier of each nearby
+  obstacle is $h = D - (r_b + m)$.
+- **Filter.** The velocity command becomes the closest velocity that satisfies
+  $n_j^\top v \ge -\gamma_b h_j$ for the `cbf_sites` ($\le 4$) nearest obstacles, with
+  $\gamma_b$ = `cbf_gain`. The body slows down as it approaches an obstacle and slides along it.
+  A single integrator follows this filtered command exactly, so $h$ stays non-negative up to the
+  limiter's delay.
+- **Hold.** When the filter leaves less than 5 % of the field speed, for example with an
+  obstacle centred on the path, the tracker sets `Status.BLOCKED` and brakes to rest. It stays
+  in FOLLOW and resumes when the obstacle clears (released at 10 %).
+
+```python
+obstacles = d3.ObstacleSet([
+    d3.Primitive.sphere(np.array([1.35, 0.0, 0.5]), 0.3),
+    d3.Primitive.plane(np.array([0.0, 0.0, -0.3]), np.array([0.0, 0.0, 1.0])),  # the ground
+    d3.Primitive.cylinder(np.array([0.0, -1.4, 0.0]), 0.1),                     # a pole
+])
+mask = np.zeros((32, 32, 32), dtype=np.uint8)   # mask[iz, iy, ix], nonzero = occupied
+mask[:, 12:20, 2] = 1
+obstacles.set_voxels(d3.VoxelGrid(mask, 0.1, np.array([-0.2, 0.0, -0.5])))
+
+config = d3.TrackerConfig(desired_speed=0.5)
+config.obstacles.obstacle_mode = vf.ObstacleMode.CBF
+config.obstacles.body_radius = 0.2              # cbf_margin 0.05, cbf_gain 2, cbf_sites 4
+sim = d3.sim.ClosedLoopSimulator(d3.Tracker(config), obstacles=obstacles)
+sim.reset(np.array([1.0, 0.0, 0.0]))
+run = sim.run(curve, 60.0)
+print(run['h'].min(), run['cbf_active'].sum())  # least barrier (m), steps the filter acted
+```
+
+In C++ the same scene is an `ObstacleSet3`, passed as `Tracker3Input::obstacles` or
+`SimulationOptions3::obstacles`. `Tracker3Output::cbf` reports the sites, the barriers and
+$F^\star$.
+
+:::{figure} _static/figures/cbf_sphere_3d.svg
+:alt: A three-turn helix with a grey sphere just outside its first turn and another just inside its second turn; the orange trajectory leaves the helix to pass each sphere and rejoins it.
+:width: 70%
+
+The default helix past two spheres (body radius 0.2 m, margin 0.05 m, 0.5 m/s, 20 Hz). The
+trajectory (orange) bends inward around the outer sphere and outward around the inner one, then
+rejoins the helix.
+:::
+
+In the tests (math_spec O3D-17 to O3D-24) the least barrier is 0.8 mm past a sphere beside a
+line and 6.9 mm past one beside the helix. A centred sphere holds the robot at
+$h \approx 12$ mm. A floor under a descending helix and two walls narrower than the helix are
+followed at $h = 0$. A voxelised sphere (0.05 m voxels) is passed at $-18$ mm from the true
+surface; voxel distances are measured to voxel centres.
+
 ## Behaviour
 
 - **Field.** $\lVert\Phi\rVert = v_r$ for static curves and $\dot D = -\eta G(D)$ hold to
@@ -166,13 +231,18 @@ moving frame adds to the residual distance: 8 mm on a 2 m circle translating at 
   the rate or `convergence_gain` to reduce it.
 
 Benchmarks (Apple M3 Pro, Release; {doc}`benchmarks`): closest point and field on the helix,
-with the hint carried, take 1.0 µs, and one `Tracker3::step` takes 1.1 µs. `Tracker3::step`
-does not allocate.
+with the hint carried, take 1.0 µs, and one `Tracker3::step` takes 1.1 µs. With the CBF filter
+a step takes 1.3 µs with three primitive sites and 3.1 µs with a voxel grid. The filter's QP
+alone takes 0.14 µs, and the EDT of a $64^3$ grid takes 6.6 ms. `Tracker3::step` does not
+allocate.
 
 ## Limitations
 
-- No obstacles. A spherical-obstacle CBF filter (the closed-form one-constraint case of
-  {ref}`cbf-mode`) is future work.
+- Obstacles must be static in the evaluation frame. The body is a sphere. There is no contour
+  mode in 3D (a circulation around an obstacle needs a plane) and no collision rollout behind
+  the CBF filter: only the `cbf_sites` nearest obstacles are constrained, and the limiter can
+  delay a deceleration, so keep `cbf_gain * desired_speed <= max_decel`. Voxels are measured to
+  their centres, and there are no voxel sites outside the grid.
 - An open curve must be static in its frame: an expression in `t` must be closed. Moving frames
   have no ROS source yet; feed `FrameTwistEstimator` yourself.
 - Polylines are deduplicated but not resampled or filleted.

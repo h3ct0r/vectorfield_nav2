@@ -60,6 +60,20 @@ VelocityLaw3::VelocityLaw3(const Limits3 & limits, const YawConfig3 & yaw) noexc
 {
 }
 
+LawOutput3 VelocityLaw3::commandUniform(
+  const Vec3 & F, const Vec3 & T_d, double yaw, double last_psi_d) const noexcept
+{
+  LawOutput3 out;
+  out.F = F;
+  out.c = uniformBoxScale(F, limits_);
+  out.cmd.v = out.c * F;
+  const Vec3 & source = yaw_.policy == OmniHeadingPolicy::kField ? F : T_d;
+  out.psi_d = desiredYaw(source, yaw, last_psi_d);
+  out.cmd.wz =
+    clamp(yaw_.gain * wrapAngle(out.psi_d - yaw), -limits_.max_yaw_rate, limits_.max_yaw_rate);
+  return out;
+}
+
 double VelocityLaw3::desiredYaw(const Vec3 & w, double yaw, double last_psi_d) const noexcept
 {
   if (yaw_.policy == OmniHeadingPolicy::kFixed) {

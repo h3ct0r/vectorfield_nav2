@@ -98,6 +98,9 @@ const SimulationRecord3 & ClosedLoopSimulator3::step(const Tracker3Input & input
   in.t = t_;
   in.dt = options_.period;
   in.frame = frameAt(t_);
+  if (in.obstacles == nullptr && !options_.obstacles.empty()) {
+    in.obstacles = &options_.obstacles;
+  }
   last_output_ = tracker_.step(in, state_, &state_);
 
   SimulationRecord3 record;
@@ -112,6 +115,8 @@ const SimulationRecord3 & ClosedLoopSimulator3::step(const Tracker3Input & input
   record.s_star = last_output_.field.s_star;
   record.F = last_output_.field.Phi;
   record.T_eval_curve = in.frame.T_eval_curve;
+  record.h = last_output_.cbf.h;
+  record.cbf_active = last_output_.cbf.active;
   records_.push_back(record);
 
   plant_ = integrate(plant_, last_output_.cmd, options_.period, options_.plant);

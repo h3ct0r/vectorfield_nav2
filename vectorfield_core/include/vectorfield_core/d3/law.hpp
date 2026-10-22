@@ -109,6 +109,14 @@ public:
     const FieldSample3 & sample, double gamma, double v_r, double assumption3_margin, double yaw,
     double last_psi_d) const noexcept;
 
+  /// @brief The command for a field that is not the sample's (the CBF output \f$F^\star\f$): the
+  /// uniform box and the yaw policy, with `F` as the kField source (math_spec §14.8).
+  /// @param F The filtered field.
+  /// @param T_d The sample's traversal tangent (kPathTangent source).
+  /// @param yaw Current yaw \f$\psi\f$.
+  /// @param last_psi_d Previous \f$\psi_d\f$ (NaN for none).
+  LawOutput3 commandUniform(
+    const Vec3 & F, const Vec3 & T_d, double yaw, double last_psi_d) const noexcept;
   /// @brief \f$\psi_d\f$ of the policy for direction source `w` (T_d or F); held when the
   /// horizontal part of `w` is below kYawHoldNorm.
   double desiredYaw(const Vec3 & w, double yaw, double last_psi_d) const noexcept;

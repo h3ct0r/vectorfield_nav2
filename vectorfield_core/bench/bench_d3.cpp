@@ -18,6 +18,7 @@
 #include <benchmark/benchmark.h>
 
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -112,5 +113,93 @@ void BM_D3TrackerStep_Helix(benchmark::State & state)
   }
 }
 BENCHMARK(BM_D3TrackerStep_Helix);
+
+// The 3D CBF filter alone (math_spec §14.8): four sites in general position (floor, two walls,
+// a sphere), every active set enumerated.
+void BM_D3CbfSolve_FourSites(benchmark::State & state)
+{
+  d3::Cbf3Constraint c[4];
+  c[0] = {Vec3::UnitZ(), 0.02};
+  c[1] = {Vec3(0.0, 1.0, 0.0), 0.05};
+  c[2] = {Vec3(0.0, -1.0, 0.0), 0.3};
+  c[3] = {Vec3(-0.6, 0.0, 0.8), 0.04};
+  Vec3 F(0.4, -0.2, -0.25);
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(F);
+    d3::Cbf3Solution s = d3::solveCbf3(F, c, 4, 2.0);
+    benchmark::DoNotOptimize(s.F);
+  }
+}
+BENCHMARK(BM_D3CbfSolve_FourSites);
+
+// One Tracker3::step on the helix with the CBF filter active: a sphere beside the body, a floor
+// and a pole (primitives), and the same plus a 64^3 voxel grid (window features).
+void cbfStep(benchmark::State & state, bool voxels)
+{
+  const auto curve = builtin("helix");
+  d3::Tracker3Config config;
+  config.obstacles.obstacle_mode = vf::ObstacleMode::kCbf;
+  const d3::Tracker3 tracker{config};
+  const Vec3 p = curve->pointAt(5.0, 0.0) + Vec3(0.0, 0.0, 0.02);
+  d3::ObstacleSet3 obstacles;
+  obstacles.add(d3::Primitive3::sphere(p + 0.55 * curve->tangentAt(5.0, 0.0), 0.2));
+  obstacles.add(d3::Primitive3::plane(Vec3(0.0, 0.0, p.z() - 0.32), Vec3::UnitZ()));
+  obstacles.add(d3::Primitive3::cylinder(Vec3(0.0, 0.0, 0.0), 0.1));
+  if (voxels) {
+    const int n = 64;
+    std::vector<std::uint8_t> mask(static_cast<std::size_t>(n * n * n), 0);
+    for (int iz = 0; iz < n; ++iz) {
+      for (int iy = 0; iy < n; ++iy) {
+        mask[static_cast<std::size_t>(40 + n * (iy + n * iz))] = 1;  // a wall at x = p.x + 0.33
+      }
+    }
+    d3::VoxelGrid3 grid;
+    grid.setFromMask(mask, n, n, n, 0.05, p - Vec3(2.0 - 0.025, 1.6, 1.6));
+    obstacles.setVoxels(grid);
+  }
+  d3::Tracker3Input input;
+  input.curve = curve.get();
+  input.obstacles = &obstacles;
+  input.pose.p = p;
+  d3::Tracker3State warm = d3::Tracker3::initialState();
+  for (int k = 0; k < 5; ++k) {
+    tracker.step(input, warm, &warm);
+  }
+  for (auto _ : state) {
+    d3::Tracker3State next;
+    d3::Tracker3Output out = tracker.step(input, warm, &next);
+    benchmark::DoNotOptimize(out.cmd);
+  }
+  state.counters["sites"] = tracker.step(input, warm, nullptr).cbf.count;
+}
+
+void BM_D3TrackerStep_Helix_CbfPrimitives(benchmark::State & state) { cbfStep(state, false); }
+BENCHMARK(BM_D3TrackerStep_Helix_CbfPrimitives);
+
+void BM_D3TrackerStep_Helix_CbfVoxels(benchmark::State & state) { cbfStep(state, true); }
+BENCHMARK(BM_D3TrackerStep_Helix_CbfVoxels);
+
+// The voxel EDT of a 64^3 grid (262 144 voxels): random 5 % occupancy, rebuilt every iteration.
+void BM_D3VoxelEdt_64(benchmark::State & state)
+{
+  const int n = 64;
+  std::vector<std::uint8_t> mask(static_cast<std::size_t>(n * n * n), 0);
+  std::uint32_t seed = 12345U;
+  for (auto & m : mask) {
+    seed = seed * 1664525U + 1013904223U;
+    m = (seed >> 24U) < 13U ? 1 : 0;
+  }
+  d3::VoxelGrid3 grid;
+  grid.setFromMask(mask, n, n, n, 0.05, Vec3::Zero());
+  d3::DistanceTransform3 edt;
+  edt.build(grid);
+  for (auto _ : state) {
+    edt.build(grid);
+    benchmark::DoNotOptimize(edt.squaredDistanceCells(10, 20, 30));
+  }
+  state.counters["voxels/s"] = benchmark::Counter(
+    static_cast<double>(n * n * n), benchmark::Counter::kIsIterationInvariantRate);
+}
+BENCHMARK(BM_D3VoxelEdt_64)->Unit(benchmark::kMillisecond);
 
 }  // namespace

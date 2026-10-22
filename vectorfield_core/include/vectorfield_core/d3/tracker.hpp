@@ -26,6 +26,7 @@
 #include "vectorfield_core/d3/field.hpp"
 #include "vectorfield_core/d3/frame.hpp"
 #include "vectorfield_core/d3/law.hpp"
+#include "vectorfield_core/d3/obstacles.hpp"
 #include "vectorfield_core/d3/types.hpp"
 #include "vectorfield_core/gains.hpp"
 #include "vectorfield_core/status.hpp"
@@ -60,6 +61,8 @@ struct Tracker3Config
   Limits3 limits;
   /// Yaw policy.
   YawConfig3 yaw;
+  /// Obstacle handling: none, or the CBF filter (math_spec §14.8 [Design, 0.3.0]).
+  Obstacles3Config obstacles;
 };
 
 /// @brief Throws ConfigError naming the first invalid field of `config`.
@@ -82,6 +85,8 @@ struct Tracker3State
   bool holding{false};
   /// goal_seq of the last step.
   std::uint32_t goal_seq{0};
+  /// The CBF hold (kBlocked) of the last step, for its release band.
+  bool blocked{false};
   /// Limiter state.
   LimiterState3 limiter;
 };
@@ -108,6 +113,9 @@ struct Tracker3Input
   double speed_limit_scale{1.0};
   /// Cancel: STOPPED, decelerating at \f$a_{\mathrm{can}}\f$.
   bool cancel{false};
+  /// Static obstacles in the evaluation frame (not owned; null: none). Used with
+  /// `obstacle_mode` kCbf (math_spec §14.8).
+  const ObstacleSet3 * obstacles{nullptr};
 };
 
 /// @brief Outputs of one Tracker3 cycle.
@@ -143,10 +151,13 @@ struct Tracker3Output
   Vec3 frame_velocity{Vec3::Zero()};
   /// Foot \f$x^\star_{\mathcal F}\f$ in the curve frame.
   Vec3 x_star_curve{Vec3::Zero()};
+  /// The CBF filter of this cycle (`cbf.on` false without obstacles).
+  Cbf3Sample cbf;
 };
 
 /// @brief A minimal 3D tracker: FOLLOW, FINAL_APPROACH (open curves), settled and goal hold,
-/// cancel → STOPPED (math_spec §14.5), in a static or moving curve frame (§14.7). No obstacles.
+/// cancel → STOPPED (math_spec §14.5), in a static or moving curve frame (§14.7), with an
+/// optional CBF safety filter against static obstacles (§14.8): its hold sets kBlocked.
 /// `step` is `const noexcept`, allocation-free and thread-safe (the state is passed in and out).
 class Tracker3
 {
