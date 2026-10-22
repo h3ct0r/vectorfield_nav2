@@ -105,21 +105,50 @@ Possible upstream fixes: retry `getMap` until the map has a non-zero resolution,
 GetMap service while map_server is inactive. Until then the coverage build (CI Jazzy amd64), the
 most loaded one, does not register the loopback tests (see `CMakeLists.txt`).
 
-**Lyrical: the test client's participant sometimes discovers nothing.** In about one Lyrical
-launch test in twenty, the test client's participant gets no /clock, or /clock but no service
-answer, while the launched nodes see each other. On Lyrical the component container does not
-stop within 15 s of SIGINT, so every launch test ends by killing it (SIGKILL); Humble and Jazzy
-kill it too but have not shown the fault. The client then starts over with a new node and
-participant (`no /clock ...; new node` or `map_server never answered get_state ...; new node`
-in the log) and leaves the old one undestroyed, because destroying it blocks in rclpy's
-`destroy_publisher`. That does not save the test: the fault is in the whole test process. Even
-when the new participant works and every test case passes, launch then freezes while it shuts
-down, in launch_ros's own node (`ros_adapters.py`, `destroy_node` → `destroy_publisher`), until
-the CTest timeout. The client dumps every thread's stack to the log 60 s after it closes when it
-had to start over (that is how the freeze was located), and 60 s after its own start-up
-time-out should start-up hang. Note that `FASTDDS_BUILTIN_TRANSPORTS` cannot turn Fast DDS's
-shared memory off here: with `ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST`, rmw_fastrtps sets its
-own shared-memory and UDP transports.
+**Lyrical: Fast DDS 3 can deadlock the two participants of a launch test** (`fastdds` 3.6.2,
+still the same on `master`; worked around here). A launch test process holds two participants,
+launch_ros's node and the test client. Fast DDS 3 resolves remote types with its TypeLookup
+service and, by default, delivers the TypeLookup messages between participants of one process
+directly (intraprocess delivery). Each TypeLookup thread holds its listener's mutex while it sends
+(`TypeLookupRequestListener.cpp:141`, `TypeLookupReplyListener.cpp:89`), and each receive thread
+holds the reader's mutex while it waits for that listener mutex
+(`TypeLookupRequestListener.cpp:475`, `TypeLookupReplyListener.cpp:332`). With A as launch_ros's
+participant and B as the client's, thread stacks of a frozen run show this cycle:
+
+1. A's reply thread holds A's reply-listener mutex and sends a request (`get_types`,
+   `TypeLookupManager.cpp:323` and `714`). It waits for A's request writer
+   (`WriterHistory::create_change`, `WriterHistory.cpp:423`).
+2. A's flow-controller thread holds that writer and delivers the request to B
+   (`StatefulWriter.cpp:585` and `423`). It waits for B's request reader
+   (`StatefulReader.cpp:575`).
+3. B's receive thread holds that reader and waits for B's request-listener mutex.
+4. B's request thread holds it, answers (`TypeLookupManager.cpp:725`) and waits for B's reply
+   writer.
+5. B's flow-controller thread holds that writer and delivers the reply to A. It waits for A's reply
+   reader.
+6. A's receive thread holds that reader and waits for A's reply-listener mutex, which step 1
+   holds.
+
+Both participants' event threads then block on those writers (`StatefulWriter.cpp:1936`). The
+client discovers nothing, so it starts over with a new node (`no /clock ...; new node` or
+`map_server never answered get_state ...; new node` in the log), and the test cases may still
+pass. At the end, launch destroys its node, and `DataWriterImpl::~DataWriterImpl` waits in
+`ResourceEvent::unregister_timer` (`ResourceEvent.cpp:90`) for the blocked event thread until
+the CTest timeout. It hung in 7 of 100 Lyrical launch-test runs, including the first test of a
+fresh container. Running `fastdds shm clean` before each test did not help. Humble and Jazzy have
+Fast DDS 2, without the TypeLookup service.
+
+The workaround is in `CMakeLists.txt`: on Fast DDS 3, the launch tests set
+`FASTDDS_DEFAULT_PROFILES_FILE` to `test/fastdds_no_builtin_intraprocess.xml`
+(`intraprocess_delivery` `USER_DATA_ONLY`). Builtin traffic, discovery and TypeLookup, then goes
+through the transports, while user data is still delivered within the process. With it, none of
+84 runs hung. To reproduce the deadlock, run a launch test without that variable in a loop until
+the log shows `; new node`. Then, with `ros-lyrical-fastdds-dbgsym` installed, run
+`gdb -p <launch_test pid> -batch -ex 'thread apply all bt'`.
+
+The client still starts over when its participant discovers nothing. When it had to, it dumps
+every thread's Python stack to the log 60 s after it closes, and it does the same 60 s after its
+own start-up time-out should start-up hang.
 
 ## Controller comparison
 

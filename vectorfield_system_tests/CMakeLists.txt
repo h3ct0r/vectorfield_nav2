@@ -85,6 +85,14 @@ if(BUILD_TESTING)
   if(CMAKE_CXX_FLAGS MATCHES "--coverage")
     set(VF_TEST_TIME_SCALE 3)
   endif()
+  # Fast DDS 3 (Lyrical): the two participants of a launch test process (launch_ros's node, the
+  # test client) can deadlock in the TypeLookup service when delivering to each other within the
+  # process; the profile keeps builtin traffic on the transports (README, Known issues).
+  set(VF_FASTDDS_ENV "")
+  if(NOT "$ENV{ROS_DISTRO}" MATCHES "^(humble|jazzy)$")
+    set(VF_FASTDDS_ENV
+      "FASTDDS_DEFAULT_PROFILES_FILE=${CMAKE_CURRENT_SOURCE_DIR}/test/fastdds_no_builtin_intraprocess.xml")
+  endif()
   function(vf_add_launch_test file model)
     cmake_parse_arguments(_vf "" "TIMEOUT" "" ${ARGN})
     if(NOT _vf_TIMEOUT)
@@ -98,7 +106,7 @@ if(BUILD_TESTING)
       RUNNER "${ament_cmake_ros_DIR}/run_test_isolated.py"
       TIMEOUT ${_vf_TIMEOUT}
       ENV "VF_TEST_MOTION_MODEL=${model}" "VF_TEST_TIME_SCALE=${VF_TEST_TIME_SCALE}"
-        ${VF_DISCOVERY_ENV}
+        ${VF_DISCOVERY_ENV} ${VF_FASTDDS_ENV}
       APPEND_ENV "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}"
     )
     set_tests_properties("${_vf_target}" PROPERTIES RUN_SERIAL TRUE)

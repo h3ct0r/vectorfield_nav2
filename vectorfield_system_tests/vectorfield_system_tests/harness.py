@@ -266,12 +266,11 @@ class NavHarness:
     def _restart(self):
         """Start over with a new node and participant; the old ones are only stopped spinning.
 
-        Destroying the node of a participant that discovers nothing has blocked for good
-        (Lyrical: ``destroy_node``, in ``destroy_publisher``), so it is kept, unused, until the
-        process exits. This does not save the test: the fault is process-wide, and even when
-        the new participant works, launch later freezes in launch_ros's own ``destroy_node``
-        (``destroy_publisher``) while it shuts down, until the CTest timeout; :meth:`close`
-        then arms a stack dump that shows it.
+        Destroying the node of a participant that discovers nothing can block for good, so it is
+        kept, unused, until the process exits. The one known cause, Fast DDS 3's TypeLookup
+        deadlock between this participant and launch_ros's (README, Known issues; the launch
+        tests' Fast DDS profile prevents it), also freezes launch's shutdown, so starting over
+        does not save that test; :meth:`close` then arms a stack dump that shows it.
         """
         self._executor.shutdown(timeout_sec=5.0)
         self._thread.join(timeout=5.0)
@@ -440,8 +439,8 @@ class NavHarness:
         def remaining():
             return max(deadline - time.monotonic(), 0.0)
 
-        # Rarely (seen on Lyrical, after the previous test's processes were killed), the new
-        # participant discovers nothing, or gets /clock but no service answer; a fresh one does.
+        # Rarely (Lyrical without the launch tests' Fast DDS profile: README, Known issues), the
+        # new participant discovers nothing, or gets /clock but no service answer.
         first = NAV2_NODES[0]
         for attempt in range(3):
             clock = self._wait_wall(lambda: self.now() > 0.0, min(40.0, remaining()))

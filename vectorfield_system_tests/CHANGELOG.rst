@@ -13,6 +13,10 @@ Forthcoming
   with the field-test report.
 * A test client that had to abandon its participant (Lyrical) dumps the thread stacks 60 s after
   it closes: such a process freezes in launch_ros's shutdown after its tests.
+* Fast DDS 3 (Lyrical): the launch tests no longer freeze until the CTest timeout. Within a test
+  process, the TypeLookup service of launch_ros's participant and that of the test client could
+  deadlock each other (README, Known issues). The launch tests now keep builtin traffic out of
+  intraprocess delivery (test/fastdds_no_builtin_intraprocess.xml).
 * test_shipped_configs also validates vectorfield_bringup's config/examples templates and
   rotation-shim overlays.
 
