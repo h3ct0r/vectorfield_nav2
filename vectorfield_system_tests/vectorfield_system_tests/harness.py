@@ -40,9 +40,10 @@ from dataclasses import dataclass
 import rclpy
 import tf2_ros
 from action_msgs.msg import GoalStatus
+from geometry_msgs.msg import PoseStamped
 from lifecycle_msgs.msg import State
 from lifecycle_msgs.srv import GetState
-from nav2_msgs.action import NavigateToPose
+from nav2_msgs.action import NavigateThroughPoses, NavigateToPose
 from nav2_msgs.msg import BehaviorTreeLog
 from nav2_msgs.srv import ClearEntireCostmap, SetInitialPose
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
@@ -234,6 +235,7 @@ class NavHarness:
         else:
             node.create_timer(0.05, self._sample_tf)
         self._navigate = ActionClient(node, NavigateToPose, 'navigate_to_pose')
+        self._navigate_through = ActionClient(node, NavigateThroughPoses, 'navigate_through_poses')
 
         self._executor = MultiThreadedExecutor(num_threads=4, context=self._context)
         self._executor.add_node(node)
@@ -499,23 +501,44 @@ class NavHarness:
 
     # Navigation ----------------------------------------------------------------------------------
 
+    def _map_pose(self, x, y, yaw):
+        """Return a PoseStamped in the map frame, stamped now."""
+        stamped = PoseStamped()
+        stamped.header.frame_id = 'map'
+        stamped.header.stamp = self.node.get_clock().now().to_msg()
+        stamped.pose.position.x = float(x)
+        stamped.pose.position.y = float(y)
+        stamped.pose.orientation.z = math.sin(0.5 * yaw)
+        stamped.pose.orientation.w = math.cos(0.5 * yaw)
+        return stamped
+
+    def _send(self, client, goal, label):
+        """Send ``goal`` with ``client`` and wait until it is accepted."""
+        start = self.now()
+        future = client.send_goal_async(goal)
+        if not self._wait_wall(future.done, 30.0):
+            raise AssertionError(f'{label} got no response')
+        handle = future.result()
+        if not handle.accepted:
+            raise AssertionError(f'{label} was rejected')
+        return Goal(handle, handle.get_result_async(), start)
+
     def send_goal(self, x, y, yaw):
         """Send a NavigateToPose goal in the map frame and wait until it is accepted."""
         goal = NavigateToPose.Goal()
-        goal.pose.header.frame_id = 'map'
-        goal.pose.header.stamp = self.node.get_clock().now().to_msg()
-        goal.pose.pose.position.x = float(x)
-        goal.pose.pose.position.y = float(y)
-        goal.pose.pose.orientation.z = math.sin(0.5 * yaw)
-        goal.pose.pose.orientation.w = math.cos(0.5 * yaw)
-        start = self.now()
-        future = self._navigate.send_goal_async(goal)
-        if not self._wait_wall(future.done, 30.0):
-            raise AssertionError(f'NavigateToPose ({x}, {y}) got no response')
-        handle = future.result()
-        if not handle.accepted:
-            raise AssertionError(f'NavigateToPose ({x}, {y}) was rejected')
-        return Goal(handle, handle.get_result_async(), start)
+        goal.pose = self._map_pose(x, y, yaw)
+        return self._send(self._navigate, goal, f'NavigateToPose ({x}, {y})')
+
+    def send_goal_through(self, poses):
+        """Send a NavigateThroughPoses goal through ``poses`` ((x, y, yaw), map frame)."""
+        goal = NavigateThroughPoses.Goal()
+        stamped = [self._map_pose(*pose) for pose in poses]
+        if hasattr(goal.poses, 'goals'):  # Kilted and later: nav_msgs/Goals
+            goal.poses.header = stamped[-1].header
+            goal.poses.goals = stamped
+        else:
+            goal.poses = stamped
+        return self._send(self._navigate_through, goal, f'NavigateThroughPoses {poses}')
 
     def wait_result(self, goal, timeout):
         """Return the goal's final status, or None if it has none after ``timeout`` sim s."""
@@ -531,7 +554,14 @@ class NavHarness:
 
     def navigate(self, x, y, yaw, timeout=120.0):
         """Send a goal and return its :class:`Episode`; it is cancelled after ``timeout`` sim s."""
-        goal = self.send_goal(x, y, yaw)
+        return self._finish(self.send_goal(x, y, yaw), timeout)
+
+    def navigate_through(self, poses, timeout=120.0):
+        """Like :meth:`navigate`, with one NavigateThroughPoses goal through ``poses``."""
+        return self._finish(self.send_goal_through(poses), timeout)
+
+    def _finish(self, goal, timeout):
+        """Wait for ``goal`` (cancelled after ``timeout`` sim s); return its :class:`Episode`."""
         status = self.wait_result(goal, timeout)
         if status is None:
             self.cancel(goal)

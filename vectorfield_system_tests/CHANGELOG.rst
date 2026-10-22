@@ -4,6 +4,9 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* test_through_poses_kinematic (differential): NavigateThroughPoses through a 150° waypoint
+  corner on NavFn succeeds, driving forward only. NavHarness.navigate_through() sends
+  NavigateThroughPoses goals (Humble to Lyrical).
 * test_skid_slip_kinematic (skid_steer): identify_skid_slip.py recovers vectorfield_sim's slip
   within 10 %.
 * compare_controllers.py and geometry.OccupiedCells use vectorfield_bringup.field_metrics, shared

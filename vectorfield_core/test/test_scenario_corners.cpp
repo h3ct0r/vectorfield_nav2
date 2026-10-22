@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "test_support.hpp"
+#include "vectorfield_core/conditioning.hpp"
 
 namespace
 {
@@ -94,6 +95,41 @@ TEST(ScenarioCorners, O42_CornersOneEntryAndFastTransit)
       EXPECT_LE(with.time, 1.2 * without.time)
         << "with " << with.time << " s, without " << without.time << " s";
     }
+  }
+}
+
+// 0.2.1: a NavigateThroughPoses corner of NavFn legs steps back to the next leg's start cell
+// (here 1.5 cm). Kept, that backward step holds ROTATE_TO_FIELD at a sharp corner forever; the
+// plugin window's despike() removes it, and the corner is then passed with one entry.
+TEST(ScenarioCorners, NavigateThroughPosesHookIsDespiked)
+{
+  for (const double deg : {120.0, 150.0, 170.0}) {
+    SCOPED_TRACE("turn " + std::to_string(deg) + "°");
+    const double th = deg * vf::kPi / 180.0;
+    const Vec2 dir(std::cos(th), std::sin(th));
+    std::vector<Vec2> points;
+    for (int k = 0; k <= 60; ++k) {
+      points.emplace_back(-1.5 + 0.025 * k + 0.013, 0.007);  // to the waypoint (0.013, 0.007)
+    }
+    for (int k = 0; k <= 60; ++k) {
+      points.emplace_back(0.025 * k * dir);  // from the grid vertex (0, 0)
+    }
+    const Vec2 end = points.back();
+    vf::despike(&points, 0.05);
+    for (std::size_t i = 1; i + 1 < points.size(); ++i) {
+      const Vec2 before = points[i] - points[i - 1];
+      const Vec2 after = points[i + 1] - points[i];
+      EXPECT_FALSE(before.dot(after) < 0.0 && std::min(before.norm(), after.norm()) < 0.05) << i;
+    }
+    const auto curve = makePolyline(points, false);
+    const auto done = [dir](const Cycle & c) {
+      const double along = c.pose_after.p.dot(dir);
+      return along >= 1.0 && (c.pose_after.p - along * dir).norm() < 0.5;
+    };
+    const TransitResult with =
+      runTransit(*curve, goalAt(end), Pose2{Vec2(-1.5, 0.0), 0.0}, true, 30.0, done);
+    ASSERT_TRUE(std::isfinite(with.time)) << "did not pass the corner";
+    EXPECT_LE(with.entries, 1);
   }
 }
 

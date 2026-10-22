@@ -25,7 +25,9 @@ Ackermann base drives forward. With `allow_reversing: false` (the default) the s
 bases is clamped to the drive direction, so feedback linearisation never reverses at full speed
 when the field points behind the robot, and plans with reversing segments (cusps) are rejected
 with `InvalidPath`. With `allow_reversing: true` the controller follows such plans segment by
-segment ({ref}`reversing`).
+segment ({ref}`reversing`). A sharp corner is not a cusp: a NavigateThroughPoses waypoint whose
+next leg turns back by 150° is followed forward, with a turn in place where the field turns too
+far.
 
 (reversing)=
 
@@ -33,12 +35,15 @@ segment ({ref}`reversing`).
 
 A planner that may back up (Smac Hybrid-A* with `motion_model_for_search: REEDS_SHEPP`, Smac
 Lattice with reverse primitives) returns plans whose poses carry the vehicle heading; where the
-robot backs up, the heading points against the motion. With `allow_reversing: true` the
-controller splits the plan at its cusps (reversals longer than about two costmap cells) and
-drives each segment in its own direction:
+robot backs up, the heading points against the motion. A cusp is where those headings change
+the driving direction; a plan without headings (NavFn, Theta\* and unsmoothed Smac 2D leave the
+poses unoriented, and NavigateThroughPoses adds only its waypoints) has a cusp only where it runs
+back along itself for more than about four costmap cells, so its sharp corners are not cusps
+({ref}`sec-conditioning`). With `allow_reversing: true` the controller splits the plan at its
+cusps and drives each segment in its own direction:
 
-- the direction comes from the plan's headings; a plan without headings (NavFn, Smac 2D,
-  Theta\* leave the poses unoriented) starts in the configured direction, or backs up when it
+- the direction comes from the plan's headings (Smac 2D's smoother orients its poses along the
+  path: forward); a plan without headings starts in the configured direction, or backs up when it
   starts behind the robot (as Regulated Pure Pursuit does with `allow_reversing`), and alternates
   at each cusp. A plan that backs up from the start (the goal behind a car) is driven in reverse
   at once. With `allow_reversing: true` a differential robot on NavFn therefore backs up to a

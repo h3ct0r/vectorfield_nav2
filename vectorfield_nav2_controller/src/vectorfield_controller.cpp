@@ -882,8 +882,8 @@ void VectorFieldController::processRawPlan(const nav_msgs::msg::Path & raw_plan)
 {
   Impl & s = *impl_;
   vr::toPoses(raw_plan, &s.raw_poses);
-  const PlanIntake intake =
-    intakePlan(s.raw_poses, s.chordLength(), &s.intake, &s.positions, &s.decimated);
+  const PlanIntake intake = intakePlan(
+    s.raw_poses, s.chordLength(), &s.intake, &s.positions, &s.decimated, &s.segment_work);
   if (intake.empty) {
     throw compat::InvalidPath("vector field: received an empty plan");
   }

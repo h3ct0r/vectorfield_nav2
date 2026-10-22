@@ -2,6 +2,16 @@
 Changelog for package vectorfield_nav2_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* A forward plan with a corner sharper than 90° (a NavigateThroughPoses waypoint the next leg
+  leaves at 150°, or a sharp 90° corner the grid makes slightly sharper) is no longer rejected as
+  reversing (INVALID_PATH) or, with allow_reversing, split and driven backward: intakePlan() uses
+  vectorfield_core::findCusps() and takes a cusp work buffer. The window drops backtracks shorter
+  than l_c/2 (vectorfield_core::despike()): at a sharp NavigateThroughPoses corner, NavFn's step
+  back to the next leg's start cell held ROTATE_TO_FIELD there. A car still cannot take such a
+  corner (HEADING_INFEASIBLE).
+
 0.2.0 (2026-10-20)
 ------------------
 * Plans with reversing segments are followed when allow_reversing is true: the plan is split at its

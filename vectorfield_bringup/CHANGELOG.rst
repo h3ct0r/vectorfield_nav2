@@ -4,6 +4,9 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* identify_skid_slip.py joins its spin thread before shutting down: a thread still in rclpy at
+  exit aborted the process (std::terminate) after a good result, which failed
+  test_skid_slip_kinematic on Jazzy.
 * Field-test kit (docs/tutorials/field_testing.md): scripts/record_field_test.py records the
   topics the metrics need into a timestamped bag with the node parameters;
   scripts/field_test_report.py writes a Markdown report, metrics.json and plots per goal from a

@@ -449,6 +449,14 @@ neither is shift-invariant on a re-pruned window; semi-infinite backward and for
   $\operatorname{unit}(g - p)$. If no pose is that far, keep the previous $\hat T_{\mathrm{end}}$
   while `goal_seq` is unchanged (near-goal replans start at the robot); otherwise use the first
   pose. A plan whose poses all coincide with $g$ has none and uses the one-pose rule.
+- **Despike** (`despike`) [Design, 0.2.1], after the 1 mm dedupe: walk the vertices with a stack
+  and, before pushing a vertex, drop the top while the polyline turns there by more than 90° and
+  one of the top's two segments is shorter than $\ell_c/2$; the endpoints stay. A
+  NavigateThroughPoses junction of NavFn legs steps back up to 0.71 cell to the next leg's start
+  cell; at a sharp corner that backward segment makes the field beyond the corner point backward,
+  and ROTATE_TO_FIELD (at the FL control point, which moves as the robot turns) then never
+  releases. Corners sharper than 90° sampled finer than $\ell_c/2$ are cut by a few centimetres;
+  turns of 90° or less and reversals longer than $\ell_c/2$ are untouched.
 - **Tail conditioning**, only when the window ends at the goal
   ($\lVert W_{\mathrm{back}} - \mathrm{global\_goal} \rVert < 0.05$ m): remove every window vertex
   within $\ell_c$ of $W_{\mathrm{back}}$, then insert the virtual vertex
@@ -473,19 +481,57 @@ neither is shift-invariant on a re-pruned window; semi-infinite backward and for
 2. Before appending the last pose, pop kept vertices from the end (never the first) while the
    last kept vertex is within $\ell_c$ of the last pose; then append the last pose.
 3. Every chord is now at least $\ell_c$ long, except a final chord that starts at the first pose.
-   A cusp is a negative dot product between consecutive chords. Without `allow_reversing` it
-   raises `InvalidPath("plan contains reversing segments; use a forward-only planner")`; with it,
-   the plan is split there into segments [Design, M7] ({ref}`sec-segments`).
+   A negative dot product between consecutive chords (a turn of more than 90°) is a cusp
+   *candidate*; it moves to the raw pose between the neighbouring chord vertices with the largest
+   projection on the incoming chord, and its two *legs* run from there to the neighbouring
+   candidates (or the plan's ends).
 
 Reversals shorter than $\ell_c$ are ignored, including NavFn's `smoothApproachToGoal` hook at the
 goal and its start-cell hook at the robot. Without step 2 the final chord can be the sub-cell hook
 itself; a Monte Carlo of NavFn tails flagged about 6% of goals that way.
 
-**Detection guarantee** [Derived, M1]. A reversal longer than $2\ell_c$ is always flagged. One
-between $\ell_c$ and $2\ell_c$ is flagged or not depending on where the chord grid falls (measured:
-a 0.3 m reversal is flagged in 64/64 alignments at res 0.05, $\ell_c = 0.10$, but in 8/64 at res
-0.10, $\ell_c = 0.20$). An unflagged short reversal is followed forward with a deviation below
-$2\ell_c$; planner cusps (Smac Reeds–Shepp, Lattice reverse primitives) are far longer.
+**Cusps** (`findCusps`) [Design, 0.2.1]. A candidate is a cusp, a point where the robot must change
+its driving direction, by one of two rules; a sharp *forward* corner is not one (0.2.0 called every
+candidate a cusp, so a NavigateThroughPoses waypoint that the next leg leaves at 150°, or a sharp
+90° corner that the grid makes a few degrees sharper, was rejected).
+
+- The plan *has headings* (`planHasHeadings`) when, over its steps $s_k = p_{k+1} - p_k$ at least
+  0.1 mm long (with the yaw $\psi_k$ of the step's first pose, so the goal yaw is unused), the
+  steps whose yaw is *aligned*, $\lvert s_k^\top \mathbf h(\psi_k)\rvert \ge \cos 30°\,\lVert s_k\rVert$,
+  cover at least 90% of the length, and a run of consecutive aligned steps with $\psi_k \ne 0$
+  is at least $\ell_c$ long. Smac Hybrid-A\* and Lattice give the vehicle yaw (opposite to the
+  motion while reversing) and Smac 2D's smoother orients its poses along the path: headings.
+  NavFn, Theta\* and unsmoothed Smac 2D plans leave every pose at the identity, and
+  NavigateThroughPoses concatenates legs whose only oriented poses are the waypoints, single steps:
+  no headings.
+- **With headings.** Each leg's drive sign is that of $\sum_k s_k^\top \mathbf h(\psi_k)$ over its
+  first $2\ell_c$ from the candidate, when the magnitude is at least half their length. Two
+  signs that differ make a cusp; two equal signs are a turn, whatever its angle.
+- **Without headings**, or when a leg's yaws do not decide: a cusp iff the plan doubles back. Over
+  $L = \min(4\ell_c, L_{\mathrm{in}}, L_{\mathrm{out}})$, with $L_{\mathrm{in}}, L_{\mathrm{out}}$ the
+  leg lengths, $L \ge 2\ell_c$; the least-squares lines of the legs between $\ell_c$ and $L$
+  from the candidate turn by at least 177°; and the outgoing leg's centroid lies within
+  $\ell_c/2$ (a cell at $\ell_c = 2\,\mathrm{res}$) of the incoming leg's line. Skipping the first
+  $\ell_c$ keeps a start-cell hook (up to 0.71 cell at a waypoint) out of the fit. The
+  headingless reversals Nav2's planners emit (Smac along $\pm x$, where its yaws are exactly 0) are
+  exact, so the threshold sits close to 180°: 7° above a 170° corner absorb a fifth of a cell of
+  per-pose wiggle. A plan that runs back along itself is a reversal by this rule even from a
+  headingless planner (an out-and-back NavigateThroughPoses route through one waypoint).
+
+Without `allow_reversing` a cusp raises `InvalidPath("plan contains reversing segments; use a
+forward-only planner")`; with it, the plan is split there into segments [Design, M7]
+({ref}`sec-segments`). A forward corner is followed as one, with ROTATE_TO_FIELD where the field
+turns too far.
+
+**Detection guarantee** [Derived, M1; 0.2.1]. A candidate needs a reversal longer than $\ell_c$; one
+longer than $2\ell_c$ always gives a candidate (the last forward vertex kept lies within $\ell_c$ of
+the turn, so it stays more than $\ell_c$ from the last pose and the final chord points backward).
+Between $\ell_c$ and $2\ell_c$ it depends on where the chord grid falls (measured: a 0.3 m reversal
+is a candidate in 64/64 alignments at res 0.05, $\ell_c = 0.10$, but in 8/64 at res 0.10,
+$\ell_c = 0.20$). With headings every such candidate is a cusp; without them the rule above also
+needs both legs to be at least $2\ell_c$ long. An undetected short reversal is followed forward
+with a deviation below $2\ell_c$; planner cusps (Smac Reeds–Shepp, Lattice reverse primitives) are
+far longer and carry headings.
 
 (sec-gains)=
 
@@ -1559,8 +1605,9 @@ Plugin only, with `allow_reversing` (docs/design/m7_reversing.md).
 
 - **Segments** (`segmentPlan`, once per raw plan, plan frame). The cusps of {ref}`sec-conditioning`
   split the raw plan; each cusp is moved to the raw pose between its neighbouring chord vertices
-  with the largest projection on the incoming chord. A plan *has headings* iff some interior pose
-  has a yaw other than exactly 0. Segment $[a, b]$ of length $L$ gets
+  with the largest projection on the incoming chord. A plan *has headings* as in
+  {ref}`sec-conditioning` (`planHasHeadings`; 0.2.0: some interior yaw other than exactly 0, which
+  a NavigateThroughPoses waypoint satisfied) [0.2.1]. Segment $[a, b]$ of length $L$ gets
   $q = \operatorname{sgn} \sum_{k=a}^{b-1} (p_{k+1} - p_k)^\top \mathbf h(\psi_k)$ when the plan has
   headings and $\lvert\sum\rvert \ge L/2$; otherwise the first segment takes the configured sign
   $q_0$, or $-q_0$ when the first pose $\ell_c$ from the start lies behind the robot along
@@ -1823,6 +1870,14 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   `smoothApproachToGoal`'s replace-or-append rule; 8 goal offsets of ±0.5 cell × 16 headings ×
   approach lengths 1.0, 1.0125, 1.025, 1.0375 m; res 0.05 and 0.10): no cusp. A real reversal longer
   than $2\ell_c$ is flagged in every alignment (0.3 m at res 0.05; 0.45 m at res 0.10).
+- **O14b Cusps (0.2.1).** NavigateThroughPoses corners of 100°–170° on NavFn (both sides, 16 leg
+  headings, the waypoint at 9 positions in its cell so the next leg's start-cell hook goes every
+  way; res 0.05 and 0.10): no cusp with identity orientations (the waypoint along either leg), with
+  Smac 2D's along-path orientations, and with ±0.2 cell of per-pose noise. Reeds–Shepp cusps with
+  the vehicle yaw (forward then back on arcs of 0.4 and 1.0 m or straight, any steering, the cusp
+  moved by a cell, reversals of 1 m and of $2\ell_c$ + half a cell): one cusp within a pose of the
+  turn, segments $+1$ then $-1$. Headingless straight reversals longer than $2\ell_c$, on the same
+  line or a cell beside it, at the end or mid-plan: a cusp; a hairpin $1.5\ell_c$ wide: none.
 
 ### 12.2 Gains
 
@@ -2030,7 +2085,11 @@ there and the predicates defined in this document.
 - **Cusps and reversing** are rejected unless `allow_reversing` ({ref}`sec-segments`); reversals
   shorter than $\ell_c$ are never stops and are followed in the segment's direction with a
   deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly; a
-  reverse segment cannot contour; both directions share one speed limit [Design, M7].
+  reverse segment cannot contour; both directions share one speed limit [Design, M7]. Without
+  headings only a plan that doubles back for more than $2\ell_c$ reverses: a headingless route
+  out to a waypoint and back along the same line is one, and a 177°+ corner may be one
+  [Design, 0.2.1]. Orientations that a smoother derived from a headingless plan are taken at face
+  value (nav2_smoother marks a leg reverse when it leaves toward $-x$ of an identity yaw).
 - **The 3D core** ({ref}`sec-3d`) is experimental. It has no obstacles, no moving frames and no
   rotate phases, and its open curves must be static. The ZOH equilibrium $D_{\mathrm{zoh}}$ of
   §14.3 applies to every holonomic law.

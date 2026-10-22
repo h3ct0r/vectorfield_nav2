@@ -435,8 +435,11 @@ class Driver:
             time.sleep(1.0 / self.args.rate)
 
     def close(self):
-        """Stop spinning and destroy the node."""
+        """Stop spinning, wait for the spin thread, and destroy the node."""
         self._executor.shutdown()
+        # A spin thread still inside rclpy when the interpreter exits aborts the process
+        # (std::terminate), which fails the run after a good result.
+        self._thread.join(timeout=5.0)
         self.node.destroy_node()
 
 

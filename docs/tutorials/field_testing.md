@@ -228,29 +228,25 @@ smoother limits clip single axes; `scale_velocities: true`.
 
 ## Stage 3: corners of 90° and 150°
 
-**Run.** A 90° left corner inside one plan after 2 m (one NavigateThroughPoses goal, the corner
-chamfered by a waypoint into two 45° turns 0.4 m apart, as a planner's path around a wall
-corner), then a 150° corner between two goals (the second leg leaves at 150° from the first
-goal's heading):
+**Run.** A sharp 90° left corner and then a 150° corner, each at a NavigateThroughPoses waypoint
+2 m ahead (the second leg of the second route leaves the waypoint at 150° from the first):
 
 ```bash
 ros2 run vectorfield_bringup navigate_waypoints.py --relative --through \
-    --poses "2,0,0 2.3,0.3,0.79 2.3,2.3,1.57"
-ros2 run vectorfield_bringup navigate_waypoints.py --relative --poses "2,0,0 0.27,1,2.62"
+    --poses "2,0,0 2,2,1.57"
+ros2 run vectorfield_bringup navigate_waypoints.py --relative --through \
+    --poses "2,0,0 0.27,1,2.62"
 ```
 
-A plan whose consecutive segments turn by more than 90° is a cusp for the controller: with
-`allow_reversing: false` it rejects the plan (`plan contains reversing segments; use a
-forward-only planner`), with `allow_reversing: true` it drives the next leg backwards
-({ref}`reversing`). A NavigateThroughPoses waypoint with a sharp 90° turn is on that limit: the
-few degrees the grid planner adds at the waypoint decide (in the kinematic simulator it passed
-once and was rejected once), hence the chamfer. Sharper turns come from goal changes, as in the
-second command, or from the planner's path around obstacles, whose cells turn by at most 45°.
+Both are forward corners, not cusps: the controller follows them with `allow_reversing: false`
+and never backs up ({ref}`reversing`; before 0.2.1 a corner sharper than 90° after chord
+decimation, which the grid planner's few degrees at a waypoint can make of a 90° one, was rejected
+as `plan contains reversing segments`). The stock NavigateThroughPoses trees drop a waypoint
+once the robot is within 0.7 m of it, and the replanned path then leaves from the robot.
 
 **Expect.** At the 90° corner the robot cuts the corner by about `control_point_offset`
-(feedback linearisation) and keeps driving; the chamfered corner needs no rotation in place
-(a sharp one can need one, briefly). At the 150° corner it
-arrives facing the first leg, the field at the control point points more than
+(feedback linearisation) and keeps driving; a sharp corner can need one rotation in place,
+briefly. At the 150° corner the field at the control point points more than
 `rotate_to_field_angle` away from the heading, so it turns in place once (amber ROTATE_TO_FIELD
 with the heading arc) and then follows the second leg. A second ROTATE_TO_FIELD at the same corner
 is a defect worth reporting.
@@ -259,11 +255,10 @@ is a defect worth reporting.
 corners it found in the first `/plan`), XTE max at the 90° corner, max \|D\| after convergence,
 time, jerk.
 
-**Accept.** At most one ROTATE_TO_FIELD at the 90° corner (none in the simulator) and exactly
-one at the start of the 150° leg; XTE max ≤ `control_point_offset` + 0.05 m (simulator: 0.05
-m); all goals SUCCEEDED. \|D\| is measured at the control point, which swings off the path at a
-corner while `base_link` stays on it: the report's max \|D\| check fails at the 90° corner by
-design (0.16 m in the simulator), so compare it with the simulator rather than with 0.10 m.
+**Accept.** At most one ROTATE_TO_FIELD at each corner; XTE max ≤ `control_point_offset` +
+0.05 m; all goals SUCCEEDED, with no `InvalidPath`. \|D\| is measured at the control point, which
+swings off the path at a corner while `base_link` stays on it: the report's max \|D\| check can
+fail at the 90° corner by design, so compare it with the simulator rather than with 0.10 m.
 
 **If it fails.** Repeated entries at one corner: lower `rotate_to_field_release_angle` or check
 the angular limits ({doc}`../motion_models`, phases). Corners cut too much: lower

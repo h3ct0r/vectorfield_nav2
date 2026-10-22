@@ -20,15 +20,16 @@
 ///
 /// Implemented in src/plan_processing.cpp (M2 wave 2, path). Everything here works on
 /// vectorfield_core types only (no ROS), composes the core's conditioning helpers
-/// (vectorfield_core/conditioning.hpp: endTangent, decimateChords, hasCusp, tailCondition, dedupe,
-/// onePoseWindow) and is unit-testable without a node. Functions that fill caller-owned vectors
-/// clear and refill them, so they do not allocate once the capacity suffices; like the core, the
-/// only exception that can escape a `noexcept` function here is `std::bad_alloc` while such a
-/// buffer grows, which terminates.
+/// (vectorfield_core/conditioning.hpp: endTangent, decimateChords, findCusps, despike,
+/// tailCondition, dedupe, onePoseWindow) and is unit-testable without a node. Functions that fill
+/// caller-owned vectors clear and refill them, so they do not allocate once the capacity suffices;
+/// like the core, the only exception that can escape a `noexcept` function here is
+/// `std::bad_alloc` while such a buffer grows, which terminates.
 
 #ifndef VECTORFIELD_NAV2_CONTROLLER__PLAN_PROCESSING_HPP_
 #define VECTORFIELD_NAV2_CONTROLLER__PLAN_PROCESSING_HPP_
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -51,7 +52,8 @@ inline constexpr double kGoalIdentityYaw = 0.01;
 inline constexpr double kSparseSegmentLength = 0.25;
 /// "Unsmoothed plan" advisory (math_spec §11 "Runtime, once per plan"; criterion fixed in M2):
 /// some interior vertex of the chord-decimated plan turns by more than 45°, i.e. a corner sharper
-/// than a curvature of about \f$(\pi/4)/\ell_c\f$. Reversals (cusps, > 90°) are errors instead.
+/// than a curvature of about \f$(\pi/4)/\ell_c\f$. Reversals (cusps: vectorfield_core::findCusps)
+/// are errors instead; a sharp forward corner is only unsmoothed.
 inline constexpr double kUnsmoothedTurnAngle = 0.25 * vectorfield_core::kPi;
 /// Humble reset emulation: a full reset in setPlan() when more than this many control periods
 /// passed since the last compute (plan §5.1).
@@ -97,9 +99,10 @@ struct PlanIntake
   /// `state.end_tangent` is usable this plan (false for one-pose or degenerate plans, which use
   /// the one-pose rule).
   bool has_end_tangent{false};
-  /// A reversal longer than \f$\ell_c\f$ was found (the caller throws
+  /// The plan reverses somewhere (vectorfield_core::findCusps; the caller throws
   /// `InvalidPath("plan contains reversing segments; use a forward-only planner")` unless
-  /// `allow_reversing`, which follows the plan as segments: math_spec §9.4).
+  /// `allow_reversing`, which follows the plan as segments: math_spec §9.4). A sharp forward
+  /// corner is no cusp.
   bool cusp{false};
   /// Some raw segment is longer than kSparseSegmentLength (warn once per goal).
   bool sparse{false};
@@ -122,7 +125,9 @@ struct PlanIntake
 ///    pose at least \f$\ell_c\f$ before the goal gives a new tangent; otherwise a stored tangent
 ///    of the same goal is kept (near-goal replans start at the robot); otherwise the direction
 ///    from the first pose, if it is at least 1 mm from the goal; otherwise none (one-pose rule).
-/// 4. Cusps: vectorfield_core::decimateChords (pop-before-append rule), then hasCusp().
+/// 4. Cusps: vectorfield_core::findCusps (math_spec §2.8 [Design, 0.2.1]): chord-decimated turns
+///    of more than 90°, classified by the plan's headings or, without them, by whether the plan
+///    doubles back; then vectorfield_core::decimateChords for step 6.
 /// 5. Sparse: the longest raw segment against kSparseSegmentLength.
 /// 6. Unsmoothed: the largest turn between consecutive decimated chords against
 ///    kUnsmoothedTurnAngle.
@@ -132,10 +137,11 @@ struct PlanIntake
 /// @param state In/out cross-plan state.
 /// @param positions Work buffer (the plan's positions).
 /// @param decimated Work buffer (the chord-decimated plan).
+/// @param cusps Work buffer (the raw indices of the cusps on return).
 PlanIntake intakePlan(
   vectorfield_core::Span<const vectorfield_core::Pose2> plan, double chord_length,
   PlanIntakeState * state, std::vector<vectorfield_core::Vec2> * positions,
-  std::vector<vectorfield_core::Vec2> * decimated) noexcept;
+  std::vector<vectorfield_core::Vec2> * decimated, std::vector<std::size_t> * cusps) noexcept;
 
 /// @brief Inputs of buildWindow(), all in the costmap global frame.
 struct WindowInput
@@ -189,11 +195,14 @@ struct WindowBuild
 ///
 /// 1. Updates `state->goal_in_window` (latched until the next plan) with
 ///    \f$\lVert W_{\mathrm{back}} - \mathrm{goal}\rVert\f$ < vectorfield_core::kWindowAtGoalDistance.
-/// 2. If it holds and `has_end_tangent`: vectorfield_core::tailCondition (removes the vertices
-///    within \f$\ell_c\f$ of \f$W_{\mathrm{back}}\f$ and inserts the virtual vertex). The terminal
-///    point is always \f$W_{\mathrm{back}}\f$, never `goal`.
-/// 3. vectorfield_core::dedupe at 1 mm (endpoints kept).
-/// 4. Fewer than 2 vertices: vectorfield_core::onePoseWindow(base, last window pose).
+/// 2. vectorfield_core::dedupe at 1 mm, then vectorfield_core::despike at \f$\ell_c/2\f$ (sub-chord
+///    backtracks, such as a NavigateThroughPoses junction's step back to the next leg's start
+///    cell; 0.2.1).
+/// 3. If the latch holds and `has_end_tangent`: vectorfield_core::tailCondition (removes the
+///    vertices within \f$\ell_c\f$ of \f$W_{\mathrm{back}}\f$ and inserts the virtual vertex).
+///    The terminal point is always \f$W_{\mathrm{back}}\f$, never `goal`.
+/// 4. vectorfield_core::dedupe at 1 mm (endpoints kept).
+/// 5. Fewer than 2 vertices: vectorfield_core::onePoseWindow(base, last window pose).
 ///
 /// No resampling or smoothing (neither is shift-invariant on a re-pruned window). The output goes
 /// unchanged into `PolylineCurve::assign(out, false)`; a non-kOk status is `InvalidPath`.

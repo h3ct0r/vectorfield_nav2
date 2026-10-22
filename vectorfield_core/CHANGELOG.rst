@@ -2,6 +2,16 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* findCusps() and planHasHeadings(): a turn of the chord-decimated plan sharper than 90° is a
+  cusp only where the plan's headings change driving direction or, for a plan without headings
+  (NavFn, Theta*, NavigateThroughPoses waypoints), where it doubles back along itself for more than
+  2 l_c (legs within 3° of opposite and a cell apart). Sharp forward corners are no longer cusps.
+  segmentPlan() uses both; hasCusp() remains the chord test that finds the candidates.
+* despike(): drops a polyline's turns of more than 90° next to a segment shorter than a given
+  length (the step back to the next leg's start cell at a NavigateThroughPoses junction).
+
 0.2.0 (2026-10-20)
 ------------------
 * Reversing: TrackerInput::drive_sign for plans with cusps; FL control point, heading tracking and

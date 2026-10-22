@@ -36,7 +36,8 @@ bool sameGoal(const vf::Pose2 & a, const vf::Pose2 & b) noexcept
 
 PlanIntake intakePlan(
   vf::Span<const vf::Pose2> plan, double chord_length, PlanIntakeState * state,
-  std::vector<vf::Vec2> * positions, std::vector<vf::Vec2> * decimated) noexcept
+  std::vector<vf::Vec2> * positions, std::vector<vf::Vec2> * decimated,
+  std::vector<std::size_t> * cusps) noexcept
 {
   PlanIntake intake;
   if (plan.empty()) {
@@ -73,9 +74,11 @@ PlanIntake intakePlan(
   }
   intake.has_end_tangent = state->has_end_tangent;
 
-  // 4. Cusps on the chord-decimated plan (reversals shorter than ℓ_c vanish there).
+  // 4. Cusps: turns of the chord-decimated plan (reversals shorter than ℓ_c vanish there) where
+  // the plan's headings change sign or, without headings, where it doubles back.
+  vf::findCusps(plan, chord_length, cusps);
+  intake.cusp = !cusps->empty();
   vf::decimateChords(*positions, chord_length, decimated);
-  intake.cusp = vf::hasCusp(*decimated);
 
   // 5. Sparse plans.
   for (std::size_t i = 1; i < positions->size(); ++i) {
@@ -120,6 +123,11 @@ WindowBuild buildWindow(
   for (const vf::Pose2 & pose : input.window) {
     work->push_back(pose.p);
   }
+  // Sub-chord backtracks (math_spec §2.8 [Design, 0.2.1]): a NavigateThroughPoses junction steps
+  // back to the next leg's start cell, which at a sharp corner would hold ROTATE_TO_FIELD.
+  vf::dedupe(*work, false, out);
+  vf::despike(out, 0.5 * input.chord_length);
+  out->swap(*work);
 
   if (build.ends_at_goal && input.has_end_tangent) {
     // 2. Tail conditioning, then 3. dedupe. The swaps only exchange the caller's buffers.

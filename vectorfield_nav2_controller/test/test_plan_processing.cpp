@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Pure unit test of the raw-plan intake (plan §5.1 "Pure unit test"): NavFn-style tails never
-// read as a cusp while a real reversal longer than 2ℓ_c always does, and the end-tangent rules
-// (walk back ℓ_c, keep the stored tangent for the same goal, none for a one-pose plan). No ROS.
+// Pure unit test of the raw-plan intake (plan §5.1 "Pure unit test"): NavFn-style tails and sharp
+// forward corners never read as a cusp while a real reversal longer than 2ℓ_c always does, and
+// the end-tangent rules (walk back ℓ_c, keep the stored tangent for the same goal, none for a
+// one-pose plan). No ROS.
 
 #include <gtest/gtest.h>
 
@@ -61,7 +62,8 @@ PlanIntake intake(const std::vector<vf::Pose2> & plan, double chord_length, Plan
 {
   std::vector<vf::Vec2> positions;
   std::vector<vf::Vec2> decimated;
-  return intakePlan(plan, chord_length, state, &positions, &decimated);
+  std::vector<std::size_t> cusps;
+  return intakePlan(plan, chord_length, state, &positions, &decimated, &cusps);
 }
 
 double angleBetween(const vf::Vec2 & a, const vf::Vec2 & b)
@@ -121,6 +123,39 @@ TEST(Reversals, AReversalLongerThanTwoChordsIsAlwaysACusp)
             EXPECT_TRUE(result.cusp) << "res " << resolution << " heading " << heading / kDeg
                                      << " forward " << forward << " spacing " << spacing;
           }
+        }
+      }
+    }
+  }
+}
+
+TEST(Corners, ASharpForwardCornerIsNoCuspButUnsmoothed)
+{
+  // NavigateThroughPoses through a waypoint whose next leg turns by 100°..170°: NavFn's identity
+  // orientations, or orientations along the legs (straightPlan). No cusp (math_spec §2.8).
+  for (const double resolution : kResolutions) {
+    const double chord = vf::chordLength(resolution);
+    for (int turn = 100; turn <= 170; turn += 10) {
+      for (int k = 0; k < kHeadings; ++k) {
+        const double first = k * 2.0 * vf::kPi / kHeadings;
+        const double second = first + turn * kDeg;
+        const vf::Vec2 corner(0.31, -0.12);
+        for (const bool oriented : {false, true}) {
+          std::vector<vf::Pose2> plan =
+            straightPlan(corner - vf::heading(first), corner, 0.5 * resolution, second);
+          const std::vector<vf::Pose2> leg =
+            straightPlan(corner, corner + vf::heading(second), 0.5 * resolution, second);
+          plan.insert(plan.end(), leg.begin() + 1, leg.end());
+          if (!oriented) {
+            for (std::size_t i = 0; i + 1 < plan.size(); ++i) {
+              plan[i].yaw = 0.0;
+            }
+          }
+          PlanIntakeState state;
+          const PlanIntake result = intake(plan, chord, &state);
+          EXPECT_FALSE(result.cusp) << "res " << resolution << " turn " << turn << " heading "
+                                    << first / kDeg << " oriented " << oriented;
+          EXPECT_TRUE(result.unsmoothed);
         }
       }
     }

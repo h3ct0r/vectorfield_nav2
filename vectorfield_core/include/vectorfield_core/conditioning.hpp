@@ -125,6 +125,18 @@ void tailCondition(
   Span<const Vec2> window, const Vec2 & end_tangent, double chord_length,
   std::vector<Vec2> * out) noexcept;
 
+/// @brief Removes the sub-chord backtracks of a plugin window (math_spec §2.8 [Design, 0.2.1]).
+///
+/// Walks the vertices keeping a stack: before a vertex is pushed, the top is dropped while the
+/// polyline would turn there by more than 90° and one of the top's two segments is shorter than
+/// `min_length` (\f$\ell_c/2\f$). A NavigateThroughPoses junction of NavFn legs steps back to the
+/// next leg's start cell (up to 0.71 cell); at a sharp corner that backward step would make the
+/// field there point backward and hold ROTATE_TO_FIELD. A sharp corner sampled finer than
+/// `min_length` is cut by a few centimetres. The first and the last vertex are kept; in place.
+/// @param points Deduplicated window vertices (rewritten).
+/// @param min_length Segment length below which a turn of more than 90° is removed (m).
+void despike(std::vector<Vec2> * points, double min_length) noexcept;
+
 /// @brief Plugin chord decimation of a raw plan for cusp detection (math_spec §2.8 [Design]).
 ///
 /// Keeps the first pose; keeps a pose only if it is at least \f$\ell_c\f$ from the last kept
@@ -135,10 +147,56 @@ void tailCondition(
 /// @param out Decimated vertices (cleared first).
 void decimateChords(Span<const Vec2> plan, double chord_length, std::vector<Vec2> * out) noexcept;
 
-/// @brief True iff two consecutive chords of a decimated plan have a negative dot product (a
-/// cusp; the plugin throws InvalidPath unless `allow_reversing`, which splits the plan at it:
-/// segmentPlan()).
+/// @brief True iff two consecutive chords of a decimated plan have a negative dot product: a
+/// turn of more than 90°, a cusp *candidate*. findCusps() decides which candidates are cusps (a
+/// sharp forward corner is not one).
 bool hasCusp(Span<const Vec2> decimated) noexcept;
+
+/// @brief A yaw is aligned with a plan step when \f$\lvert\cos(\psi_k - \angle(p_{k+1} -
+/// p_k))\rvert\f$ is at least this (within 30°, either way; math_spec §2.8 [Design, 0.2.1]).
+inline constexpr double kHeadingAlignCos = 0.8660254037844386;
+/// @brief A plan has headings only if aligned yaws cover at least this fraction of its length.
+inline constexpr double kHeadingAlignedFraction = 0.9;
+/// @brief Without headings, a candidate is a reversal only if its legs, fitted away from the turn,
+/// turn by at least 177° (\f$\cos 177°\f$; math_spec §2.8 [Design, 0.2.1]): the headingless
+/// reversals Nav2's planners emit (Smac along \f$\pm x\f$) are exact, and 7° above a 170° corner
+/// absorb a grid planner's sub-cell wiggle.
+inline constexpr double kReversalTurnCos = -0.9986295347545738;
+
+/// @brief True iff the plan's yaws say which way the robot drives (math_spec §2.8 [Design,
+/// 0.2.1]).
+///
+/// Over the steps \f$s_k = p_{k+1} - p_k\f$ (\f$k \le n-2\f$, so the goal yaw is unused) at least
+/// 0.1 mm long: yaws aligned with their step (kHeadingAlignCos) cover at least
+/// kHeadingAlignedFraction of the length, and some run of consecutive aligned steps with a yaw
+/// other than exactly 0 is at least \f$\ell_c\f$ long. NavFn, Theta\* and short Smac 2D plans
+/// leave every pose at the identity and NavigateThroughPoses adds one oriented pose per waypoint,
+/// so they have none; Smac Hybrid and Lattice (the vehicle yaw) and smoothed Smac 2D plans (yaws
+/// along the path) have them.
+/// @param plan Raw plan poses (plan frame).
+/// @param chord_length \f$\ell_c\f$.
+bool planHasHeadings(Span<const Pose2> plan, double chord_length) noexcept;
+
+/// @brief The cusps of a raw plan: where the robot must change its driving direction (math_spec
+/// §2.8 [Design, 0.2.1]).
+///
+/// Candidates come from decimateChords() and hasCusp()'s test; each is moved to the raw pose
+/// between the neighbouring chord vertices with the largest projection on the incoming chord, and
+/// its legs end at the neighbouring candidates (or the plan's ends). With headings
+/// (planHasHeadings()), the drive sign of each leg is that of \f$\sum_k s_k^\top \mathbf
+/// h(\psi_k)\f$ over its first \f$2\ell_c\f$ when the magnitude is at least half the length: a
+/// candidate is a cusp iff the two signs differ. Otherwise (no headings, or a leg the yaws do not
+/// decide) it is a cusp iff the plan doubles back: over \f$L = \min(4\ell_c, L_{\mathrm{in}},
+/// L_{\mathrm{out}}) \ge 2\ell_c\f$, the least-squares lines of the legs between \f$\ell_c\f$
+/// and \f$L\f$ from the turn (clear of start-cell and goal hooks) turn by at least 177°
+/// (kReversalTurnCos) and the outgoing leg's centroid lies within \f$\ell_c/2\f$ (a cell) of the
+/// incoming line. A sharp forward corner (tested up to 170°) is no cusp.
+/// @param plan Raw plan poses (plan frame).
+/// @param chord_length \f$\ell_c\f$.
+/// @param cusps Raw indices of the cusps in plan order, strictly between the first and the last
+/// pose (cleared first; also the work buffer).
+void findCusps(
+  Span<const Pose2> plan, double chord_length, std::vector<std::size_t> * cusps) noexcept;
 
 /// @brief Plugin one-pose rule (math_spec §2.8): \f$[p, p_{\mathrm{last}}]\f$, or
 /// \f$[p_{\mathrm{last}} - 0.01\,\mathbf h(\psi_{\mathrm{last}}), p_{\mathrm{last}}]\f$ when
@@ -170,18 +228,15 @@ struct PlanSegment
 /// @brief Splits a raw plan at its cusps and gives each segment a drive sign (math_spec §2.8,
 /// §9.4 [Design, M7]).
 ///
-/// Cusps come from decimateChords() and hasCusp()'s test; each one is moved to the raw pose
-/// between the neighbouring chord vertices with the largest projection on the incoming chord.
-/// The plan *has headings* iff some interior pose has a yaw other than exactly 0 (NavFn, Smac
-/// 2D and Theta* leave interior orientations at the identity; Smac Hybrid and Lattice give the
-/// vehicle yaw). With headings, a segment's sign is that of \f$\sum_k (p_{k+1} - p_k)^\top
-/// \mathbf h(\psi_k)\f$ when its magnitude is at least half the segment length; otherwise, and
-/// without headings, the first segment takes `default_sign` and the sign alternates at cusps.
+/// Cusps come from findCusps(). With headings (planHasHeadings()), a segment's sign is that of
+/// \f$\sum_k (p_{k+1} - p_k)^\top \mathbf h(\psi_k)\f$ when its magnitude is at least half the
+/// segment length; otherwise, and without headings, the first segment takes `default_sign` and
+/// the sign alternates at cusps.
 /// @param plan Raw plan poses (plan frame).
 /// @param chord_length \f$\ell_c\f$.
 /// @param default_sign Sign of a first segment that headings do not decide (−1 iff
 /// `drive_backward`).
-/// @param work Work buffer (decimated raw indices).
+/// @param work Work buffer (the cusps).
 /// @param out Segments in plan order (cleared first): one for a plan without cusps, none for an
 /// empty plan.
 /// @return True iff the plan has headings.

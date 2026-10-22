@@ -13,8 +13,9 @@
 // limitations under the License.
 
 // Layer 2, M7 reversing (math_spec §9.4, docs/design/m7_reversing.md): plans with a cusp under
-// allow_reversing for each motion model, a cusp that jitters across replans, and (Lyrical) the
-// path handler's enforce_path_inversion and enforce_path_rotation.
+// allow_reversing for each motion model, a cusp that jitters across replans, sharp forward
+// corners that are no cusps (math_spec §2.8, 0.2.1), and (Lyrical) the path handler's
+// enforce_path_inversion and enforce_path_rotation.
 
 #include <gtest/gtest.h>
 
@@ -31,6 +32,7 @@ namespace
 {
 
 namespace vf = vectorfield_core;
+using vectorfield_nav2_controller::test::countExceptions;
 using vectorfield_nav2_controller::test::CycleRecord;
 using vectorfield_nav2_controller::test::describe;
 using vectorfield_nav2_controller::test::finalDistance;
@@ -229,6 +231,68 @@ TEST(Reversing, WithoutAllowReversingTheCuspIsStillInvalid)
   EXPECT_EQ(harness.status(), GoalStatus::kAborted);
   EXPECT_EQ(harness.result().reason, "INVALID_PATH") << describe(harness);
 }
+
+/// A NavigateThroughPoses plan of NavFn with a forward corner of `turn` (rad, to the left) at a
+/// waypoint near (1.5, 0): identity orientations except the waypoint's and the goal's (along the
+/// second leg), and the second leg from the grid vertex nearest the waypoint, 1.5 m long.
+std::vector<vf::Pose2> throughPosesCorner(double turn)
+{
+  const vf::Vec2 waypoint(1.513, 0.007);
+  const vf::Vec2 vertex(1.5, 0.0);
+  const vf::Vec2 goal = vertex + 1.5 * vf::heading(turn);
+  std::vector<vf::Pose2> plan = line(vf::Vec2::Zero(), waypoint, 0.025, 0.0);
+  plan.back().yaw = turn;
+  const std::vector<vf::Pose2> second = line(vertex, goal, 0.025, 0.0);
+  plan.insert(plan.end(), second.begin(), second.end());
+  plan.back().yaw = turn;
+  return plan;
+}
+
+class SharpCorner : public ::testing::TestWithParam<std::tuple<std::string, bool>>
+{
+};
+
+TEST_P(SharpCorner, A150DegreeWaypointCornerIsFollowedForward)
+{
+  // The chord rule of 0.2.0 read the corner as a cusp: INVALID_PATH, or with allow_reversing a
+  // second leg driven backward. The window's despike() drops the junction's step back to the
+  // next leg's start cell, which held ROTATE_TO_FIELD at the corner.
+  const auto & [model, allow_reversing] = GetParam();
+  HarnessOptions options = modelOptions(model, "auto");
+  options.parameters.push_back(pluginParameter(options, "allow_reversing", allow_reversing));
+  ServerHarness harness(options);
+  harness.configure();
+  harness.activate();
+  const std::vector<vf::Pose2> plan = throughPosesCorner(150.0 * vf::kPi / 180.0);
+  harness.followPath(mapPlan(plan));
+  const GoalStatus status = harness.runUntilDone(90.0);
+  const Summary summary = summarize(harness, plan.back().p);
+  EXPECT_EQ(summary.segments, 1U);
+  EXPECT_EQ(summary.flips, 0);
+  EXPECT_FALSE(summary.reversed);
+  if (model == "ackermann") {
+    // A car cannot turn 150° at a point (that takes a Smac Hybrid-A* plan): the plan is accepted
+    // and driven forward, and the controller reports the turn infeasible instead.
+    EXPECT_EQ(status, GoalStatus::kAborted);
+    EXPECT_EQ(harness.result().reason, "NO_VALID_CONTROL") << describe(harness);
+    EXPECT_NE(harness.result().message.find("HEADING_INFEASIBLE"), std::string::npos);
+    return;
+  }
+  ASSERT_EQ(status, GoalStatus::kSucceeded) << describe(harness);
+  EXPECT_EQ(countExceptions(harness, "NoValidControl"), 0U);
+  EXPECT_LT(finalDistance(harness, plan.back().p), 0.25);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  NavigateThroughPoses, SharpCorner,
+  ::testing::Values(
+    std::make_tuple("differential", false), std::make_tuple("differential", true),
+    std::make_tuple("omnidirectional", false), std::make_tuple("ackermann", false),
+    std::make_tuple("ackermann", true)),
+  [](const ::testing::TestParamInfo<std::tuple<std::string, bool>> & case_info) {
+    return std::get<0>(case_info.param) +
+           (std::get<1>(case_info.param) ? "_allow_reversing" : "_forward_only");
+  });
 
 /// Lyrical and later: the server's FeasiblePathHandler truncates its window at the constraint.
 class PathConstraints : public ::testing::Test

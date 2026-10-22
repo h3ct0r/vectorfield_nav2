@@ -90,6 +90,80 @@ std::vector<Vec2> navfnTail(const Vec2 & start, const Vec2 & cell, const Vec2 & 
   return path;
 }
 
+// Poses with NavFn's identity orientation.
+std::vector<Pose2> unoriented(const std::vector<Vec2> & points)
+{
+  std::vector<Pose2> plan;
+  for (const Vec2 & point : points) {
+    plan.push_back(Pose2{point, 0.0});
+  }
+  return plan;
+}
+
+// Smac's smoother orientations: every pose but the last along its step (unchanged over a
+// zero-length step).
+void orientAlongPath(std::vector<Pose2> * plan)
+{
+  for (std::size_t k = 0; k + 1 < plan->size(); ++k) {
+    const Vec2 step = (*plan)[k + 1].p - (*plan)[k].p;
+    if (step.norm() > 1e-4) {
+      (*plan)[k].yaw = vf::angleOf(step);
+    }
+  }
+}
+
+// Identity-yaw poses every half cell from a toward b (b excluded): a NavFn leg.
+void appendHalfCells(std::vector<Pose2> * plan, const Vec2 & a, const Vec2 & b, double res)
+{
+  const double step = 0.5 * res;
+  const Vec2 delta = b - a;
+  const double length = delta.norm();
+  for (int j = 0; j * step < length - 1e-9; ++j) {
+    plan->push_back(Pose2{a + (j * step / length) * delta, 0.0});
+  }
+}
+
+// A NavigateThroughPoses plan of NavFn: the leg to the exact waypoint (with its yaw), then the
+// next leg from NavFn's start, the grid vertex nearest the waypoint (a hook of up to 0.71 cell),
+// to the goal.
+std::vector<Pose2> navfnThroughWaypoint(
+  const Vec2 & start, const Pose2 & waypoint, const Pose2 & goal, double res)
+{
+  std::vector<Pose2> plan;
+  appendHalfCells(&plan, start, waypoint.p, res);
+  plan.push_back(waypoint);
+  const Vec2 vertex(std::round(waypoint.p.x() / res) * res, std::round(waypoint.p.y() / res) * res);
+  appendHalfCells(&plan, vertex, goal.p, res);
+  plan.push_back(goal);
+  return plan;
+}
+
+// Drives a vehicle from the plan's last pose for `length` with drive sign q (+1 forward) and
+// steering side s (+1 left, 0 straight, -1 right) on radius R; poses every `spacing` with the
+// vehicle yaw, as Smac Hybrid-A* and Lattice emit them.
+void appendDrive(std::vector<Pose2> * plan, double R, int q, int s, double length, double spacing)
+{
+  const Pose2 from = plan->back();
+  const int n = std::max(1, static_cast<int>(std::ceil(length / spacing)));
+  for (int k = 1; k <= n; ++k) {
+    const double sigma = length * k / n;
+    if (s == 0) {
+      plan->push_back(Pose2{from.p + (q * sigma) * vf::heading(from.yaw), from.yaw});
+      continue;
+    }
+    const Vec2 centre = from.p + (s * R) * vf::J(vf::heading(from.yaw));
+    const double a = q * s * sigma / R;
+    plan->push_back(Pose2{Vec2(centre + vf::rotate(a, from.p - centre)), from.yaw + a});
+  }
+}
+
+std::vector<std::size_t> cuspsOf(const std::vector<Pose2> & plan, double chord)
+{
+  std::vector<std::size_t> cusps;
+  vf::findCusps(plan, chord, &cusps);
+  return cusps;
+}
+
 }  // namespace
 
 // ---------------------------------------------------------------------------------------------
@@ -520,6 +594,7 @@ TEST(Conditioning, O14_NavFnTailsHaveNoCusp)
             }
             vf::decimateChords(plan, chord, &decimated);
             cusps += vf::hasCusp(decimated) ? 1 : 0;
+            cusps += cuspsOf(unoriented(plan), chord).empty() ? 0 : 1;
             ++cases;
           }
         }
@@ -561,6 +636,7 @@ TEST(Conditioning, O14_RealReversalIsFlaggedButStartHookIsNot)
         }
         vf::decimateChords(reversal, chord, &decimated);
         EXPECT_TRUE(vf::hasCusp(decimated)) << res << " " << k << " " << approach;
+        EXPECT_EQ(cuspsOf(unoriented(reversal), chord).size(), 1U) << res << " " << k;
 
         // A reversal in the middle of a plan (it then continues backward) is flagged as well.
         for (int j = 1; j * step <= 1.0 + 1e-9; ++j) {
@@ -568,6 +644,7 @@ TEST(Conditioning, O14_RealReversalIsFlaggedButStartHookIsNot)
         }
         vf::decimateChords(reversal, chord, &decimated);
         EXPECT_TRUE(vf::hasCusp(decimated)) << res << " " << k << " " << approach;
+        EXPECT_EQ(cuspsOf(unoriented(reversal), chord).size(), 1U) << res << " " << k;
 
         // The robot's cell centre lies half a cell behind the robot: the plan starts with a
         // sub-chord step backward, then runs forward.
@@ -577,11 +654,228 @@ TEST(Conditioning, O14_RealReversalIsFlaggedButStartHookIsNot)
         }
         vf::decimateChords(start_hook, chord, &decimated);
         EXPECT_FALSE(vf::hasCusp(decimated)) << res << " " << k << " " << approach;
+        EXPECT_TRUE(cuspsOf(unoriented(start_hook), chord).empty()) << res << " " << k;
         ++cases;
       }
     }
   }
   EXPECT_EQ(cases, 2 * 16 * 4);
+}
+
+// ---------------------------------------------------------------------------------------------
+// findCusps (math_spec §2.8 [Design, 0.2.1])
+// ---------------------------------------------------------------------------------------------
+
+// NavigateThroughPoses corners of 100°..170° on NavFn, both ways round, 16 leg headings, the
+// waypoint anywhere in its cell (NavFn's next leg starts at the nearest grid vertex: a hook of up
+// to 0.71 cell), at res 0.05 and 0.10: no cusp, with NavFn's identity orientations (the waypoint
+// along either leg), with Smac's along-path orientations, and with ±0.2 cell of noise.
+TEST(Cusps, SharpForwardCornersAreNotCusps)
+{
+  std::mt19937_64 rng(21);
+  std::uniform_real_distribution<double> noise(-0.2, 0.2);
+  int cases = 0;
+  int candidates = 0;
+  int cusps = 0;
+  int headings_wrong = 0;
+  std::vector<Vec2> decimated;
+  for (const double res : {0.05, 0.10}) {
+    const double chord = vf::chordLength(res);
+    for (int turn_deg = 100; turn_deg <= 170; turn_deg += 10) {
+      for (const int side : {-1, 1}) {
+        for (int k = 0; k < 16; ++k) {
+          const double first = vf::kTwoPi * k / 16.0;
+          const double second = first + side * turn_deg * vf::kPi / 180.0;
+          for (int ox = -1; ox <= 1; ++ox) {
+            for (int oy = -1; oy <= 1; ++oy) {
+              const Vec2 corner = Vec2(1.0, -0.5) + res * Vec2(0.013 + 0.5 * ox, 0.007 + 0.5 * oy);
+              const Vec2 start = corner - vf::heading(first);
+              const Pose2 goal{Vec2(corner + vf::heading(second)), second};
+              for (const double waypoint_yaw : {0.0, second}) {
+                std::vector<Pose2> plan =
+                  navfnThroughWaypoint(start, Pose2{corner, waypoint_yaw}, goal, res);
+                std::vector<Vec2> points;
+                for (const Pose2 & pose : plan) {
+                  points.push_back(pose.p);
+                }
+                vf::decimateChords(points, chord, &decimated);
+                candidates += vf::hasCusp(decimated) ? 1 : 0;
+                cusps += cuspsOf(plan, chord).empty() ? 0 : 1;
+                headings_wrong += vf::planHasHeadings(plan, chord) ? 1 : 0;
+
+                std::vector<Pose2> noisy = plan;
+                for (std::size_t i = 1; i + 1 < noisy.size(); ++i) {
+                  if ((noisy[i].p - corner).norm() > res) {
+                    noisy[i].p += res * Vec2(noise(rng), noise(rng));
+                  }
+                }
+                cusps += cuspsOf(noisy, chord).empty() ? 0 : 1;
+
+                orientAlongPath(&plan);
+                cusps += cuspsOf(plan, chord).empty() ? 0 : 1;
+                headings_wrong += vf::planHasHeadings(plan, chord) ? 0 : 1;
+                cases += 3;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  EXPECT_EQ(cases, 2 * 8 * 2 * 16 * 9 * 2 * 3);
+  EXPECT_GT(candidates, cases / 6);  // the chord rule alone would have rejected most of them
+  EXPECT_EQ(cusps, 0);
+  EXPECT_EQ(headings_wrong, 0);
+}
+
+// Reeds-Shepp cusps as Smac Hybrid-A* and Lattice emit them (the vehicle yaw, opposite to the
+// motion while reversing): forward 1 m on an arc of radius 0.4 or 1.0 m (or straight), then
+// back 1 m or just over 2 l_c, any steering, 16 headings, the cusp moved by a cell either way:
+// one cusp at the turning pose, and segmentPlan() drives forward then in reverse.
+TEST(Cusps, ReedsSheppReversalsWithHeadingsAreCusps)
+{
+  int cases = 0;
+  std::vector<std::size_t> work;
+  std::vector<vf::PlanSegment> segments;
+  for (const double res : {0.05, 0.10}) {
+    const double chord = vf::chordLength(res);
+    for (const double radius : {0.4, 1.0}) {
+      for (int s1 = -1; s1 <= 1; ++s1) {
+        for (int s2 = -1; s2 <= 1; ++s2) {
+          for (int k = 0; k < 16; ++k) {
+            for (int jitter = -1; jitter <= 1; ++jitter) {
+              for (const double back : {1.0, 2.0 * chord + 0.5 * res}) {
+                std::vector<Pose2> plan{Pose2{Vec2(0.3, -0.2), vf::kTwoPi * k / 16.0}};
+                appendDrive(&plan, radius, 1, s1, 1.0 + jitter * res, 0.5 * res);
+                const std::size_t turn = plan.size() - 1;
+                appendDrive(&plan, radius, -1, s2, back, 0.5 * res);
+                const std::vector<std::size_t> cusps = cuspsOf(plan, chord);
+                ASSERT_EQ(cusps.size(), 1U) << res << " R " << radius << " " << s1 << s2 << " k "
+                                            << k << " jitter " << jitter << " back " << back;
+                EXPECT_LE(cusps[0] > turn ? cusps[0] - turn : turn - cusps[0], 1U);
+                if (!(s1 == 0 && s2 == 0 && k == 0)) {  // all-identity: no headings, alternation
+                  EXPECT_TRUE(vf::planHasHeadings(plan, chord)) << s1 << s2 << " k " << k;
+                }
+                vf::segmentPlan(plan, chord, 1, &work, &segments);
+                ASSERT_EQ(segments.size(), 2U);
+                EXPECT_EQ(segments[0].drive_sign, 1);
+                EXPECT_EQ(segments[1].drive_sign, -1);
+                ++cases;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  EXPECT_EQ(cases, 2 * 2 * 3 * 3 * 16 * 3 * 2);
+}
+
+// Without headings a reversal is a cusp when the plan doubles back for more than 2 l_c (half a
+// cell more, or 1 m): back along the same line or one cell beside it, at the end or in the middle
+// of the plan. Shorter reversals and wider hairpins are followed forward.
+TEST(Cusps, StraightReversalsWithoutHeadingsAreCusps)
+{
+  int cases = 0;
+  for (const double res : {0.05, 0.10}) {
+    const double chord = vf::chordLength(res);
+    for (int k = 0; k < 16; ++k) {
+      const Vec2 u = vf::heading(vf::kTwoPi * k / 16.0 + 0.1);
+      const Vec2 side = vf::J(u);
+      const Vec2 start(0.3, -0.2);
+      const Vec2 turn = start + 1.0 * u;
+      for (const double offset : {0.0, res}) {
+        for (const double back : {2.0 * chord + 0.5 * res, 1.0}) {
+          std::vector<Pose2> plan;
+          appendHalfCells(&plan, start, turn, res);
+          appendHalfCells(&plan, turn + offset * side, turn + offset * side - back * u, res);
+          plan.push_back(Pose2{Vec2(turn + offset * side - back * u), 0.0});
+          EXPECT_EQ(cuspsOf(plan, chord).size(), 1U) << res << " k " << k << " " << offset;
+          EXPECT_FALSE(vf::planHasHeadings(plan, chord));
+          // Then forward again (a three-point turn): two cusps.
+          const Vec2 second_turn = plan.back().p;
+          plan.pop_back();
+          appendHalfCells(&plan, second_turn, second_turn + 1.0 * u, res);
+          plan.push_back(Pose2{Vec2(second_turn + 1.0 * u), 0.0});
+          EXPECT_EQ(cuspsOf(plan, chord).size(), 2U) << res << " k " << k << " " << offset;
+          ++cases;
+        }
+      }
+      // Shorter than 2 l_c: no cusp (followed forward with a deviation below 2 l_c).
+      std::vector<Pose2> short_back;
+      appendHalfCells(&short_back, start, turn, res);
+      short_back.push_back(Pose2{turn, 0.0});
+      short_back.push_back(Pose2{Vec2(turn - 1.5 * chord * u), 0.0});
+      EXPECT_TRUE(cuspsOf(short_back, chord).empty()) << res << " k " << k;
+      // A hairpin 1.5 l_c wide (three cells at res 0.05): two corners, not a reversal.
+      std::vector<Pose2> hairpin;
+      appendHalfCells(&hairpin, start, turn, res);
+      appendHalfCells(&hairpin, turn, turn + 1.5 * chord * side, res);
+      appendHalfCells(&hairpin, turn + 1.5 * chord * side, turn + 1.5 * chord * side - u, res);
+      hairpin.push_back(Pose2{Vec2(turn + 1.5 * chord * side - u), 0.0});
+      EXPECT_TRUE(cuspsOf(hairpin, chord).empty()) << res << " k " << k;
+    }
+  }
+  EXPECT_EQ(cases, 2 * 16 * 2 * 2);
+}
+
+TEST(Conditioning, DespikeRemovesSubChordBacktracks)
+{
+  // A NavFn staircase (turns of 45° at most) is untouched; endpoints are kept.
+  std::vector<Vec2> stairs{{0.0, 0.0}, {0.025, 0.0}, {0.05, 0.025}, {0.075, 0.025}, {0.1, 0.05}};
+  std::vector<Vec2> out = stairs;
+  vf::despike(&out, 0.05);
+  EXPECT_EQ(out, stairs);
+  // A NavigateThroughPoses hook (back 1.5 cm to the next leg's start) at a 90° corner goes; the
+  // corner stays within the hook's length.
+  std::vector<Vec2> hook{{0.0, 0.0}, {0.5, 0.0}, {1.0, 0.0}, {0.99, -0.011}, {0.99, 0.5}};
+  vf::despike(&hook, 0.05);
+  ASSERT_EQ(hook.size(), 4U);
+  EXPECT_TRUE(sameBits(hook[2], Vec2(0.99, -0.011)));
+  EXPECT_TRUE(sameBits(hook.back(), Vec2(0.99, 0.5)));
+  // A long reversal (a cusp, split into segments upstream) is kept.
+  std::vector<Vec2> reversal{{0.0, 0.0}, {1.0, 0.0}, {0.5, 0.0}};
+  out = reversal;
+  vf::despike(&out, 0.05);
+  EXPECT_EQ(out, reversal);
+  std::vector<Vec2> empty;
+  vf::despike(&empty, 0.05);
+  EXPECT_TRUE(empty.empty());
+}
+
+TEST(Cusps, HeadingsNeedAlignedOrientedRuns)
+{
+  const double chord = 0.1;
+  std::vector<Pose2> plan;
+  appendHalfCells(&plan, Vec2::Zero(), Vec2(1.0, 1.0), 0.05);
+  plan.push_back(Pose2{Vec2(1.0, 1.0), 0.3});
+  EXPECT_FALSE(vf::planHasHeadings(plan, chord));  // NavFn: identity, the goal yaw unused
+  orientAlongPath(&plan);
+  EXPECT_TRUE(vf::planHasHeadings(plan, chord));  // Smac 2D after its smoother
+  for (Pose2 & pose : plan) {
+    pose.yaw += vf::kPi;  // reversing all the way: still headings
+  }
+  EXPECT_TRUE(vf::planHasHeadings(plan, chord));
+  for (Pose2 & pose : plan) {
+    pose.yaw += 0.5 * vf::kPi;  // sideways (an omnidirectional lattice): not driving headings
+  }
+  EXPECT_FALSE(vf::planHasHeadings(plan, chord));
+  // Straight along +x: aligned but all identity, so no headings (the configured sign decides).
+  plan.clear();
+  appendHalfCells(&plan, Vec2::Zero(), Vec2(1.0, 0.0), 0.05);
+  plan.push_back(Pose2{Vec2(1.0, 0.0), 0.0});
+  EXPECT_FALSE(vf::planHasHeadings(plan, chord));
+  // An oriented run shorter than l_c (a waypoint pose) is not enough.
+  plan[10].yaw = 1e-3;
+  plan[11].yaw = 1e-3;
+  EXPECT_FALSE(vf::planHasHeadings(plan, chord));
+  for (std::size_t i = 10; i < 16; ++i) {
+    plan[i].yaw = 1e-3;
+  }
+  EXPECT_TRUE(vf::planHasHeadings(plan, chord));
+  EXPECT_FALSE(vf::planHasHeadings({}, chord));
+  EXPECT_TRUE(cuspsOf({}, chord).empty());
+  EXPECT_TRUE(cuspsOf({Pose2{}, Pose2{Vec2(1.0, 0.0), 0.0}}, chord).empty());
 }
 
 TEST(Conditioning, OnePoseWindow)

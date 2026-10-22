@@ -14,12 +14,20 @@ asking for it. A forward plan under `allow_reversing: true` runs exactly as befo
 
 **Segmentation** (plugin, once per raw plan, plan frame; math_spec §2.8):
 
-1. Cusps: the chord decimation of §2.8 ($\ell_c$; reversals shorter than $\ell_c$ are still
-   ignored). The raw cusp is the pose between the two neighbouring chord vertices with the largest
-   projection on the incoming chord. Segments run from cusp to cusp.
-2. Direction $q \in \{+1, -1\}$ of each segment (body $+x$ or $-x$). A plan *has headings* when
-   some interior pose has a non-identity orientation (Smac Hybrid and Lattice: the vehicle yaw;
-   NavFn, Smac 2D and Theta\* leave interior poses at the identity). With headings,
+1. Cusps: `findCusps` (§2.8 [Design, 0.2.1]). The chord decimation ($\ell_c$; reversals shorter
+   than $\ell_c$ are still ignored) gives candidates, turns of more than 90°; the raw cusp is the
+   pose between the two neighbouring chord vertices with the largest projection on the incoming
+   chord. A candidate is a cusp where the headings change the drive sign or, without headings,
+   where the plan doubles back for more than $2\ell_c$ (legs within 3° of opposite and a cell
+   apart). A sharp forward corner is not one (0.2.0 split every candidate, so with
+   `allow_reversing` the leg after a 150° NavigateThroughPoses corner was driven backward).
+   Segments run from cusp to cusp.
+2. Direction $q \in \{+1, -1\}$ of each segment (body $+x$ or $-x$). A plan *has headings*
+   (`planHasHeadings`, 0.2.1) when yaws aligned with the motion (within 30°, either way) cover 90%
+   of its length and an oriented run of them is at least $\ell_c$ long: Smac Hybrid and Lattice
+   (the vehicle yaw) and smoothed Smac 2D plans (along the path) have them; NavFn, Theta\* and
+   unsmoothed Smac 2D leave the poses at the identity, and the oriented waypoint poses of a
+   NavigateThroughPoses plan are single steps, so these have none. With headings,
    $q = \operatorname{sgn}\sum_k (p_{k+1} - p_k)^\top \mathbf h(\psi_k)$ over the segment when
    $\lvert\sum\rvert \ge L_{\mathrm{seg}}/2$; otherwise, and without headings, the first segment
    takes the configured sign ($-1$ iff `drive_backward`), or its opposite when the plan starts
@@ -69,10 +77,12 @@ kBlocked, NoValidControl, replan). Reverse speed uses the same $v_r$ and box; th
 `max_reverse_vel` in 0.x (use speed-filter zones); the Ackermann band floor applies both ways.
 
 **Nav2 path constraints (Lyrical, FPH).** `enforce_path_inversion` truncates the window at the
-first raw-pose inversion (no decimation), and FPH moves past it once the robot is within
-`inversion_xy_tolerance` (0.2 m) and `inversion_yaw_tolerance` (0.4 rad) of that pose. The server
-checks its goal against the full plan's last pose, and `SimpleGoalChecker` also needs its window
-to be shorter than `path_length_tolerance` (1.0 m), so the server never reports success at a cusp.
+first raw-pose inversion (no decimation, no headings: any raw turn of more than 90°, so a sharp
+forward corner too; keep it off with headingless planners), and FPH moves past it once the robot
+is within `inversion_xy_tolerance` (0.2 m) and `inversion_yaw_tolerance` (0.4 rad) of that pose.
+The server checks its goal against the full plan's last pose, and `SimpleGoalChecker` also needs
+its window to be shorter than `path_length_tolerance` (1.0 m), so the server never reports success
+at a cusp.
 In segmented mode the plugin builds its own window, stops within `cusp_tolerance` of the cusp
 with the plan's heading (inside FPH's tolerances, so FPH advances and the server's window keeps
 pace), and never needs the truncation. `enforce_path_rotation` truncates at in-place rotations
@@ -90,4 +100,7 @@ documents segment following. `TrackerInput::drive_sign` (0 = configured) and
 settle ring at `cusp_tolerance`); the status text adds `REV` while $q = -1$.
 
 **Limits.** No reversal shorter than $\ell_c$ is a stop; a plan without headings alternates
-direction blindly; a reverse segment cannot contour; one speed limit for both directions.
+direction blindly, and reverses only where it doubles back for more than $2\ell_c$ (an out-and-back
+waypoint route on NavFn is one); a reverse segment cannot contour; one speed limit for both
+directions. A smoother that orients a headingless plan (nav2_smoother) marks the legs that leave
+toward $-x$ of the identity as reverse, and they are driven so.

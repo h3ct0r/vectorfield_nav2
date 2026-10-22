@@ -130,6 +130,8 @@ if(BUILD_TESTING)
   foreach(_vf_model differential ackermann)
     vf_add_launch_test(test/test_reversing_kinematic.py ${_vf_model})
   endforeach()
+  # A 150° NavigateThroughPoses corner on NavFn: a forward corner, not a cusp (0.2.1).
+  vf_add_launch_test(test/test_through_poses_kinematic.py differential)
 
   # The curve follower (M5) on curve_follower_demo, differential only: laps of closed curves,
   # moving frames, open curves and the Nav2 interlock. Minutes of simulated driving each.
