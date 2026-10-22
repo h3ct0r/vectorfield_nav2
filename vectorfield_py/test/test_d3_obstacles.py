@@ -151,6 +151,7 @@ def test_config_validation():
 
 def test_vf_sim3d_obstacles(tmp_path, capsys):
     """vf-sim3d with every obstacle kind: summary, plot, CSV column h, input errors."""
+    pytest.importorskip('matplotlib')  # the plot needs the [tools] extra
     png = tmp_path / 'avoid.png'
     table = tmp_path / 'avoid.csv'
     argv = [
