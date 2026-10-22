@@ -64,6 +64,7 @@ void GoalSupervisor::reset(const SupervisorConfig & config, double start_time) n
   a3_time_ = 0.0;
   has_anchor_ = false;
   anchor_ = vf::Vec2::Zero();
+  anchor_z_ = 0.0;
   anchor_time_ = start_time;
 }
 
@@ -156,9 +157,13 @@ SupervisorDecision GoalSupervisor::update(const SupervisorInput & input) noexcep
     blocked_since_ = -1.0;
   }
   const double radius = progressRadius(input.nominal_speed);
-  if (!has_anchor_ || (input.position - anchor_).norm() > radius) {
+  // std::hypot(d, 0) == d exactly: planar callers (position_z = 0) are unchanged.
+  if (
+    !has_anchor_ ||
+    std::hypot((input.position - anchor_).norm(), input.position_z - anchor_z_) > radius) {
     has_anchor_ = true;
     anchor_ = input.position;
+    anchor_z_ = input.position_z;
     anchor_time_ = now;
   } else if (now - anchor_time_ >= config_.progress_timeout) {
     return abortWith(result_code::kBlocked, false, "no progress within progress_timeout");

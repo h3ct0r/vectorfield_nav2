@@ -30,7 +30,7 @@ install(
 )
 # The curve follower's example clients keep their names: `ros2 run vectorfield_bringup send_curve.py`.
 install(
-  PROGRAMS scripts/send_curve.py scripts/moving_frame_publisher.py
+  PROGRAMS scripts/send_curve.py scripts/send_curve3d.py scripts/moving_frame_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )
 # The field-test kit (docs/tutorials/field_testing.md): `ros2 run vectorfield_bringup

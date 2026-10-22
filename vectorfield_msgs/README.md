@@ -12,6 +12,9 @@ released into a distro, the definitions evolve only by adding new types.
 | `msg/Curve` | `FollowCurve` goal; the follower's `~/curve` topic | A curve in its own frame: a polyline, a muParser expression r(s, t), or a built-in closed shape |
 | `msg/FieldState` | `<ns>/field_state`, published every control cycle by the controller plugin and the curve follower | Phase, status flags, closest point, field decomposition and commands, for plots and debugging |
 | `action/FollowCurve` | the `follow_curve` action of `vectorfield_curve_follower` | Follow a closed, parametric or time-varying curve, optionally for a number of laps |
+| `msg/Curve3` | `FollowCurve3` goal; the 3D follower's `~/curve` topic | [0.3.0, experimental] A curve in R^3: a 3D polyline, expressions x/y/z(s, t), or a built-in shape placed by a 6-DoF pose |
+| `msg/FieldState3` | `follower_3d/field_state`, every control cycle of `vectorfield_follower_3d` | [0.3.0, experimental] Pose, closest point, field, CBF barrier and commands of the 3D follower |
+| `action/FollowCurve3` | the `follow_curve_3d` action of `vectorfield_follower_3d` | [0.3.0, experimental] FollowCurve for robots that take a 3D velocity setpoint (drones) |
 
 ### Curve
 
@@ -66,6 +69,22 @@ Feedback: `distance_to_curve`, `arc_length`, `remaining_arc_length` (+Inf when `
 
 The phase and status constants are checked at compile time (`static_assert`) against the enums
 in `vectorfield_core`.
+
+### Curve3, FollowCurve3 and FieldState3 (experimental)
+
+[0.3.0] The interfaces of the 3D follower (`vectorfield_follower_3d`). They may change in a
+minor release while the 3D stack is experimental.
+
+- `Curve3` is `Curve` in R^3. It has 3D `points`, a third expression `z_expression`, and the
+  3D built-ins `helix` (open), `circle`, `ellipse`, `viviani`, `lemniscate3d` and
+  `torus_knot`. `pose` places a built-in in the curve frame; an all-zero quaternion means the
+  identity, and the pose must be the identity for polylines and expressions. A pose together
+  with the `cx cy cz yaw pitch roll` parameters is rejected. It has no corner smoothing.
+- `FollowCurve3` has FollowCurve's goal fields, result codes and feedback. `NAV2_ACTIVE` is
+  reserved, because the 3D follower has no Nav2 interlock. `speed` is the 3D speed.
+- `FieldState3` uses FieldState's phase and status values. `barrier` is the least CBF barrier
+  (+Inf without obstacles), and the commands are in `header.frame_id` (the follower's
+  `global_frame`).
 
 See the [documentation](https://h3ct0r.github.io/vectorfield_nav2/) for the theory behind the
 field quantities (`g`, `h`, `eta`, `feedforward`, `field`).

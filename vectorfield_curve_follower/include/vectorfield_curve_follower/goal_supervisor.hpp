@@ -121,6 +121,9 @@ struct SupervisorInput
   std::uint32_t status{0};
   /// Robot position (control frame), for the progress watchdog.
   vectorfield_core::Vec2 position{vectorfield_core::Vec2::Zero()};
+  /// Robot height (control frame) for 3D callers (vectorfield_follower_3d): the watchdog then
+  /// measures the 3D displacement. Planar callers leave it at 0.
+  double position_z{0.0};
   /// Nominal speed \f$v_{\mathrm{nom}}\f$ (desired_speed × speed limit, before the cap and the
   /// clearance scaling) (m/s).
   double nominal_speed{0.0};
@@ -189,6 +192,7 @@ private:
   double a3_time_{0.0};
   bool has_anchor_{false};
   vectorfield_core::Vec2 anchor_{vectorfield_core::Vec2::Zero()};
+  double anchor_z_{0.0};
   double anchor_time_{0.0};
 };
 

@@ -21,10 +21,11 @@ conf.py runs this at the start of every Sphinx build. It can also be run by hand
 
 Each gpl YAML is found by its unique root key and parsed with gpl's own Python package
 (``GenerateCode('markdown')``); every declared parameter is rendered with gpl's
-``ParameterDetailMarkdown``. Two pages are written:
+``ParameterDetailMarkdown``. Three pages are written:
 
 * ``controller.md``: common + legacy-path keys, with headings ``FollowPath.<name>``;
-* ``follower.md``: common + follower keys, unprefixed.
+* ``follower.md``: common + follower keys, unprefixed;
+* ``follower_3d.md``: the 3D follower's keys, unprefixed.
 
 When a page's YAMLs do not exist yet, a short placeholder page is written instead. When the
 YAMLs exist but gpl cannot be imported or parsed, the placeholder is written and the problem
@@ -39,6 +40,7 @@ from pathlib import Path
 COMMON = 'vectorfield_common_params'
 LEGACY = 'vectorfield_legacy_path_params'
 FOLLOWER = 'vectorfield_follower_params'
+FOLLOWER_3D = 'vectorfield_follower_3d_params'
 
 PAGES = {
     'controller': {
@@ -64,6 +66,17 @@ PAGES = {
             (FOLLOWER, 'Follower parameters'),
         ],
     },
+    'follower_3d': {
+        'title': '3D follower parameters',
+        'prefix': '',
+        'intro': (
+            'Keys are declared directly on the `follower_3d` node (vectorfield_follower_3d, '
+            'experimental), without a prefix. The node does not declare the common keys.'
+        ),
+        'groups': [
+            (FOLLOWER_3D, '3D follower parameters'),
+        ],
+    },
 }
 
 PLACEHOLDER = (
@@ -82,7 +95,7 @@ ROOT_KEY_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\s*:', re.MULTILINE)
 
 def find_yamls(repo_root):
     """Map each known gpl root key to the YAML file that declares it."""
-    roots = {COMMON, LEGACY, FOLLOWER}
+    roots = {COMMON, LEGACY, FOLLOWER, FOLLOWER_3D}
     found = {}
     for path in sorted(repo_root.glob('vectorfield_*/**/*.yaml')):
         parts = path.relative_to(repo_root).parts

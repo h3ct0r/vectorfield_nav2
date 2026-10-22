@@ -239,6 +239,30 @@ TEST(GoalSupervisor, ProgressWatchdog)
   expectAbort(held.update(ran(19.5)), result_code::kBlocked, false);
 }
 
+TEST(GoalSupervisor, ProgressWatchdogCountsHeight)
+{
+  // A 3D caller (vectorfield_follower_3d) climbing straight up makes progress.
+  SupervisorConfig config;
+  config.progress_radius = 0.5;
+  config.progress_timeout = 10.0;
+  GoalSupervisor climbing(config, 0.0);
+  for (int k = 0; k <= 300; ++k) {
+    SupervisorInput input = ran(0.1 * k);
+    input.position_z = 0.04 * k;
+    EXPECT_EQ(climbing.update(input).action, SupervisorAction::kContinue) << k;
+  }
+  // Hovering at one height does not.
+  GoalSupervisor hovering(config, 0.0);
+  for (int k = 0; k <= 99; ++k) {
+    SupervisorInput input = ran(0.1 * k);
+    input.position_z = 2.0;
+    EXPECT_EQ(hovering.update(input).action, SupervisorAction::kContinue);
+  }
+  SupervisorInput last = ran(10.0);
+  last.position_z = 2.0;
+  expectAbort(hovering.update(last), result_code::kBlocked, false);
+}
+
 TEST(GoalSupervisor, AssumptionThreeTimerPausesWhileBlocked)
 {
   SupervisorConfig config;

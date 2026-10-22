@@ -4,6 +4,10 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* test_follower_3d (experimental 3D follower on point_sim_3d, every distro): an open helix, two
+  laps of a Viviani curve (max |D| after lap 1 < 0.05 m), a sphere beside a circle seen through
+  the simulator's point cloud (true barrier >= -resolution) and a cancel, each ending with one
+  zero and then silence. Helpers in vectorfield_system_tests.follower_3d.
 * test_cbf_kinematic runs for Ackermann (the box beside the path; no infeasible command at the
   simulator), and the shipped Ackermann overlay and template validate with obstacle_mode cbf,
   without warnings in the stock 3 m window.

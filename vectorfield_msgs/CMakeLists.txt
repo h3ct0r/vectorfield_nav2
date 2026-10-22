@@ -24,8 +24,11 @@ find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Curve.msg"
+  "msg/Curve3.msg"
   "msg/FieldState.msg"
+  "msg/FieldState3.msg"
   "action/FollowCurve.action"
+  "action/FollowCurve3.action"
   DEPENDENCIES std_msgs geometry_msgs builtin_interfaces
 )
 

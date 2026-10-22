@@ -16,6 +16,7 @@
   <exec_depend>vectorfield_behavior_tree</exec_depend>
   <exec_depend>vectorfield_core</exec_depend>
   <exec_depend>vectorfield_curve_follower</exec_depend>
+  <exec_depend>vectorfield_follower_3d</exec_depend>
   <exec_depend>vectorfield_msgs</exec_depend>
   <exec_depend>vectorfield_nav2_controller</exec_depend>
   <exec_depend>vectorfield_py</exec_depend>

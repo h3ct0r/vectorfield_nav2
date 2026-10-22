@@ -15,6 +15,7 @@ Rezende, Gonçalves and Pimenta, *Constructive Time-Varying Vector Fields for Ro
 | `vectorfield_ros` | Distro compatibility, conversions, shared parameters, RViz/Foxglove visualization |
 | `vectorfield_nav2_controller` | `nav2_core::Controller` plugin |
 | `vectorfield_curve_follower` | `FollowCurve` action server for closed, parametric and moving curves |
+| `vectorfield_follower_3d` | [experimental] `FollowCurve3` action server for drones and other 3D velocity-controlled robots, and a 3D point simulator |
 | `vectorfield_py` | Python bindings and command-line tools |
 | `vectorfield_sim` | Kinematic simulator for headless tests and demos |
 

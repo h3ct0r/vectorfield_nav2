@@ -1,0 +1,369 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Parameters of the 3D follower (experimental; docs/design/m7_3d_ros.md). generate_parameter_library
+# generates vectorfield_follower_3d/vectorfield_follower_3d_params.hpp from this file, and
+# docs/gen_params.py renders the parameter reference from it.
+#
+# Rules:
+# - The root key is unique repo-wide (it is also the C++ namespace and the target name).
+# - Only built-in validators, so both gpl versions behave the same. The combination is checked by
+#   vectorfield_core::d3::validateTracker3Config (toTracker3Config in params.hpp): at configure
+#   (an invalid set fails the transition) and at every rebuild (an invalid update aborts the goal).
+# - The names match the planar keys wherever the meaning is the same.
+vectorfield_follower_3d_params:
+  # --- Node ------------------------------------------------------------------------------------
+  controller_frequency:
+    type: double
+    default_value: 20.0
+    description: "Rate of the control loop while a goal executes (Hz)."
+    validation:
+      gt<>: [0.0]
+  global_frame:
+    type: string
+    default_value: "map"
+    read_only: true
+    description: "Control (evaluation) frame: the robot pose, the curve, the obstacles, the world
+      command and every marker are expressed in it. ENU, z up."
+    validation:
+      not_empty<>: []
+  robot_base_frame:
+    type: string
+    default_value: "base_link"
+    read_only: true
+    description: "Robot base frame: the frame_id of body-frame commands (cmd_frame: body)."
+    validation:
+      not_empty<>: []
+  odom_topic:
+    type: string
+    default_value: "odom"
+    read_only: true
+    description: "Odometry of the robot: the pose (in global_frame, or a frame TF maps to it)
+      and the twist in its child frame. Its age is checked against input_timeout."
+    validation:
+      not_empty<>: []
+  cmd_vel_topic:
+    type: string
+    default_value: "cmd_vel"
+    read_only: true
+    description: "Velocity setpoints (geometry_msgs/TwistStamped), published only while a goal
+      executes."
+    validation:
+      not_empty<>: []
+  cmd_frame:
+    type: string
+    default_value: "global"
+    read_only: true
+    description: "Frame of the published velocity: global (ENU velocity in global_frame) or
+      body (the same velocity rotated by -yaw about z, the heading frame FLU, with frame_id
+      robot_base_frame). angular.z is the yaw rate in both."
+    validation:
+      one_of<>: [["global", "body"]]
+
+  # --- Timing and supervision ------------------------------------------------------------------
+  input_timeout:
+    type: double
+    default_value: 0.3
+    description: "Maximum age of the odometry and of a moving frame's input (s). Older inputs
+      make the robot decelerate. Also the extrapolation limit of moving frames."
+    validation:
+      gt<>: [0.0]
+  stale_abort_timeout:
+    type: double
+    default_value: 2.0
+    description: "A stale input or an untransformable curve frame for this long aborts the goal
+      (STALE_INPUT, TF_ERROR) (s)."
+    validation:
+      gt<>: [0.0]
+  blocked_timeout:
+    type: double
+    default_value: 10.0
+    description: "The CBF hold (status BLOCKED) for this long aborts the goal BLOCKED (s)."
+    validation:
+      gt<>: [0.0]
+  progress_radius:
+    type: double
+    default_value: 0.5
+    description: "Progress watchdog: the robot must move min(progress_radius, desired_speed *
+      progress_timeout / 2) in 3D within progress_timeout (m)."
+    validation:
+      gt<>: [0.0]
+  progress_timeout:
+    type: double
+    default_value: 10.0
+    description: "Progress watchdog period (s); no progress aborts the goal BLOCKED."
+    validation:
+      gt<>: [0.0]
+  assumption3_abort_time:
+    type: double
+    default_value: 1.0
+    description: "The Assumption-3 clamp of a moving curve held this long aborts the goal
+      ASSUMPTION3_VIOLATED (s)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Field -----------------------------------------------------------------------------------
+  desired_speed:
+    type: double
+    default_value: 0.5
+    description: "Reference speed v_r of the field (m/s); a goal's desired_speed > 0 overrides
+      it."
+    validation:
+      gt<>: [0.0]
+  convergence_gain:
+    type: double
+    default_value: 2.0
+    description: "Convergence gain k_f of G(D) (1/m)."
+    validation:
+      gt<>: [0.0]
+  gain_function:
+    type: string
+    default_value: "atan"
+    description: "Gain function G(D): atan or rational."
+    validation:
+      one_of<>: [["atan", "rational"]]
+  assumption3_margin:
+    type: double
+    default_value: 0.1
+    description: "Margin epsilon_v of the curve-velocity clamp, in (0, 1)."
+    validation:
+      gt<>: [0.0]
+      lt<>: [1.0]
+  goal_tolerance:
+    type: double
+    default_value: 0.10
+    description: "Goal tolerance of open curves (m): the latch radius; the robot settles within
+      half of it."
+    validation:
+      gt<>: [0.0]
+  terminal_braking_distance:
+    type: double
+    default_value: 0.5
+    description: "Braking distance sigma_b of the terminal profile of open curves (m)."
+    validation:
+      gt<>: [0.0]
+  min_approach_speed:
+    type: double
+    default_value: 0.05
+    description: "Minimum speed of the terminal profile (m/s); at most the desired speed."
+    validation:
+      gt_eq<>: [0.0]
+  final_approach_distance:
+    type: double
+    default_value: -1.0
+    description: "FINAL_APPROACH entry distance before the end of an open curve (m); negative:
+      max(terminal_braking_distance, goal_tolerance)."
+
+  # --- Limits ----------------------------------------------------------------------------------
+  max_speed:
+    type: double
+    default_value: 1.0
+    description: "Bound on the speed |v| (m/s); the command is scaled uniformly."
+    validation:
+      gt<>: [0.0]
+  max_axis_speed_x:
+    type: double
+    default_value: 1.0
+    description: "Bound on |v_x| in global_frame (m/s)."
+    validation:
+      gt<>: [0.0]
+  max_axis_speed_y:
+    type: double
+    default_value: 1.0
+    description: "Bound on |v_y| in global_frame (m/s)."
+    validation:
+      gt<>: [0.0]
+  max_axis_speed_z:
+    type: double
+    default_value: 0.5
+    description: "Bound on the vertical speed |v_z| (m/s)."
+    validation:
+      gt<>: [0.0]
+  max_accel:
+    type: double
+    default_value: 1.0
+    description: "Acceleration bound per axis (m/s^2)."
+    validation:
+      gt<>: [0.0]
+  max_decel:
+    type: double
+    default_value: 1.0
+    description: "Deceleration bound per axis (m/s^2); also the ramp of a decelerating abort."
+    validation:
+      gt<>: [0.0]
+  cancel_decel:
+    type: double
+    default_value: 1.0
+    description: "Deceleration of a cancel (m/s^2)."
+    validation:
+      gt<>: [0.0]
+  max_yaw_rate:
+    type: double
+    default_value: 1.5
+    description: "Bound on the yaw rate (rad/s)."
+    validation:
+      gt<>: [0.0]
+  max_yaw_accel:
+    type: double
+    default_value: 3.2
+    description: "Yaw acceleration bound (rad/s^2)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Yaw -------------------------------------------------------------------------------------
+  yaw_policy:
+    type: string
+    default_value: "path_tangent"
+    description: "Desired yaw: path_tangent (the horizontal path tangent), field (the horizontal
+      field direction) or fixed (fixed_yaw). Held while the direction is vertical."
+    validation:
+      one_of<>: [["path_tangent", "field", "fixed"]]
+  yaw_gain:
+    type: double
+    default_value: 2.0
+    description: "Yaw gain k_psi (1/s)."
+    validation:
+      gt_eq<>: [0.0]
+  fixed_yaw:
+    type: double
+    default_value: 0.0
+    description: "Desired yaw of yaw_policy fixed, in global_frame (rad)."
+
+  # --- Curve intake ----------------------------------------------------------------------------
+  default_sample_spacing:
+    type: double
+    default_value: 0.05
+    description: "Sample spacing of expression and built-in curves when the goal's
+      sample_spacing is <= 0 (m)."
+    validation:
+      gt<>: [0.0]
+  max_curve_points:
+    type: int
+    default_value: 20000
+    description: "Maximum number of samples or vertices of a goal curve."
+    validation:
+      gt<>: [1]
+
+  # --- Moving frames ---------------------------------------------------------------------------
+  moving_frame_reference:
+    type: string
+    default_value: ""
+    read_only: true
+    description: "FRAME_MOVING goals without frame_odom_topic: the frame in which the curve frame
+      is sampled from TF (e.g. odom or map). Empty: such goals are UNSUPPORTED."
+  frame_twist_cutoff_hz:
+    type: double
+    default_value: 2.0
+    description: "Low-pass cutoff of the TF-differenced frame twist (Hz); <= 0 disables it."
+  frame_twist_max_speed:
+    type: double
+    default_value: 2.0
+    description: "Outlier limit of the moving frame's speed (m/s)."
+    validation:
+      gt<>: [0.0]
+  frame_twist_max_angular_rate:
+    type: double
+    default_value: 6.283185307179586
+    description: "Outlier limit of the moving frame's angular rate (rad/s)."
+    validation:
+      gt<>: [0.0]
+
+  # --- Obstacles -------------------------------------------------------------------------------
+  obstacle_mode:
+    type: string
+    default_value: "none"
+    description: "none, or cbf: the CBF safety filter keeps a sphere of body_radius away from the
+      obstacles."
+    validation:
+      one_of<>: [["none", "cbf"]]
+  body_radius:
+    type: double
+    default_value: 0.25
+    description: "Radius of the spherical body (m)."
+    validation:
+      gt_eq<>: [0.0]
+  cbf_margin:
+    type: double
+    default_value: 0.05
+    description: "Extra clearance m of the barrier h = D - (body_radius + m) (m)."
+    validation:
+      gt_eq<>: [0.0]
+  cbf_gain:
+    type: double
+    default_value: 2.0
+    description: "CBF gain gamma_b (1/s); below controller_frequency. Keep cbf_gain *
+      desired_speed <= max_decel."
+    validation:
+      gt<>: [0.0]
+  cbf_sites:
+    type: int
+    default_value: 4
+    description: "Number of nearest obstacles constrained per cycle, 1 to 4."
+    validation:
+      bounds<>: [1, 4]
+  obstacles:
+    type: string_array
+    default_value: []
+    description: "Static obstacle primitives in global_frame, one per entry: 'sphere x y z r',
+      'box x y z hx hy hz [yaw pitch roll]', 'cylinder x y z r [half_height]' (vertical; no
+      half_height: infinite), 'plane px py pz nx ny nz' (the solid half-space behind the
+      normal)."
+  voxel_cloud_topic:
+    type: string
+    default_value: ""
+    read_only: true
+    description: "Optional sensor_msgs/PointCloud2 of occupied points, voxelised into a cube of
+      voxel_grid_size^3 cells centred on the robot. Empty: no voxel source."
+  voxel_resolution:
+    type: double
+    default_value: 0.1
+    description: "Voxel edge (m)."
+    validation:
+      gt<>: [0.0]
+  voxel_grid_size:
+    type: int
+    default_value: 48
+    description: "Voxels per axis of the grid around the robot (its EDT is rebuilt per cloud)."
+    validation:
+      bounds<>: [4, 256]
+  voxel_timeout:
+    type: double
+    default_value: 1.0
+    description: "A voxel cloud older than this is a stale input (s); <= 0: the last cloud holds
+      until replaced (a latched map)."
+
+  # --- Visualization ---------------------------------------------------------------------------
+  publish_markers:
+    type: bool
+    default_value: true
+    description: "Publish ~/markers (MarkerArray) and ~/field_state (FieldState3)."
+  visualization_period:
+    type: double
+    default_value: 0.1
+    description: "Period of ~/markers (s); ~/field_state is published every cycle."
+    validation:
+      gt<>: [0.0]
+  field_arrows_extent:
+    type: double
+    default_value: 1.0
+    description: "Half extent of the lattice of field arrows around the robot (m); 0 disables
+      them."
+    validation:
+      gt_eq<>: [0.0]
+  field_arrows_step:
+    type: double
+    default_value: 0.5
+    description: "Spacing of the lattice of field arrows (m)."
+    validation:
+      gt<>: [0.0]

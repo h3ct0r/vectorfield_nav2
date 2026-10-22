@@ -1,0 +1,39 @@
+# Follow a curve in R^3 (vectorfield_follower_3d). Experimental in 0.x.
+vectorfield_msgs/Curve3 curve
+uint8 FRAME_STATIC=0
+uint8 FRAME_MOVING=1
+uint8 frame_motion
+string frame_odom_topic       # MOVING: Odometry of the curve frame ("" = TF differencing)
+bool reverse_direction
+float64 desired_speed         # <=0: parameter
+uint32 laps                   # closed only; 0 = until cancelled
+builtin_interfaces/Duration max_duration   # 0 = unlimited
+---
+# The values of FollowCurve. GOAL_REJECTED and SEND_GOAL_FAILURE are client-side codes (the
+# follower rejects goals only while inactive). NAV2_ACTIVE is reserved: the 3D follower has no
+# Nav2 interlock.
+uint16 NONE=0
+uint16 GOAL_REJECTED=1
+uint16 SEND_GOAL_FAILURE=2
+uint16 UNKNOWN=1000
+uint16 INVALID_CURVE=1001
+uint16 UNSUPPORTED=1002
+uint16 TF_ERROR=1003
+uint16 STALE_INPUT=1004
+uint16 BLOCKED=1005
+uint16 TIMEOUT=1006
+uint16 ASSUMPTION3_VIOLATED=1007
+uint16 NAV2_ACTIVE=1008
+uint16 INVALID_GOAL=1009
+uint16 error_code
+string error_msg
+uint32 laps_completed
+float64 distance_travelled
+builtin_interfaces/Duration total_elapsed_time
+---
+float64 distance_to_curve
+float64 arc_length
+float64 remaining_arc_length
+uint32 lap
+float64 speed                 # |v| of the odometry (3D)
+uint8 phase                   # FieldState3.PHASE_*

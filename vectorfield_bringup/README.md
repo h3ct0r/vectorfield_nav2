@@ -13,6 +13,7 @@ follower demo with its scripts (M5) are implemented.
 |---|---|---|
 | `kinematic_sim_demo.launch.py` | all | `vectorfield_sim`, with map_server and Nav2's `navigation_launch.py` |
 | `curve_follower_demo.launch.py` | all | `kinematic_sim_demo` with the `curve_follower` scenario, plus the curve follower and `lifecycle_manager_curve_follower` |
+| `follower3d_demo.launch.py` | all | [experimental] `point_sim_3d` (a kinematic point robot in 3D), the 3D follower and its lifecycle manager; no Nav2 |
 | `loopback_demo.launch.py` | Jazzy and later | nav2_bringup's TB3 loopback wrapper |
 | `tb3_gazebo_demo.launch.py`, `tb4_gazebo_demo.launch.py` | Jazzy and later | nav2_bringup's Gazebo TurtleBot simulations, with AMCL |
 
@@ -62,7 +63,7 @@ form.
 | `behavior_trees/` | Trees with the `FollowCurve` node of `vectorfield_behavior_tree`: `follow_curve.xml` (approach with Nav2, then one lap of an ellipse) and `follow_curve_patrol.xml` (a patrol with a recovery); docs/behavior_tree.md |
 | `maps/` | `open_10x10`, `corridor_door` and `corridor_corner` |
 | `rviz/`, `foxglove/`, `plotjuggler/` | `vectorfield.rviz`, `vectorfield.json`, `vectorfield.xml` |
-| `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py` and `moving_frame_publisher.py` (see below); the field-test kit (below) |
+| `scripts/` | `initial_pose_publisher`: publishes `initialpose` at 1 Hz until map → base_footprint exists; `send_curve.py`, `send_curve3d.py` and `moving_frame_publisher.py` (see below); the field-test kit (below) |
 | `examples/` | The tutorials' minimal clients, installed like the scripts: `follow_curve_client.py` (a `follow_curve` action client) and `navigate_waypoints.py` (a route of NavigateToPose goals with Nav2's simple commander; `--relative` poses in the robot's start frame, `--through` one NavigateThroughPoses goal) |
 
 Overlay rules:
@@ -129,6 +130,28 @@ ros2 run vectorfield_bringup send_curve.py --shape moving --tf --laps 0
 
 Start the frame so that the circle passes near the robot (here, the demo's start pose). A NavigateToPose sent while the
 follower runs (RViz's 2D Goal Pose) stops it with `NAV2_ACTIVE`.
+
+## 3D follower (experimental)
+
+`follower3d_demo.launch.py` runs `vectorfield_follower_3d` on `point_sim_3d` and opens RViz with
+`rviz/follower_3d.rviz` (an orbit view). The follower runs the CBF filter against the
+simulator's point cloud of `obstacle_spheres`, voxelised at 0.1 m. `send_curve3d.py` sends the
+examples of `vectorfield_bringup.curves3d`: `helix` (open), `viviani`, `torus_knot`,
+`lemniscate3d`, a time-varying `expression` and `moving`:
+
+```bash
+ros2 launch vectorfield_bringup follower3d_demo.launch.py
+ros2 run vectorfield_bringup send_curve3d.py --shape helix
+ros2 run vectorfield_bringup send_curve3d.py --shape viviani --laps 2
+ros2 param set /point_sim_3d obstacle_spheres "[0.6, 0.0, 1.3, 0.25]"   # a sphere to avoid
+ros2 launch vectorfield_bringup follower3d_demo.launch.py moving_frame:=platform
+ros2 run vectorfield_bringup send_curve3d.py --shape moving --laps 0    # Ctrl-C to stop
+```
+
+Its arguments: `use_rviz`, `cmd_frame` (`global` or `body`), `params_file` (an extra YAML for
+`follower_3d`), `real_time_factor`, `moving_frame` (a frame moving at 0.1 m/s and 0.1 rad/s),
+`velocity_time_constant` (a first-order velocity lag), and `initial_x`, `initial_y`,
+`initial_z`, `initial_yaw`. See docs/follower_3d.md.
 
 ## Field tests
 

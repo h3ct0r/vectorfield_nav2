@@ -4,7 +4,7 @@
 
 :::{warning}
 The 3D core is **experimental in 0.x**. Its C++ and Python APIs may change in a minor release.
-It has no ROS node yet: use it from C++ or Python.
+Use it from C++, from Python, or through the experimental ROS 2 node {doc}`follower_3d`.
 :::
 
 The field of {cite:t}`rezende2022constructive` is defined in any dimension ({doc}`theory`).
@@ -243,8 +243,9 @@ allocate.
   the CBF filter: only the `cbf_sites` nearest obstacles are constrained, and the limiter can
   delay a deceleration, so keep `cbf_gain * desired_speed <= max_decel`. Voxels are measured to
   their centres, and there are no voxel sites outside the grid.
-- An open curve must be static in its frame: an expression in `t` must be closed. Moving frames
-  have no ROS source yet; feed `FrameTwistEstimator` yourself.
+- An open curve must be static in its frame: an expression in `t` must be closed. The ROS node
+  ({doc}`follower_3d`) feeds the frame estimator from Odometry or TF.
 - Polylines are deduplicated but not resampled or filleted.
 - No rotate phases, collision rollout or goal yaw. The yaw only follows the policy.
-- No ROS node or messages: `Curve.msg` and FollowCurve stay planar.
+- `Curve.msg` and FollowCurve stay planar. The 3D node uses the separate `Curve3`,
+  `FollowCurve3` and `FieldState3` ({doc}`follower_3d`).

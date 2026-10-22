@@ -149,6 +149,8 @@ if(BUILD_TESTING)
   # The FollowCurve behaviour-tree node (M7) in bt_runner and in bt_navigator, through the real
   # follower, differential only.
   vf_add_launch_test(test/test_follow_curve_bt.py differential TIMEOUT 900)
+  # The experimental 3D follower on point_sim_3d (no Nav2; the motion model is unused).
+  vf_add_launch_test(test/test_follower_3d.py point TIMEOUT 600)
 
   if(VF_NIGHTLY_TESTS)
     message(STATUS "VF_NIGHTLY_TESTS is ON, but no nightly tests exist yet")

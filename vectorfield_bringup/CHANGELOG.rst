@@ -4,6 +4,10 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* follower3d_demo.launch.py (experimental): point_sim_3d, the 3D follower with its lifecycle
+  manager and RViz with the new rviz/follower_3d.rviz; scripts/send_curve3d.py sends the 3D
+  examples of the new vectorfield_bringup.curves3d module (helix, viviani, torus_knot,
+  lemniscate3d, a time-varying expression and a circle in a moving frame).
 * The reversing scenario overlay sets max_reverse_vel: 0.2; scenarios may set max_reverse_vel
   (at most the model's max_linear_vel).
 * identify_skid_slip.py joins its spin thread before shutting down: a thread still in rclpy at

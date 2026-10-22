@@ -8,6 +8,8 @@ Forthcoming
   drive_backward robot.
 * result_code::kGoalRejected and kSendGoalFailure, the client-side codes of an inactive
   follower's rejection; the docs no longer claim that goals are never rejected.
+* SupervisorInput::position_z: the progress watchdog measures the 3D displacement for the 3D
+  follower (vectorfield_follower_3d). Planar callers leave it at 0 and are unchanged.
 
 0.2.0 (2026-10-20)
 ------------------

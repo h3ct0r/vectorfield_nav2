@@ -15,6 +15,10 @@ Its YAML definitions are the single source of truth: the pages below are generat
 - **Curve follower:** the same common keys plus the follower's own
   (`vectorfield_curve_follower/params/vectorfield_follower_params.yaml`), declared directly on
   the `curve_follower` node, without a prefix. The rotate-to-heading keys are declared but unused.
+- **3D follower** (experimental): its own keys only
+  (`vectorfield_follower_3d/params/vectorfield_follower_3d_params.yaml`), declared directly on
+  the `follower_3d` node ({doc}`follower_3d`). The core checks the combination at configure
+  and at every rebuild; an `obstacles` update with an invalid entry is refused.
 
 Most keys can be changed at run time with `ros2 param set`. The read-only ones are
 `motion_model`, the legacy path-handling keys, and the follower's `global_frame`,
@@ -27,6 +31,7 @@ make the configuration invalid ({doc}`tuning`).
 
 parameters/controller
 parameters/follower
+parameters/follower_3d
 ```
 
 ## Example

@@ -20,12 +20,14 @@ Per pull request, on every gating distro (`colcon test`; launch tests keep the d
 | `test_curve_laps_differential` | all | `curve_follower_demo` on `open_10x10`: 3 laps each of an ellipse 2 × 1 m and a Bernoulli lemniscate (a = 2 m) at 0.4 m/s, each approached with NavigateToPose as `send_curve.py` does: SUCCEEDED with 3 laps, max \|D\| after lap 1 < 0.05 m |
 | `test_curve_moving_differential` | all | `moving_frame_publisher.py` frames: a circle (r 1.5 m) translating at 0.1 m/s and an ellipse rotating at 0.05 rad/s about a point 1 m from its centre, each with the Odometry and the TF source: max \|D\| after 10 s < 0.10 m over 30 s, no `STATUS_ASSUMPTION3_CLAMPED`; the publisher killed mid-run: `STALE_INPUT` |
 | `test_curve_open_differential` | all | an open polyline at 0.4 m/s: SUCCEEDED within length/v_r + 10 s; an open curve at 0.04 m/s: SUCCEEDED, never `BLOCKED`; a goal while NavigateToPose executes: `NAV2_ACTIVE`, no follower cycle |
+| `test_follower_3d_point` | all | [0.3.0, experimental] `follower3d_demo` (point_sim_3d, no Nav2), at 0.5 m/s: an open helix (2 turns) SUCCEEDED within 0.15 m of its end; 2 laps of a Viviani curve (R 1.2 m): SUCCEEDED, max \|D\| after lap 1 < 0.05 m; a sphere beside a circle, seen only through point_sim_3d's point cloud: 1 lap SUCCEEDED, CBF active, true barrier ≥ −0.1 m (the voxel resolution); a cancel mid-run: CANCELED; after each goal exactly one zero, then silence |
 | `test_corridor_kinematic_<model>` | all; differential, skid-steer, omnidirectional | `corridor_door` with contour on: through the door before and after a 0.05 m / 2° map → odom step (no contour activation, clearance ≥ 0.05 m); a goal 0.4 m from a wall; a blocked corridor, with the contour on (differential only: a dead end, no side probe passes) and with `obstacle_mode: none` (stop ≥ stop_margin − res short, NoValidControl, FollowPath fails, Nav2 replans) |
 
 The final command (`cmd_vel` on Jazzy and later, `cmd_vel_safe` on Humble) may be published only by
 collision_monitor and the allow-listed docking_server (Jazzy and later) and following_server
 (Lyrical and later). The launch tests share the helpers of the `vectorfield_system_tests` Python
-package (`launch`, `harness`, `geometry`, `checks`, and `follower` for the curve follower),
+package (`launch`, `harness`, `geometry`, `checks`, `follower` for the curve follower and
+`follower_3d` for the 3D follower),
 imported from the source tree, and the test overlay `test/config/global_obstacle_layer_off.yaml`.
 
 Nightly and non-gating, registered only with `-DVF_NIGHTLY_TESTS=ON`: Gazebo TB3 (label

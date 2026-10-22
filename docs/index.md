@@ -30,6 +30,7 @@ obstacle_avoidance
 curve_follower
 behavior_tree
 core_3d
+follower_3d
 tuning
 parameters
 distro_matrix
@@ -46,6 +47,7 @@ tutorials/curve_following
 tutorials/your_robot
 tutorials/field_testing
 tutorials/offline_design
+tutorials/aerial_3d
 ```
 
 ```{toctree}

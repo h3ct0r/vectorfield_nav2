@@ -16,5 +16,5 @@
 skip = ./.git,./.research,*/third_party/*,*.json,*.pgm,*.svg,*.bib,./build,./install,./log,*/build/*,./docs/_build,./docs/_doxygen,./.venv
 # Short identifiers used in math code (e.g. ans, ser). Extend only with words
 # that are correct in context.
-ignore-words-list = ans,ser,kinf
+ignore-words-list = ans,ser,kinf,ned
 check-hidden = true
