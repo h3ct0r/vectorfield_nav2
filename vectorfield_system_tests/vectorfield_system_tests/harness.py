@@ -45,7 +45,7 @@ from lifecycle_msgs.msg import State
 from lifecycle_msgs.srv import GetState
 from nav2_msgs.action import NavigateThroughPoses, NavigateToPose
 from nav2_msgs.msg import BehaviorTreeLog
-from nav2_msgs.srv import ClearEntireCostmap, SetInitialPose
+from nav2_msgs.srv import ClearEntireCostmap, ManageLifecycleNodes, SetInitialPose
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rcl_interfaces.msg import Parameter as ParameterMessage
 from rcl_interfaces.msg import ParameterType, ParameterValue
@@ -460,9 +460,26 @@ class NavHarness:
                 raise AssertionError(problem)
             print(f'{problem}; new node', flush=True)
             self._restart()
-        for name in NAV2_NODES:
-            if not self.wait_lifecycle_active(name, remaining()):
-                raise AssertionError(f'{name} is not active after {timeout:.0f} s')
+        # Nav2's lifecycle manager aborts the whole bringup when one get_state or change_state
+        # reply misses its 2 s service timeout (seen on loaded CI runners: "planner_server/
+        # get_state service client: async_send_request failed. Aborting bringup."), and then
+        # nothing becomes active. One bounded, logged restart of the managers covers that; a
+        # node that still does not come up fails the test as before.
+        first_pass = time.monotonic() + 0.5 * remaining()
+        stuck = next(
+            (
+                name
+                for name in NAV2_NODES
+                if not self.wait_lifecycle_active(name, max(first_pass - time.monotonic(), 1.0))
+            ),
+            None,
+        )
+        if stuck is not None:
+            print(f'{stuck} is not active; restarting the lifecycle managers once', flush=True)
+            self._restart_lifecycle_managers(remaining())
+            for name in NAV2_NODES:
+                if not self.wait_lifecycle_active(name, remaining()):
+                    raise AssertionError(f'{name} is not active after {timeout:.0f} s')
         if not self._wait_wall(
             lambda: self.tf_buffer.can_transform('map', 'base_scan', Time()),
             min(30.0, remaining()),
@@ -472,6 +489,21 @@ class NavHarness:
             raise AssertionError('no navigate_to_pose action server')
         if not self._wait_wall(lambda: self.map is not None and self.pose() is not None, 30.0):
             raise AssertionError('no /map or no true pose')
+
+    def _restart_lifecycle_managers(self, timeout):
+        """RESET then STARTUP every discovered Nav2 lifecycle manager (bringup recovery)."""
+        managers = sorted(
+            name
+            for name, types in self.node.get_service_names_and_types()
+            if name.endswith('/manage_nodes') and 'nav2_msgs/srv/ManageLifecycleNodes' in types
+        )
+        for command in (ManageLifecycleNodes.Request.RESET, ManageLifecycleNodes.Request.STARTUP):
+            for service in managers:
+                request = ManageLifecycleNodes.Request(command=command)
+                response = self._call(
+                    self._client(ManageLifecycleNodes, service), request, min(60.0, timeout)
+                )
+                print(f'{service} command {command}: {response}', flush=True)
 
     def wait_lifecycle_active(self, name, timeout):
         """Return whether lifecycle node ``name`` reports active within ``timeout`` wall s."""
