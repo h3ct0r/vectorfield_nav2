@@ -233,7 +233,21 @@ outline); inside the margin they point out. Reproduce it with
   CBF condition itself, up to the zero-order hold and the acceleration limits. Heading tracking
   turns toward the field, so the condition holds only once the heading has converged. The
   collision rollout runs the filtered pipeline, so it still brakes the robot before a contact.
-  Ackermann is rejected (`ackermann_cbf_unsupported`); cars use the contour mode.
+- **Ackermann** (0.3.0). The filter runs at the rear axle, which moves along the heading without
+  slipping. $\delta_{\mathrm{safe}}$ is the disc about the axle that holds the body (0.635 m for a
+  0.7 × 0.4 m car with the axle 0.15 m from the rear bumper). A car cannot turn on the spot, so
+  each obstacle it approaches gets a turning margin $R_{\min}(1 - \sin\beta)$, with $\beta$ the
+  angle between the drive direction and the obstacle: the distance a full-lock turn covers toward
+  a wall before the car is parallel to it. The filter keeps $h$ above that margin. So head-on it
+  acts about `min_turning_radius` earlier, and parallel to a wall it acts as for any robot. Where
+  the margin is used up, the car turns at full lock. The filter never pushes a car sideways out of
+  the margin, and the speed band `ackermann_min_speed` applies until the hold stops it.
+  Head-on, the car holds `min_turning_radius` + $\delta_{\mathrm{safe}}$ from the face, at the
+  axle, where it can still turn away; a gap narrower than $2\delta_{\mathrm{safe}}$ also stops
+  it. Reverse plan segments filter along the drive direction. The validator warns when a face
+  straight ahead would enter the local costmap inside the margin (`ackermann_cbf_window`), and
+  when `cbf_margin` is below the stopping distance from `ackermann_min_speed`
+  (`ackermann_cbf_margin`). Design and tests: {ref}`cbf-ackermann`.
 - **Several obstacles.** `cbf_sites` (3) obstacles are constrained at once: the nearest one, and
   the nearest of every other obstacle whose direction differs by more than 45°. The two sides of
   a gap or doorway are therefore both in the filter, and their lateral pushes cancel. With one
@@ -269,9 +283,9 @@ The status text shows `CBF` while the filter binds.
 | Obstacle on the path | circulates around it on the side the probe chose; rejoins | stops in front of it; `STATUS_BLOCKED`, Nav2 replans |
 | Obstacle beside the path, inside the footprint's reach | gate opens; an episode circulates at $\lambda$ | minimal deviation to $\delta_{\mathrm{safe}}$, then back |
 | Doorways, corridors | unaffected while the footprint fits (gate closed) | passed on the path if wider than $2\delta_{\mathrm{safe}}$; may slow near the jambs |
-| Guarantee | none (thesis extension, latched side, watchdog) | $h \ge 0$ for FL and holonomic up to discretisation; approximate for heading tracking |
+| Guarantee | none (thesis extension, latched side, watchdog) | $h \ge 0$ for FL and holonomic up to discretisation; approximate for heading tracking and Ackermann |
 | State | episode, side, $K$, watchdog | none |
-| Ackermann | supported, with turning-radius distances | not supported |
+| Ackermann | supported, with turning-radius distances | supported (0.3.0), at the rear axle with a turning margin |
 | Use when | obstacles appear on the path that the planner does not see in time, or the follower must get around them on a fixed curve | the planner routes around obstacles (stock global obstacle layer) and the controller should keep a margin and pass narrow spaces smoothly |
 
 ## Limits
@@ -288,7 +302,9 @@ The status text shows `CBF` while the filter binds.
   barrier disc is centred on the control point, so lateral clearances exceed the footprint's by
   up to `control_point_offset`.
 - **Ackermann:** the car contours with larger distances ({ref}`ackermann-contour`). An obstacle
-  it cannot drive around without changing direction stops it, and Nav2 replans.
+  it cannot drive around without changing direction stops it, and Nav2 replans. With cbf, the
+  barrier disc about the rear axle is wide beside the car, and a face across the path holds it
+  `min_turning_radius` + $\delta_{\mathrm{safe}}$ short.
 - **Reverse plan segments** (0.3.0): obstacles are contoured while backing up, at the law's point
   on the drive side, at most at `max_reverse_vel` ({ref}`reversing`).
 - **Rotation shim:** the shim undoes contour episodes by re-aiming at the path; see

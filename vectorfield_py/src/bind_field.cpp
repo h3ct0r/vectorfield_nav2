@@ -148,6 +148,10 @@ void bindSamples(py::module_ & m)
     .field("n", &CbfSample::n, "Unit normal of each constraint.")
     .field("h_j", &CbfSample::h_j, "Barrier value of each constraint (m).")
     .field("binds", &CbfSample::binds, "Whether each constraint binds.")
+    .field(
+      "turn_margin", &CbfSample::turn_margin,
+      "Ackermann: turning margin of each constraint (m); the filter constrains "
+      "max(0, h_j - turn_margin_j). 0 for the other motion models.")
     .finish();
 
   using vf::FieldSample;

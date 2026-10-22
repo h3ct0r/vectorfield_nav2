@@ -617,6 +617,21 @@ double finalApproachDistance(const CoreConfig & config, double xy_tol) noexcept
 namespace
 {
 
+/// @brief Radius of the smallest disc about `point` (robot frame) that contains the footprint:
+/// the farthest vertex, or radius + \f$\lVert\f$point\f$\rVert\f$ for a disc (as
+/// Footprint::coverRadius()).
+double coverRadius(const FootprintSpec & footprint, const Vec2 & point) noexcept
+{
+  if (footprint.polygon.empty()) {
+    return footprint.radius + point.norm();
+  }
+  double radius = 0.0;
+  for (const Vec2 & vertex : footprint.polygon) {
+    radius = std::max(radius, (vertex - point).norm());
+  }
+  return radius;
+}
+
 /// @brief The Ackermann contour warnings of math_spec §6.6 [Design, M7] on a resolved config.
 void addAckermannContourWarnings(
   const CoreConfig & r, const FootprintRadii & radii, std::vector<ValidationIssue> * warnings)
@@ -758,12 +773,6 @@ ValidationReport validateConfig(
       "obstacle_contour_distance " + num(lambda) + " < min_turning_radius " + num(r_min) +
         " + 0.05: the car cannot follow the circulation around a point obstacle");
   }
-  if (ackermann && cbf) {
-    addIssue(
-      errors, issue::kAckermannCbfUnsupported,
-      "obstacle_mode cbf is not supported for motion_model ackermann in 0.x: a car cannot follow "
-      "an arbitrary filtered field; use contour");
-  }
   if (ackermann && !(r_min > 0.0)) {
     addIssue(
       errors, issue::kAckermannRadius,
@@ -875,6 +884,28 @@ ValidationReport validateConfig(
       warnings, issue::kCbfGainDiscrete,
       "cbf_gain / controller_frequency = " + num(cbf_gain * dt) +
         " >= 1: the barrier can cross zero within one cycle");
+  }
+  if (ackermann && cbf && r_min > 0.0) {
+    const double x_r = r.motion.reference_point_offset;
+    const double delta = coverRadius(r.node.footprint, Vec2(x_r, 0.0)) + r.obstacles.cbf_margin;
+    const double cbf_reach = x_r + delta + r_min + v_r / cbf_gain;
+    if (costmap_ok && cbf_reach > half_window) {
+      addIssue(
+        warnings, issue::kAckermannCbfWindow,
+        "reference_point_offset + delta_safe + min_turning_radius + desired_speed / cbf_gain = " +
+          num(cbf_reach) + " > half the costmap size " + num(half_window) +
+          ": a face straight ahead enters the window inside the turning margin, and the car "
+          "holds instead of turning away");
+    }
+    const double v_ack = r.motion.ackermann_min_speed;
+    const double band_stop = v_ack * v_ack / (2.0 * a_dec);
+    if (r.obstacles.cbf_margin < band_stop) {
+      addIssue(
+        warnings, issue::kAckermannCbfMargin,
+        "cbf_margin " + num(r.obstacles.cbf_margin) +
+          " < ackermann_min_speed^2 / (2 max_linear_decel) = " + num(band_stop) +
+          ": the car stops from the band speed at the CBF hold and can use more than the margin");
+    }
   }
   return report;
 }

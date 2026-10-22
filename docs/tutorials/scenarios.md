@@ -247,6 +247,23 @@ and it rejoins the plan behind it. Move the box closer with
 again: the car starts inside the band, turns at once and passes the box's corner at about 0.35 m,
 as close as the turning radius allows ({ref}`ackermann-contour`).
 
+**CBF instead of the contour** (0.3.0). Switch the mode, put the box 0.1 m beside the plan and
+send the same goal:
+
+```bash
+ros2 param set /controller_server FollowPath.obstacle_mode cbf
+ros2 param set /vectorfield_sim box_obstacles "[2.0, 0.3, 0.4, 0.4, 0.0]"
+```
+
+The `contour` namespace now draws the δ<sub>safe</sub> ring about the rear axle (0.27 m for the
+overlay's disc) and `cbf h … | n/m bind | %`. The filter adds a turning margin toward the box,
+so the car starts to steer away about one turning radius before the ring would touch it. It
+passes the box with about 0.12 m between the footprint and the box (the system test measures
+0.116–0.124 m) and rejoins the plan
+({ref}`cbf-ackermann`). Put the box back on the plan (`"[2.0, 0.0, 0.4, 0.4, 0.0]"`): the car
+holds about $R_{\min}$ + δ<sub>safe</sub> (0.77 m) from the face, at the axle, where it can still
+turn away. The CBF hold raises `BLOCKED`, and Nav2 replans once the box is in the global costmap.
+
 **Tweak.** With `obstacle_mode: none`, or where the car cannot drive around the obstacle (a gap
 narrower than about λ + the half-width, a dead end), the obstacle stops the car (`BLOCKED`), the
 controller raises `NoValidControl` and Nav2 replans. Do not use NavigateThroughPoses or the stock

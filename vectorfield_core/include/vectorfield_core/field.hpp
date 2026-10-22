@@ -100,6 +100,9 @@ struct CbfSample
   std::array<Vec2, kCbfMaxSites> n{Vec2::Zero(), Vec2::Zero(), Vec2::Zero()};
   std::array<double, kCbfMaxSites> h_j{kInf, kInf, kInf};
   std::array<bool, kCbfMaxSites> binds{false, false, false};
+  /// Ackermann: the turning margin of each constraint (m; 0 for the other motion models); the
+  /// filter constrains \f$\max(0, h_j - \text{margin}_j)\f$ (math_spec §6.7 [Design, 0.3.0]).
+  std::array<double, kCbfMaxSites> turn_margin{0.0, 0.0, 0.0};
 };
 
 /// @brief Every field quantity of one evaluation (math_spec Appendix A, sec-math-viz).

@@ -127,8 +127,8 @@ if(BUILD_TESTING)
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
   endforeach()
-  # The CBF obstacle mode (M7): not Ackermann, which rejects it.
-  foreach(_vf_model differential omnidirectional)
+  # The CBF obstacle mode (M7; Ackermann since 0.3.0: the box beside the path only).
+  foreach(_vf_model differential omnidirectional ackermann)
     vf_add_launch_test(test/test_cbf_kinematic.py ${_vf_model})
   endforeach()
   # Skid-slip identification (field-test kit): identify_skid_slip.py recovers vectorfield_sim's

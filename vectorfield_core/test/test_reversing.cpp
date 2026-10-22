@@ -563,6 +563,62 @@ INSTANTIATE_TEST_SUITE_P(
       case_info.param.law == vf::TrackingLaw::kFeedbackLinearization ? "DiffFl" : "DiffHt");
   });
 
+// O59 (e) Ackermann with obstacle_mode cbf (math_spec §6.7 [Design, 0.3.0]): a 0.15 m disc 0.3 m
+// beside the reverse leg. The filter runs at the rear axle, which leads in reverse, with the
+// turning margin along the drive direction −h: the car passes the disc backwards, binds only in
+// the reverse leg, keeps min h >= −res at the rear axle, never collides or reports
+// kHeadingInfeasible, and settles at the goal.
+TEST(Reversing, AckermannCbfPassesADiscOnTheReverseLeg)
+{
+  for (const double r_min : {0.5, 1.0}) {
+    SCOPED_TRACE("R_min " + std::to_string(r_min));
+    vf::CoreConfig config = reversingConfig(vf::MotionModel::kAckermann, vf::TrackingLaw::kAuto);
+    config.motion.min_turning_radius = r_min;
+    config.motion.reference_point_offset = -0.2;
+    config.node.footprint = carFootprint(-0.2);
+    config.obstacles.obstacle_mode = vf::ObstacleMode::kCbf;
+    const double x_disc = -2.5;
+    const double x_goal = -6.0;
+    ObstacleWorld world = centredWorld(x_goal - 1.5, 2.5, -2.5, 2.5);
+    world.addDisc(Vec2(x_disc, 0.3), 0.15);
+    world.commit();
+    const RunResult r = follow(config, outAndBack(x_goal), Pose2{}, &world, 90.0);
+
+    const vf::FootprintChecker checker(vf::Footprint::fromSpec(config.node.footprint));
+    double min_h = vf::kInf;
+    double delta = 0.0;
+    int collisions = 0;
+    int infeasible = 0;
+    int active_reverse = 0;
+    for (std::size_t k = 0; k < r.cycles.size(); ++k) {
+      const Cycle & c = r.cycles[k];
+      const vf::CbfSample & cbf = c.out.field.cbf;
+      if (cbf.on) {
+        delta = cbf.delta;
+        min_h = std::min(min_h, world.distanceToSites(c.out.field.x_eval) - cbf.delta);
+      }
+      if (cbf.active) {
+        EXPECT_EQ(r.signs[k], -1) << "the filter bound in the forward leg, cycle " << k;
+        active_reverse += r.signs[k] == -1 ? 1 : 0;
+      }
+      collisions += checker.collidesGroundTruth(c.pose_after, world.grid()) ? 1 : 0;
+      infeasible += vf::Status::has(c.out.status, vf::Status::kHeadingInfeasible) ? 1 : 0;
+    }
+    std::printf(
+      "[O59e reverse cbf R_min %.1f] delta %.3f, min h %.4f, %d active reverse cycles, end %.1f s, "
+      "final (%.3f, %.3f)\n",
+      r_min, delta, min_h, active_reverse, r.cycles.back().rec.t, r.final_pose.p.x(),
+      r.final_pose.p.y());
+    EXPECT_NEAR(delta, std::hypot(0.55, 0.2) + config.obstacles.cbf_margin, 1e-9);
+    EXPECT_GE(active_reverse, 1) << "the filter never bound";
+    EXPECT_GE(min_h, -kRes);
+    EXPECT_EQ(collisions, 0);
+    EXPECT_EQ(infeasible, 0) << "kHeadingInfeasible";
+    ASSERT_TRUE(r.settled) << "final pose " << r.final_pose.p.transpose();
+    EXPECT_LT((r.final_pose.p - Vec2(x_goal, 0.0)).norm(), kXyTol);
+  }
+}
+
 // The O56 dead end on the reverse leg: a 1.2 m corridor closed across the path. Neither side probe
 // gets past the closing wall, so no episode starts; the cap stops the robot short of the wall
 // (backing up), kBlocked follows and stays set, and the footprint never touches a wall.

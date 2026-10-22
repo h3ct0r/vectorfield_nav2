@@ -149,7 +149,7 @@ def test_tracker_exposes_its_resolved_configuration():
 
 
 def test_cbf_parameters_and_issues():
-    """obstacle_mode cbf: defaults, domain errors, Ackermann rejection, the gain warnings."""
+    """obstacle_mode cbf: defaults, domain errors, the gain and Ackermann warnings."""
     config = vf.CoreConfig()
     obstacles = config.obstacles
     assert (obstacles.cbf_gain, obstacles.cbf_margin, obstacles.cbf_sites) == (2.0, 0.05, 3)
@@ -163,7 +163,13 @@ def test_cbf_parameters_and_issues():
     config.motion.motion_model = vf.MotionModel.ACKERMANN
     config.motion.min_turning_radius = 0.5
     obstacles.cbf_gain = 2.0
-    assert vf.validate_config(config).has_error(vf.issue.ACKERMANN_CBF_UNSUPPORTED)
+    assert vf.validate_config(config).ok
+    obstacles.cbf_margin = 0.001
+    assert vf.validate_config(config).has_warning(vf.issue.ACKERMANN_CBF_MARGIN)
+    obstacles.cbf_margin = 0.05
+    config.motion.min_turning_radius = 1.5
+    costmap = vf.CostmapInfo(width_m=3.0, height_m=3.0, resolution=0.05)
+    assert vf.validate_config(config, costmap).has_warning(vf.issue.ACKERMANN_CBF_WINDOW)
 
 
 def test_max_reverse_vel():

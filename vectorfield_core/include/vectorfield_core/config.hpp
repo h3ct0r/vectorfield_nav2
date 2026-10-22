@@ -445,8 +445,6 @@ inline constexpr std::string_view kAckermannRadius = "ackermann_min_turning_radi
 inline constexpr std::string_view kBrakingExceedsWindow = "braking_distance_exceeds_window";
 /// FL with \f$d \le 0\f$.
 inline constexpr std::string_view kFlOffset = "fl_control_point_offset";
-/// `obstacle_mode: cbf` with `motion_model: ackermann` (math_spec §6.7 [Design, M7]).
-inline constexpr std::string_view kAckermannCbfUnsupported = "ackermann_cbf_unsupported";
 /// `max_reverse_vel` \f$> v_{\max}\f$ (math_spec §9.4 [Design, 0.3.0]).
 inline constexpr std::string_view kReverseAboveMax = "max_reverse_vel_above_max_linear_vel";
 /// Ackermann: `max_reverse_vel` set below \f$v_{\mathrm{ack}}\f$, so the band cannot be commanded in
@@ -494,6 +492,13 @@ inline constexpr std::string_view kAckermannContourWatchdog = "ackermann_contour
 inline constexpr std::string_view kCbfGainDeceleration = "cbf_gain_deceleration";
 /// CBF: \f$\gamma_b \Delta t \ge 1\f$, the barrier can cross 0 within one cycle (math_spec §6.7).
 inline constexpr std::string_view kCbfGainDiscrete = "cbf_gain_discrete";
+/// Ackermann with cbf (costmap): \f$x_r + \delta_{\mathrm{safe}} + R_{\min} + v_r/\gamma_b >
+/// \tfrac12\min(W, H_c)\f$, a face straight ahead enters the window inside the turning margin
+/// (math_spec §6.7 [Design, 0.3.0]).
+inline constexpr std::string_view kAckermannCbfWindow = "ackermann_cbf_window";
+/// Ackermann with cbf: `cbf_margin` \f$< v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})\f$, the stop from
+/// the band speed at the hold can use more than the margin (math_spec §6.7 [Design, 0.3.0]).
+inline constexpr std::string_view kAckermannCbfMargin = "ackermann_cbf_margin";
 /// Per plan (adviseForPlan()): FL with \f$\kappa_{\mathrm{path}}\,d > 1\f$.
 inline constexpr std::string_view kFlPathCurvature = "fl_path_curvature";
 /// @}

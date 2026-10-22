@@ -430,14 +430,32 @@ TEST(ConfigReject, AckermannWithContour)
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
 }
 
-// math_spec §6.7 [Design, M7]: cbf is valid for every model but Ackermann.
+// math_spec §6.7 [Design, 0.3.0]: cbf is valid for every model, Ackermann included. A car warns
+// when a face straight ahead would enter the costmap inside the turning margin
+// (x_r + δ_safe + R_min + v_r/γ_b > ½ min(W, H_c)), and when the stop from v_ack at the hold can
+// use more than cbf_margin.
 TEST(ConfigReject, AckermannWithCbf)
 {
   CoreConfig config = ackermann();
   config.obstacles.obstacle_mode = ObstacleMode::kCbf;
-  expectOnly(vf::validateConfig(config, std::nullopt), {issue::kAckermannCbfUnsupported}, {});
+  // 0 + (0.22 + 0.05) + 0.5 + 0.4 / 2 = 0.97 m <= 1.5 m.
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+  // R_min = 1.2: 1.67 m > 1.5 m; the warning needs the costmap.
+  config.motion.min_turning_radius = 1.2;
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {issue::kAckermannCbfWindow});
+  expectOnly(vf::validateConfig(config, std::nullopt), {}, {});
+  // A 4 m window fits it.
+  expectOnly(vf::validateConfig(config, CostmapInfo{4.0, 4.0, 0.05, std::nullopt}), {}, {});
+  config = ackermann();
+  config.obstacles.obstacle_mode = ObstacleMode::kCbf;
+  config.obstacles.cbf_margin = 0.001;  // < 0.05^2 / 2
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {issue::kAckermannCbfMargin});
+  config.obstacles.obstacle_mode = ObstacleMode::kContour;  // CBF warnings only with cbf
+  expectOnly(vf::validateConfig(config, CostmapInfo{4.0, 4.0, 0.05, std::nullopt}), {}, {});
   CoreConfig diff = tc();
   diff.obstacles.obstacle_mode = ObstacleMode::kCbf;
+  diff.obstacles.cbf_margin = 0.001;
   expectOnly(vf::validateConfig(diff, stockCostmap()), {}, {});
 }
 

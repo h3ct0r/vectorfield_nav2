@@ -4,6 +4,14 @@ Changelog for package vectorfield_core
 
 Forthcoming
 -----------
+* obstacle_mode cbf for Ackermann (math_spec §6.7 [Design, 0.3.0], m7_cbf.md "Ackermann"): the
+  error ackermann_cbf_unsupported is removed. The filter runs at the rear axle on
+  max(0, h_j − μ_j), with the turning margin μ_j = R_min (1 − sqrt(1 − c_j²)) for
+  c_j = −n_jᵀ q h > 0 (the distance a full-lock turn away from a face covers toward it), and
+  without the push-out a car cannot follow. CbfSample::turn_margin carries μ_j. Diff, skid and
+  omni are bit-identical. New warnings ackermann_cbf_window (x_r + δ_safe + R_min + v_r/γ_b > half
+  the costmap) and ackermann_cbf_margin (cbf_margin < v_ack²/(2 a_dec)). Oracle O59
+  (test_oracle_cbf_ackermann, and a disc on the reverse leg in test_reversing).
 * max_reverse_vel (MotionConfig, auto = max_linear_vel): with q = -1 (a reverse plan segment or
   drive_backward; not omni) the field speed is min(desired_speed, max_reverse_vel) and the
   kinematic box bounds |v| by it (Kinematics::max_reverse_vel, linearLimit(); reverseSpeedLimit(),

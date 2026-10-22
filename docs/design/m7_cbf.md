@@ -25,9 +25,9 @@ $\dot h_j = n_j^\top F$, and the condition on $F$ is the CBF condition itself. H
 gives $\dot p = v\mathbf h$ with $v \approx \lVert F\rVert\cos e$. The condition then holds only
 as $e \to 0$: approximate. The heading lag, and the CommandLimiter's acceleration bounds in every
 law, can take $h$ below 0. The rollout runs the filtered pipeline, limiter included, against the
-real footprint, so a predicted contact brakes through the cap (§10.3). Ackermann is rejected
-(`ackermann_cbf_unsupported`). A car cannot move along an arbitrary $F^\star$, and the disc about
-the rear axle is large. Cars keep the $R_{\min}$-aware contour (§6.6).
+real footprint, so a predicted contact brakes through the cap (§10.3). A car cannot move along an
+arbitrary $F^\star$: until 0.3.0 Ackermann was rejected; it now filters with a turning margin
+({ref}`cbf-ackermann` below).
 
 **Filter.** With $F$ the shaped path field $\Phi_\gamma$ and $\gamma_b$ = `cbf_gain`:
 $F^\star = \arg\min \lVert F' - F\rVert^2$ s.t. $n_j^\top F' \ge -\gamma_b h_j$, $j \le k$.
@@ -81,7 +81,8 @@ the filter keeps no state.
 
 **Parameters** (additive): `cbf_gain` $\gamma_b$ (2.0 s⁻¹, $> 0$); `cbf_margin` $m$ (0.05 m,
 $\ge 0$); `cbf_sites` $k$ (3, in $[1, 3]$). Warnings: `cbf_gain_deceleration`;
-`cbf_gain_discrete` ($\gamma_b\Delta t \ge 1$). Error: `ackermann_cbf_unsupported`.
+`cbf_gain_discrete` ($\gamma_b\Delta t \ge 1$); for cars `ackermann_cbf_window` and
+`ackermann_cbf_margin` (0.3.0, below).
 `FieldSample::cbf` carries $\delta_{\mathrm{safe}}$, $\min h_j$, the constraints, which of them
 bind, $\lVert F^\star\rVert/\lVert F\rVert$ and the hold. The `cbf` marker namespace draws the
 $\delta_{\mathrm{safe}}$ disc, coloured by the sign of $h$, the constraint normals (bold when
@@ -104,3 +105,104 @@ patience is exceeded. The follower passes a box 0.1 m outside a 1 m circle witho
 System test (diff, omni): a box 0.1 m beside the path succeeds with clearance
 $\ge m - \mathrm{res}$. With a box across the path, the robot holds and raises NoValidControl,
 FollowPath fails and Nav2 replans.
+
+(cbf-ackermann)=
+
+## Ackermann [Design, 0.3.0]
+
+Heading tracking at the rear axle $p_r$ ({doc}`math_spec` §7.1) tracks the direction of $F^\star$
+with $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$, the speed band $v_{\mathrm{ack}}$ and no
+rotation in place. The changes to {doc}`math_spec` are tagged [Design, 0.3.0] in §6.7, §11 and
+§12.5 (O59).
+
+**The issue.** The field filter turns $F^\star$ only once $-\gamma_b h > n^\top F$, i.e. from
+$h \approx v_r/\gamma_b$ (0.2 m at TC) head-on. A car needs up to $R_{\min}$ of approach to turn
+from head-on to parallel to a face, and slowing down does not help: $\omega \le v/R_{\min}$ bounds
+the curvature of the path, whatever the speed. So $h$ is violated during the turn. Measured
+without a correction (O59a, a 0.15 m disc 0.2 m off the path): $\min h = -0.115$ m at
+$R_{\min} = 0.5$ and $-0.240$ m at 1.0. Inside the margin, the push-out $-\gamma_b h\,n$ can also
+point $F^\star$ behind the car, which heading tracking reports as kHeadingInfeasible (STOPPED): a
+car cannot move sideways.
+
+**Options.** (a) A curvature-aware barrier: a turning margin on $\delta_{\mathrm{safe}}$.
+(b) A lookahead or higher-order barrier at a point ahead of the rear axle. (c) A speed-only filter:
+keep tracking $F$ and lower $\lvert v\rvert$. (c) never steers, so it stops in front of every
+obstacle that touches the swept path, offset discs included; its lower speed leaves the path
+unchanged. (b) moves the disc to a point that slips sideways ($\omega\ell$), so
+$\dot h \ne v\,n^\top\mathbf h$, the disc about it must still contain the footprint, and $\ell$ is
+one more tuning knob. (a) is one scalar per site in the existing QP.
+
+**Chosen: (a), the turning margin.** The rear axle does not slip: $\dot p_r = v\mathbf h$. For
+site $j$ and the drive direction $q\mathbf h$, let $c_j = -n_j^\top q\mathbf h = \cos\beta_j$
+($c_j > 0$: the axle approaches the site). Turning away at full lock until parallel to a face
+covers
+$$
+\mu_j = R_{\min}\bigl(1 - \sqrt{1 - c_j^2}\bigr) = R_{\min}(1 - \sin\beta_j) \quad (c_j > 0;\ 0 \text{ otherwise})
+$$
+toward it. The filter constrains $\tilde h_j = \max(0,\ h_j - \mu_j)$ in place of $h_j$:
+$n_j^\top F' \ge -\gamma_b\tilde h_j$. For a face [Derived]: along a full-lock turn away,
+$\mathrm dh/\mathrm ds = -\cos\beta$ and $\mathrm d\mu/\mathrm ds = -R_{\min}\cos\beta\,
+\mathrm d\beta/\mathrm ds = -\cos\beta$. So $h - \mu$ is constant, and $h - \mu \ge 0$ is exactly
+the set from which a full-lock turn keeps $h \ge 0$. Once parallel, $\mu = 0$. Any lesser
+curvature $\kappa$ lowers $h - \mu$ at the rate $v\cos\beta\,(1 - R_{\min}\kappa)$. For a site (a
+point), the arc curves away from it, so the margin is conservative. As $\tilde h \to 0$,
+$F^\star$ turns tangent, the heading error grows, and the law saturates at
+$\lvert v\rvert/R_{\min}$, i.e. full lock. So the car turns as hard as it can exactly when it
+must. The lag of $k_\psi e$ and of the angular acceleration bound costs millimetres (O59a:
+$\min h = -6$ mm). Head-on, $\mu = R_{\min}$: the filter acts about $R_{\min}$ earlier. The clamp at
+0 drops the push-out ($-\gamma_b\tilde h_j \le 0$). $F' = 0$ is then always feasible, the QP is
+never relaxed, and a car inside the margin drives tangentially or holds; it is never pushed out
+behind itself. $\mu_j$ depends on the heading, not on $x$. So the probes of $\dot\psi_d$ use the
+base heading, and the decision field re-filters with the step's margins. Diff, skid and omni are
+bit-identical ($\mu = 0$, no clamp). $h_j$, $\min h$, the hold, the markers and the rollout keep
+$h_j = D_j - \delta_{\mathrm{safe}}$, and `CbfSample::turn_margin` carries $\mu_j$.
+
+**The disc.** $r_e$ about $p_r$ covers the body ahead of the axle: 0.585 m for the O57 car
+(0.7 × 0.4 m, the axle 0.15 m from the rear bumper), $\delta_{\mathrm{safe}} = 0.635$ m. The car
+turns about $p_r$, and the disc holds at every heading. A wall beside the path is kept
+$r_e - w_{\mathrm{lat}} = 0.385$ m farther from the body than needed. That is the price of
+exactness at the point that does not slip. The turning radius enters through $\mu_j$, not
+$\delta_{\mathrm{safe}}$. A margin of $R_{\min}$ in $\delta_{\mathrm{safe}}$ would also hold the
+car $R_{\min}$ away from walls beside the path, which it can follow.
+
+**$v_{\mathrm{ack}}$, the hold, kBlocked.** The band raises FOLLOW speeds in $(0, v_{\mathrm{ack}})$
+to $v_{\mathrm{ack}}$. Near a hold, $\lVert F^\star\rVert$ falls below $v_{\mathrm{ack}}$ before
+the hold ratio 0.05. The car then closes in at $v_{\mathrm{ack}}$ over a few millimetres of
+$\tilde h$ (the turn is per distance, so its geometry is unchanged). Then the hold sets kBlocked,
+and the car stops from $v_{\mathrm{ack}}$ within $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ (1.25 mm
+at the defaults). The hold rule is unchanged: where the filter stops a car, kBlocked follows, the
+plugin raises NoValidControl and Nav2 replans. Head-on, the car stops where $\tilde h = 0$:
+$R_{\min} + \delta_{\mathrm{safe}}$ from the face at the axle. There it can still turn away at
+full lock, which leaves a Hybrid-A* replan room. A gap narrower than $2\delta_{\mathrm{safe}}$
+holds too, before it.
+
+**Reversing.** In a reverse segment $q = -1$: the axle leads, $c_j$ uses $-\mathbf h$, and
+$R_{\min}$ and $\delta_{\mathrm{safe}}$ are those of the same point. The filter keeps no state.
+
+**Validation.** `ackermann_cbf_unsupported` is removed. Warnings:
+`ackermann_cbf_window` (with a costmap) when $x_r + \delta_{\mathrm{safe}} + R_{\min} + v_r/\gamma_b
+> \tfrac12\min(W, H_c)$. A face straight ahead then enters the window inside the turning margin,
+and the car holds where it could have turned. `ackermann_cbf_margin` when
+$m < v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$: the stop from the band speed at the hold can use
+more than the margin. The shipped `ackermann.yaml` validates with cbf in the stock 3 m window
+without warnings ($0 + 0.27 + 0.5 + 0.2 = 0.97$ m).
+
+**Limitations.** The margin is a face's, conservative for points. The disc about the axle is wide
+beside the car. A car stops $R_{\min} + \delta_{\mathrm{safe}}$ short of a face across its path,
+and holds in front of gaps narrower than $2\delta_{\mathrm{safe}}$. Like heading tracking, the
+barrier is not exact under the law's lag and the limiter. The rollout stays the backstop.
+
+**Tests.** O59 (core, the O57 car at $R_{\min}$ 0.5 and 1 m, $m = 0.05$, $\gamma_b = 2$, $h$ by
+brute force at the rear axle). (a) A 0.15 m disc 0.2, 0.35 and 0.5 m off the path: passed and
+settled, never kBlocked or kHeadingInfeasible, $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$,
+no collision, $\min h \ge -6$ mm (0.5) and $\ge +4.5$ mm (1.0), footprint clearance $\ge 0.35$ m,
+$\lvert D\rvert < 0.02$ at the goal. (b) A wall 0.035 m inside $\delta_{\mathrm{safe}}$ of the
+path, the car starting 0.3 m off on the other side: it levels off at $h = 0$ and follows at
+$v_r$. (c) A box across the path: hold and kBlocked for 100 cycles, at rest, $h \ge 0$, stopped
+0.57 m (0.5) and 1.07 m (1.0) short. (d) Two discs whose sites are $\delta_{\mathrm{safe}} - 0.05$
+off the path (0.39 m of free space beside the body): hold, kBlocked, $h \ge 0$. (e) A disc 0.3 m
+beside the reverse leg of a cusp plan: passed backwards with $\min h \ge -3$ mm. (f) One step:
+$\mu = R_{\min}(1 - \sin\beta)$, 0 when parallel, receding or not a car. Layer 2: a box 0.12 m
+beside an Ackermann plan passes with clearance $\ge m - \mathrm{res}$. System test (Ackermann,
+kinematic): an unmapped box 0.1 m beside the path succeeds with clearance $\ge m - \mathrm{res}$
+and no infeasible command at the simulator.

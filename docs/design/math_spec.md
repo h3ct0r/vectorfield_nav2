@@ -1173,7 +1173,20 @@ blocking set, the side probe, the latch and the watchdog are not used. The desig
   tie-break circulation exists: a side without the probe is a guess, and a latched one is the
   contour (`m7_cbf.md`). Near a disc the head-on point is unstable for $G'(0)\rho < 1$
   ({ref}`sec-contour-trap` with $\rho = R_o + \delta_{\mathrm{safe}}$), so off-centre discs pass.
-- **Ackermann** is a ConfigError (`ackermann_cbf_unsupported`) in 0.x.
+- **Ackermann** [Design, 0.3.0] (`m7_cbf.md`, Ackermann). The filter runs at the rear axle
+  $p_r$ ($\dot p_r = v\mathbf h$, no slip), on the turning-margin barrier
+  $\tilde h_j = \max(0,\ h_j - \mu_j)$ in place of $h_j$, with
+  $\mu_j = R_{\min}\bigl(1 - \sqrt{1 - c_j^2}\bigr)$ for $c_j = -n_j^\top q\mathbf h(\psi) > 0$ and
+  $\mu_j = 0$ otherwise: the distance a full-lock turn away from a face covers toward it before
+  the car is parallel to it. Along that turn $h_j - \mu_j$ is constant [Derived], so
+  $h_j - \mu_j \ge 0$ is the set from which a full-lock turn keeps $h_j \ge 0$; for a point site it
+  is conservative. The clamp drops the push-out (a car cannot move sideways, and an $F^\star$
+  behind it is kHeadingInfeasible), so $F' = 0$ is always feasible. $\mu_j$ uses the base heading
+  (probes too); $h_j$, the hold and the markers keep $D_j - \delta_{\mathrm{safe}}$. The band
+  $v_{\mathrm{ack}}$ and the hold are unchanged: below the band speed the car closes in at
+  $v_{\mathrm{ack}}$ until the hold sets kBlocked, and stops within $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$.
+  Head-on it holds $R_{\min} + \delta_{\mathrm{safe}}$ from the face (at $p_r$). Other models: $\mu = 0$,
+  no clamp (unchanged).
 
 (sec-laws)=
 
@@ -1799,7 +1812,6 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | Ackermann with $R_{\min} \le 0$ | the curvature clamp needs $R_{\min}$ |
 | $\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)$, or $>$ `window_limit` when set (Gen A/B prune_distance) | the goal must enter the window before braking must start |
 | FL with $d \le 0$ [Spec] | $M(\psi)$ divides by $d$; the plan omits this rule (`upstream_audit.md`, item O3) |
-| Ackermann with cbf [Design, M7] | a car cannot follow an arbitrary $F^\star$ ({ref}`sec-cbf`) |
 | $v_{\mathrm{rev}} > v_{\max}$ [Design, 0.3.0] | the reverse bound only lowers the forward one |
 | Ackermann with `max_reverse_vel` set below $v_{\mathrm{ack}}$ [Design, 0.3.0] | the band cannot be commanded in reverse ({ref}`sec-segments`) |
 
@@ -1817,6 +1829,7 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | Ackermann: $R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1$ | the field's integral curves need more curvature than the car has |
 | $v_r (c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}$ | yaw rate needed to follow the integral curves at $v_r$ |
 | cbf [Design, M7]: $\gamma_b v_r > a_{\mathrm{dec}}$; $\gamma_b\Delta t \ge 1$ | a head-on approach asks for more deceleration than the limiter allows; the barrier can cross 0 within a cycle ({ref}`sec-cbf`) |
+| Ackermann with cbf [Design, 0.3.0]: $x_r + \delta_{\mathrm{safe}} + R_{\min} + v_r/\gamma_b > \tfrac12\min(W, H_c)$; $m < v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ | a face straight ahead enters the window inside the turning margin; the stop from the band speed at the hold can use more than the margin ({ref}`sec-cbf`) |
 | Ackermann with contour [Design, M7]: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$; $D_{\mathrm{in}} < \lambda + R_{\min}$; $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length` $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ | curvature headroom, turn-in band, gate before the band, watchdog ({ref}`sec-contour-ackermann`) |
 
 At configure, $\kappa_{\mathrm{path}} := 0$; the per-plan checks below use the window's value [Spec].
@@ -2005,7 +2018,21 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   squeeze through with $\omega$ jumps over ten times larger. (f) ZOH at 20 Hz, FL and omni at 0.4 and
   0.5 m/s, a wall across the path, a centred disc and discs 0.1 and 0.2 m off it:
   $\min h \ge -\mathrm{res}$. With `drive_backward`, an offset disc is passed with the filter at the rear
-  control point. Ackermann with cbf: ConfigError.
+  control point.
+
+- **O59 CBF, Ackermann** [Design, 0.3.0] (the O57 car: $R_{\min}$ 0.5 and 1 m, a 0.7 × 0.4 m body
+  with the rear axle 0.2 m behind base_link, $\delta_{\mathrm{safe}} = 0.635$ at the axle; $m = 0.05$,
+  $\gamma_b = 2$; $h$ by brute force at the axle). (a) A 0.15 m disc 0.2, 0.35 and 0.5 m off the
+  path: settled, never kBlocked or kHeadingInfeasible, $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$, no
+  collision, $\min h \ge -\mathrm{res}$, footprint clearance $\ge m - \mathrm{res}$, $\lvert D\rvert < 0.02$
+  at the end. (b) A wall 0.035 m inside $\delta_{\mathrm{safe}}$ of the path, the car starting 0.3 m
+  off on the other side: the filter binds, speed $\ge 0.9\,v_r$ along the wall, $\min h \ge -\mathrm{res}$.
+  (c) A box across the path: hold, kBlocked for 100 cycles, at rest, $h \ge 0$, stopped between
+  $m_s - \mathrm{res}$ and $R_{\min} + \delta_{\mathrm{safe}}$ short. (d) Two discs with their sites
+  $\delta_{\mathrm{safe}} - 0.05$ off the path: hold, kBlocked, $h \ge 0$. (e) A disc 0.3 m beside
+  the reverse leg of a cusp plan: passed backwards, the filter binding only in reverse,
+  $\min h \ge -\mathrm{res}$. (f) One step: $\mu = R_{\min}(1 - \sin\beta)$ toward a face, 0 parallel
+  to it, receding, or for another model.
 
 ### 12.6 Laws
 
@@ -2090,7 +2117,10 @@ there and the predicates defined in this document.
 - **The CBF mode does not circulate** [Design, M7]. Faces across the path, centred discs and gaps
   narrower than $2\delta_{\mathrm{safe}}$ stop the robot (hold, kBlocked); the guarantee is exact only for FL
   and holonomic in continuous time, approximate under ZOH, the limiter and HT; FL's barrier disc is
-  centred on $p_c$, so lateral clearances exceed the footprint's by up to $d$.
+  centred on $p_c$, so lateral clearances exceed the footprint's by up to $d$. Ackermann
+  [Design, 0.3.0]: the turning margin is exact only for a face at full lock, the disc about the
+  rear axle is wide beside the car, and a face across the path holds the car
+  $R_{\min} + \delta_{\mathrm{safe}}$ short.
 - **Saturation.** Static fields under uniform scaling keep $\dot D \le 0$; time-varying fields keep it
   under the $\eta$-box but not under its fallback; HT and Ackermann only as $e \to 0$; the acceleration
   stage makes all of these approximate.
@@ -2279,7 +2309,7 @@ Every RViz/Foxglove marker in {doc}`../visualization` is drawn from `FieldSample
 | heading target | ROTATE_TO_FIELD: $\angle F_{\mathrm{trk}}$ (+π if `drive_backward`); ROTATE_TO_HEADING: the goal yaw; HT: $\psi_d$; the arc spans $\operatorname{wrap}(\psi_{\mathrm{tgt}} - \psi)$ |
 | prediction | rollout poses from `StepScratch`, the first colliding pose, $s_{\mathrm{free}}$ |
 | contour | gate open, episode active, $\sigma_c$, $x_o^\star$, $D_o$, $\theta$, `travelled_m`, `elapsed_s`, the blocked gate samples, $K$'s cells; the $\lambda$, $D_{\mathrm{in}}$, $D_{\mathrm{in}}'$ rings are centred at $x_o^\star$ [Spec]; the side arrow is $\sigma_c J n_o$ at $x_{\mathrm{eval}}$ |
-| cbf [Design, M7] | filter on, binding, hold, $\delta_{\mathrm{safe}}$, $\min h_j$, $\lVert F^\star\rVert/\lVert F\rVert$, $F$ before the filter, and per constraint $x_{o,j}$, $n_j$, $h_j$, binding (`FieldSample::cbf`); drawn in the `contour` namespace in cbf mode: the $\delta_{\mathrm{safe}}$ ring centred at $x_{\mathrm{eval}}$, the binding normals, the correction $F^\star - F$ |
+| cbf [Design, M7] | filter on, binding, hold, $\delta_{\mathrm{safe}}$, $\min h_j$, $\lVert F^\star\rVert/\lVert F\rVert$, $F$ before the filter, and per constraint $x_{o,j}$, $n_j$, $h_j$, binding, the Ackermann turning margin $\mu_j$ [Design, 0.3.0] (`FieldSample::cbf`); drawn in the `contour` namespace in cbf mode: the $\delta_{\mathrm{safe}}$ ring centred at $x_{\mathrm{eval}}$, the binding normals, the correction $F^\star - F$ |
 | `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. `Tracker::probe()` shapes with the speed limit $\gamma_{\mathrm{lim}}$ only; the cycle's collision cap is not stored [Spec, M1]. |
 | streamlines | RK4 integration of $\dot x = F(x)$ at the frozen $t$ with step `field_grid_resolution`/2 [Spec] |
 

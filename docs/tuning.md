@@ -74,6 +74,8 @@ more for each goal's overrides. The findings, with their codes:
 | `ackermann_contour_turn_in` | warning | `ackermann` with contour: $D_{\mathrm{in}} < \lambda + R_{\min}$, no room for a quarter turn | raise $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$, or auto |
 | `ackermann_contour_lookahead` | warning | `ackermann` with contour: `obstacle_lookahead` < $D'_{\mathrm{in}}$, the gate opens inside the turn-in band | raise `obstacle_lookahead`, or auto |
 | `ackermann_contour_watchdog` | warning | `ackermann` with contour: `obstacle_max_contour_length` < $D'_{\mathrm{in}} - \lambda + \pi\lambda$ | raise `obstacle_max_contour_length` |
+| `ackermann_cbf_window` | warning | `ackermann` with cbf: $x_r + \delta_{\mathrm{safe}} + R_{\min} + v_r/\gamma_b$ > half the costmap, a face ahead appears inside the turning margin | enlarge the costmap, or lower $R_{\min}$, `cbf_margin` or $v_r$ |
+| `ackermann_cbf_margin` | warning | `ackermann` with cbf: `cbf_margin` < `ackermann_min_speed`² / (2 `max_linear_decel`), the stop at the CBF hold can use more than the margin | raise `cbf_margin` or lower `ackermann_min_speed` |
 | `yaw_rate_for_curvature` | warning | $v_r(c_G k_f + \kappa_{\mathrm{path}})$ > `max_angular_vel` | lower $v_r$ or $k_f$ |
 | `fl_path_curvature` | warning, per plan | $\kappa_{\mathrm{path}}\, d > 1$: the control point cuts the path's corners | lower $d$ or smooth the path |
 

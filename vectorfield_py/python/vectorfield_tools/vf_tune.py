@@ -126,14 +126,19 @@ def suggestion(code, config, kappa=0.0):
             'raise obstacle_lookahead above obstacle_blend_start_distance (or -1, auto)'
         ),
         issue.ACKERMANN_CONTOUR_WATCHDOG: 'raise obstacle_max_contour_length',
-        issue.ACKERMANN_CBF_UNSUPPORTED: (
-            'use obstacle_mode: contour (or none) for an Ackermann base'
-        ),
         issue.CBF_GAIN_DECELERATION: (
             f'lower cbf_gain to max_linear_decel / desired_speed '
             f'({m.max_linear_decel / max(v_r, 1e-9):.3g}) or raise max_linear_decel'
         ),
         issue.CBF_GAIN_DISCRETE: 'lower cbf_gain below controller_frequency (2 is typical)',
+        issue.ACKERMANN_CBF_WINDOW: (
+            'enlarge the local costmap, or lower min_turning_radius, cbf_margin or desired_speed'
+        ),
+        issue.ACKERMANN_CBF_MARGIN: (
+            'raise cbf_margin to ackermann_min_speed^2 / (2 max_linear_decel) '
+            f'({m.ackermann_min_speed**2 / (2.0 * max(m.max_linear_decel, 1e-9)):.3g}) '
+            'or lower ackermann_min_speed'
+        ),
         issue.ACKERMANN_RADIUS: 'set min_turning_radius to the vehicle turning radius (> 0)',
         issue.FL_OFFSET: 'set control_point_offset > 0 (0.2 m on a TurtleBot-sized base)',
         issue.BRAKING_EXCEEDS_WINDOW: (

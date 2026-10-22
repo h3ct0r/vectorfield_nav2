@@ -23,6 +23,7 @@
 #include <cmath>
 #include <string>
 #include <tuple>
+#include <utility>
 #include <vector>
 
 #include "harness_fixtures.hpp"
@@ -204,14 +205,17 @@ double boxDistance(const vf::Vec2 & p, const vf::Vec2 & lo, const vf::Vec2 & hi)
 
 // obstacle_mode cbf (math_spec §6.7), layer 2: a box whose near side is 0.12 m beside the plan
 // (inside the footprint's lateral reach) is passed without NoValidControl, the base keeps the
-// footprint at least cbf_margin − res from the box, and the goal succeeds.
+// footprint at least cbf_margin − res from the box, and the goal succeeds. Ackermann (R_min 0.5,
+// the rear axle at base_link) too: the turning margin starts the turn early (0.3.0).
 TEST(Cbf, ABoxBesideThePlanIsPassedWithTheMargin)
 {
-  for (const std::string & law :
-       {std::string("feedback_linearization"), std::string("holonomic")}) {
-    SCOPED_TRACE(law);
-    const bool omni = law == "holonomic";
-    HarnessOptions options = modelOptions(omni ? "omnidirectional" : "differential", law);
+  const std::vector<std::pair<std::string, std::string>> cases{
+    {"differential", "feedback_linearization"},
+    {"omnidirectional", "holonomic"},
+    {"ackermann", "heading_tracking"}};
+  for (const auto & [model, law] : cases) {
+    SCOPED_TRACE(model + " " + law);
+    HarnessOptions options = modelOptions(model, law);
     options.parameters.push_back(pluginParameter(options, "obstacle_mode", std::string("cbf")));
     ServerHarness harness(options);
     harness.configure();

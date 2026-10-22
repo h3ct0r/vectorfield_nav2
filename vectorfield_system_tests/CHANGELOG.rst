@@ -4,6 +4,9 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* test_cbf_kinematic runs for Ackermann (the box beside the path; no infeasible command at the
+  simulator), and the shipped Ackermann overlay and template validate with obstacle_mode cbf,
+  without warnings in the stock 3 m window.
 * test_reversing_kinematic: the global obstacle layer is off and NavigateToPose replans only
   when the plan becomes invalid (test overlay replan_only_if_path_invalid); the reverse
   ground-truth speed stays within the overlay's max_reverse_vel, and (differential) Smac backs up

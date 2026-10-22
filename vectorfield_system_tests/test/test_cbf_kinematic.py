@@ -20,11 +20,14 @@ layer off, so the plan runs straight through the unmapped boxes. In order:
 1. a 0.4 m box beside the path, its near side 0.1 m from it (closer than the footprint radius)
    and 0.8 m ahead: the filter steers around its corner, NavigateToPose SUCCEEDED, the footprint
    keeps at least cbf_margin − res from the box, no NoValidControl, and the robot rejoins the
-   path and reaches the goal;
+   path and reaches the goal; Ackermann (math_spec §6.7 [Design, 0.3.0]): the same, with the
+   filter at the rear axle and the turning margin, and no infeasible command reached the
+   simulator;
 2. the same box centred on the path (the accepted deadlock): the filter stops the robot in front
    of the face, the CBF hold raises kBlocked (NoValidControl), FollowPath fails and Nav2 asks its
    planner again; the footprint keeps at least cbf_margin − res and stops within 0.3 m of where
-   the barrier holds it.
+   the barrier holds it. Not Ackermann: the case drives back along −x, a U-turn for a car (the
+   core oracle O59 covers the car's hold).
 """
 
 import math
@@ -38,6 +41,7 @@ from vectorfield_system_tests.harness import NO_VALID_CONTROL, TRACKING_PHASES, 
 from vectorfield_system_tests import checks, geometry, launch
 
 MOTION_MODEL = launch.motion_model()
+ACKERMANN = MOTION_MODEL == 'ackermann'
 
 #: The controller's cbf_margin default (m).
 CBF_MARGIN = 0.05
@@ -98,6 +102,7 @@ class TestCbf(unittest.TestCase):
     def test_1_box_beside_the_path(self):
         """A box 0.1 m beside the path: passed with the margin, the goal succeeds."""
         nav = self.nav
+        start = nav.pose()
         box, goal = self._box(0.1 + 0.5 * BOX_SIZE, 0.0)
         nav.set_boxes([box])
         nav.sleep(1.0)
@@ -113,7 +118,9 @@ class TestCbf(unittest.TestCase):
         # It went around: the path itself passes 0.1 m from the box, inside the footprint.
         self.assertLess(clearance, 0.5)
         tracking = [s for s in episode.samples if s.phase in TRACKING_PHASES]
-        deviation = max((abs(s.distance) for s in tracking), default=0.0)
+        # The true lateral offset from the straight line of the request (heading 0): a replan
+        # starts at the robot, so D against the latest plan understates a gradual detour (a car's).
+        deviation = max((abs(p.y - start.y) for p in episode.poses), default=0.0)
         # One cell of tolerance, as for the clearance above: 0.119 m has been sampled against the
         # 0.12 m geometric minimum.
         self.assertGreater(
@@ -123,11 +130,18 @@ class TestCbf(unittest.TestCase):
         )
         after = [s for s in tracking if s.t > episode.end - 2.0]
         closest = min((abs(s.distance) for s in after), default=math.inf)
+        print(
+            f'[cbf {MOTION_MODEL}] box beside the path: clearance {clearance:.3f} m, '
+            f'max lateral offset {deviation:.3f} m, final |D| {closest:.3f} m'
+        )
         self.assertLess(closest, checks.tracking_limit(MOTION_MODEL), 'no rejoin')
         final = nav.settled_pose(checks.SETTLE_TIME)
         miss = math.hypot(final.x - goal[0], final.y - goal[1])
         self.assertLessEqual(miss, checks.XY_GOAL_TOLERANCE + checks.STOP_SLACK)
+        if ACKERMANN:
+            self.assertEqual(nav.infeasible_command_count(), 0)
 
+    @unittest.skipIf(ACKERMANN, 'a U-turn for a car; the core oracle O59 covers its hold')
     def test_2_box_across_the_path(self):
         """A box centred on the path: hold, kBlocked, FollowPath failure, replanning."""
         nav = self.nav

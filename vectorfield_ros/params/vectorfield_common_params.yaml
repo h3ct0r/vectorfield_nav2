@@ -254,7 +254,8 @@ vectorfield_common_params:
       obstacle_contour_distance, obstacle_full_switch_distance, obstacle_blend_start_distance and
       obstacle_lookahead); cbf: a control-barrier-function filter changes the field as little as
       possible to keep cbf_margin from every obstacle, and stops (kBlocked) where it cannot pass
-      (not for ackermann)."
+      (ackermann: at the rear axle, with a turning margin of up to min_turning_radius toward the
+      obstacles the car approaches)."
     validation:
       one_of<>: [["none", "contour", "cbf"]]
   obstacle_activation:

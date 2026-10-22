@@ -169,6 +169,18 @@ void expectStockWindowWarning(const fs::path & file)
   EXPECT_EQ(report.warnings[0].code, vf::issue::kBlendExceedsWindow) << report.summary();
 }
 
+// The Ackermann files with cbf in the stock 3 x 3 m window: valid without warnings, the turning
+// margin fits (x_r + delta_safe + R_min + v_r / gamma_b = 0 + 0.27 + 0.5 + 0.2 <= 1.5).
+void expectCbfInStockWindow(const fs::path & file)
+{
+  SCOPED_TRACE(file.filename().string() + " with cbf in the stock window");
+  vf::CoreConfig config;
+  const vf::ValidationReport report = validate(file, "cbf", &config, kPlugin, stockCostmap());
+  EXPECT_STREQ(vf::toString(config.obstacles.obstacle_mode), "cbf");
+  EXPECT_TRUE(report.errors.empty()) << report.summary();
+  EXPECT_TRUE(report.warnings.empty()) << report.summary();
+}
+
 TEST(ShippedConfigs, EveryMotionModelHasAnOverlay)
 {
   std::vector<std::string> stems;
@@ -188,12 +200,7 @@ TEST(ShippedConfigs, ValidateInEveryObstacleMode)
       SCOPED_TRACE(file.filename().string() + " with obstacle_mode " + mode);
       vf::CoreConfig config;
       const vf::ValidationReport report = validate(file, mode, &config);
-      if (mode == "cbf" && model == "ackermann") {
-        // math_spec §6.7: cbf is not supported for cars in 0.x.
-        EXPECT_TRUE(report.hasError(vf::issue::kAckermannCbfUnsupported)) << report.summary();
-        continue;
-      }
-      // The file and the override both reached the node.
+      // The file and the override both reached the node (Ackermann with cbf too, since 0.3.0).
       EXPECT_STREQ(vf::toString(config.motion.motion_model), model.c_str());
       EXPECT_STREQ(vf::toString(config.obstacles.obstacle_mode), mode.c_str());
       EXPECT_TRUE(report.errors.empty()) << report.summary();
@@ -202,6 +209,7 @@ TEST(ShippedConfigs, ValidateInEveryObstacleMode)
     if (model == "ackermann") {
       SCOPED_TRACE(file.filename().string() + " with contour in the stock window");
       expectStockWindowWarning(file);
+      expectCbfInStockWindow(file);
     }
   }
 }
@@ -220,11 +228,8 @@ TEST(ShippedConfigs, TemplatesValidate)
 {
   for (const fs::path & file : exampleTemplates()) {
     const std::string model = templateModel(file);
-    // As written (empty: no override), then in every obstacle mode (cbf: not for cars).
+    // As written (empty: no override), then in every obstacle mode.
     for (const std::string & mode : std::vector<std::string>{"", "none", "contour", "cbf"}) {
-      if (mode == "cbf" && model == "ackermann") {
-        continue;
-      }
       const std::string label = mode.empty() ? std::string("as written") : mode;
       SCOPED_TRACE(file.filename().string() + " with obstacle_mode " + label);
       vf::CoreConfig config;
@@ -236,6 +241,7 @@ TEST(ShippedConfigs, TemplatesValidate)
     if (model == "ackermann") {
       SCOPED_TRACE(file.filename().string() + " with contour in the stock window");
       expectStockWindowWarning(file);
+      expectCbfInStockWindow(file);
     }
   }
 }

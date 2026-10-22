@@ -4,6 +4,9 @@ Changelog for package vectorfield_py
 
 Forthcoming
 -----------
+* CbfSample.turn_margin and the issue codes ACKERMANN_CBF_WINDOW and ACKERMANN_CBF_MARGIN;
+  ACKERMANN_CBF_UNSUPPORTED is removed (obstacle_mode cbf now supports Ackermann). vf-tune hints
+  for the new warnings.
 * MotionConfig.max_reverse_vel, Kinematics.max_reverse_vel and linear_limit(),
   reverse_speed_limit(), reference_speed(), and the issue codes REVERSE_ABOVE_MAX and
   ACKERMANN_REVERSE_BELOW_BAND.

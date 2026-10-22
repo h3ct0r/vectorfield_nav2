@@ -4,6 +4,8 @@ Changelog for package vectorfield_nav2_controller
 
 Forthcoming
 -----------
+* obstacle_mode cbf for Ackermann (core 0.3.0): layer-2 case of a box beside an Ackermann plan,
+  passed with the margin.
 * Obstacles on a reverse leg are contoured (the core no longer turns the contour off in reverse
   segments), and max_reverse_vel bounds the reverse speed. Layer-2 tests: a box on the reverse
   leg of a cusp plan (differential, Ackermann) and the reverse speed bound.

@@ -639,21 +639,53 @@ double cbfDelta(const Model & model, const Pose2 & pose, const Vec2 & x) noexcep
   return model.checker.footprint().coverRadius(offset) + model.config.obstacles.cbf_margin;
 }
 
-/// @brief The CBF filter of a field at x: the sites of \f$\mathrm{EDT}_{\mathrm{all}}\f$
-/// (nearestCbfSites()), \f$h_j = D_j - \delta_{\mathrm{safe}}\f$, solveCbf(). Fills `out`, if not
-/// null, with the constraints and the solution (evaluation frame).
-Vec2 applyCbf(
-  const StepEnv & env, const Vec2 & x, double delta, const Vec2 & F, CbfSample * out) noexcept
+/// @brief Ackermann's turning margin of one site (math_spec §6.7 [Design, 0.3.0]): with
+/// \f$c = -n^\top q\mathbf h(\psi) > 0\f$ (the rear axle approaches the site),
+/// \f$R_{\min}(1 - \sqrt{1 - c^2})\f$, the distance a full-lock turn away from a face covers
+/// toward it before the car is parallel to it; 0 otherwise and for the other motion models.
+double cbfTurnMargin(const Model & model, const Vec2 & n, double yaw) noexcept
 {
+  const Kinematics & kinematics = model.kinematics;
+  if (!kinematics.isAckermann()) {
+    return 0.0;
+  }
+  const double c = -n.dot(heading(yaw)) * kinematics.driveSign();
+  if (!(c > 0.0)) {
+    return 0.0;
+  }
+  return kinematics.min_turning_radius * (1.0 - std::sqrt(std::max(0.0, 1.0 - c * c)));
+}
+
+/// @brief The barrier the filter constrains: \f$h_j\f$, or for Ackermann
+/// \f$\max(0, h_j - \text{turning margin})\f$, which never asks for a push-out the car cannot
+/// make (math_spec §6.7 [Design, 0.3.0]).
+double cbfConstrainedBarrier(const Model & model, double h, double turn_margin) noexcept
+{
+  return model.kinematics.isAckermann() ? std::max(0.0, h - turn_margin) : h;
+}
+
+/// @brief The CBF filter of a field at x: the sites of \f$\mathrm{EDT}_{\mathrm{all}}\f$
+/// (nearestCbfSites()), \f$h_j = D_j - \delta_{\mathrm{safe}}\f$, solveCbf(); for Ackermann on the
+/// barrier with the turning margin at the heading `yaw`. Fills `out`, if not null, with the
+/// constraints and the solution (evaluation frame).
+Vec2 applyCbf(
+  const StepEnv & env, const Vec2 & x, double yaw, double delta, const Vec2 & F,
+  CbfSample * out) noexcept
+{
+  const Model & model = env.model;
   const ObstacleEnv & obstacles = env.obstacles;
-  const ObstacleConfig & config = env.model.config.obstacles;
+  const ObstacleConfig & config = model.config.obstacles;
   CbfSite sites[kCbfMaxSites];
   const int count =
     nearestCbfSites(*obstacles.edt_all, obstacles.T_grid_eval.apply(x), config.cbf_sites, sites);
   CbfConstraint constraints[kCbfMaxSites];
+  double h[kCbfMaxSites] = {kInf, kInf, kInf};
+  double turn_margin[kCbfMaxSites] = {0.0, 0.0, 0.0};
   for (int j = 0; j < count; ++j) {
     constraints[j].n = obstacles.T_grid_eval.rotateInverse(sites[j].n);
-    constraints[j].h = sites[j].D - delta;
+    h[j] = sites[j].D - delta;
+    turn_margin[j] = cbfTurnMargin(model, constraints[j].n, yaw);
+    constraints[j].h = cbfConstrainedBarrier(model, h[j], turn_margin[j]);
   }
   const CbfSolution solution = solveCbf(F, constraints, count, config.cbf_gain);
   if (out != nullptr) {
@@ -667,9 +699,10 @@ Vec2 applyCbf(
       const auto k = static_cast<std::size_t>(j);
       cbf.x_o[k] = obstacles.T_grid_eval.applyInverse(sites[j].x_o);
       cbf.n[k] = constraints[j].n;
-      cbf.h_j[k] = constraints[j].h;
+      cbf.h_j[k] = h[j];
+      cbf.turn_margin[k] = turn_margin[j];
       cbf.binds[k] = (solution.binds & (1U << j)) != 0U;
-      cbf.h = std::min(cbf.h, constraints[j].h);
+      cbf.h = std::min(cbf.h, h[j]);
     }
     cbf.active = solution.active;
     cbf.relaxed = solution.relaxed;
@@ -688,7 +721,7 @@ Vec2 refilterCbf(const Model & model, const CbfSample & cbf, const Vec2 & F) noe
   for (int j = 0; j < cbf.count; ++j) {
     const auto k = static_cast<std::size_t>(j);
     constraints[j].n = cbf.n[k];
-    constraints[j].h = cbf.h_j[k];
+    constraints[j].h = cbfConstrainedBarrier(model, cbf.h_j[k], cbf.turn_margin[k]);
   }
   return solveCbf(F, constraints, cbf.count, model.config.obstacles.cbf_gain).F;
 }
@@ -748,7 +781,7 @@ ProbeSample evaluateProbe(
     F = blendContour(sample.Phi_gamma, psi, theta);
   }
   if (env.obstacles.cbf_on && std::isfinite(cbf_delta)) {
-    const Vec2 filtered = applyCbf(env, x, cbf_delta, F, nullptr);
+    const Vec2 filtered = applyCbf(env, x, pose.yaw, cbf_delta, F, nullptr);
     probe.cbf_active = !(filtered == F);
     F = filtered;
   }
@@ -1220,7 +1253,8 @@ NominalResult stepNominal(
   }
   if (env.obstacles.cbf_on && field_ok && !xy) {
     // The CBF filter of the shaped field; off once XY is reached (the robot only settles).
-    sample.F = applyCbf(env, point.x, cbfDelta(model, pose, point.x), sample.F, &sample.cbf);
+    sample.F =
+      applyCbf(env, point.x, pose.yaw, cbfDelta(model, pose, point.x), sample.F, &sample.cbf);
     if (sample.cbf.active) {
       sample.uniform_shaping = true;  // F* is no longer eta_1 Phi_S + Phi_T: uniform box
     }

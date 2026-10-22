@@ -15,7 +15,7 @@ laws is in {doc}`theory`; the exact definitions, guards and tolerances are in
 | `differential` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | |
 | `skid_steer` | $(v, 0, \omega)$ | `feedback_linearization` | `heading_tracking` | ROTATE_TO_FIELD, ROTATE_TO_HEADING | Set `min_in_place_angular_vel` (0.25 to 0.3 rad/s) to overcome static friction; the shipped overlay uses 0.25. Optional slip compensation, see {ref}`skid-slip`. |
 | `omnidirectional` | $(v_x, v_y, \omega)$ | `holonomic` | — | ROTATE_TO_HEADING | `max_lateral_vel` bounds $v_y$. Nav2's `min_y_velocity_threshold` (0.5 by default) zeroes the measured lateral speed; the shipped overlay sets 0.001. |
-| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ (also $v < 0$ in a reverse plan segment) | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` uses turning-radius distances ({ref}`ackermann-contour`); `cbf` is rejected. See {ref}`ackermann-caveats`. |
+| `ackermann` | $(v, 0, \omega)$, $v \ge 0$ (also $v < 0$ in a reverse plan segment) | `heading_tracking` | — | none | Requires `min_turning_radius` > 0. `obstacle_mode: contour` uses turning-radius distances ({ref}`ackermann-contour`); `cbf` filters at the rear axle with a turning margin ({ref}`cbf-ackermann`, 0.3.0). See {ref}`ackermann-caveats`. |
 
 Any other model and law pair is rejected when the plugin configures, with a message that names
 the valid laws.
@@ -256,4 +256,10 @@ A car-like base cannot turn in place, which affects the controller and the rest 
   with $R_{\min}$: $\lambda \ge R_{\min} + w_{\mathrm{lat}} + 0.05$ and a turn-in band of
   $R_{\min}$ before it (0.77 m and 1.47 m for the overlay's 0.5 m radius), which needs a 4 m local
   costmap. An obstacle the car cannot drive around stops it through the collision cap, and Nav2
-  replans ({ref}`ackermann-contour`).
+  replans ({ref}`ackermann-contour`). `obstacle_mode: cbf` (0.3.0) keeps the disc about the rear
+  axle that holds the body $\delta_{\mathrm{safe}}$ from obstacles, plus a turning margin of
+  $R_{\min}(1 - \sin\beta)$ toward each obstacle it approaches at the angle $\beta$. It steers
+  around obstacles beside the path at full lock when it must, and holds
+  $R_{\min} + \delta_{\mathrm{safe}}$ (at the axle) before a face across the path, where the CBF
+  hold raises kBlocked and Nav2 replans ({ref}`cbf-mode`). The overlay validates with cbf in the
+  stock 3 m costmap.
