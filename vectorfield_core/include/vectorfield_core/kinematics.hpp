@@ -19,6 +19,9 @@
 #ifndef VECTORFIELD_CORE__KINEMATICS_HPP_
 #define VECTORFIELD_CORE__KINEMATICS_HPP_
 
+#include <algorithm>
+#include <limits>
+
 #include "vectorfield_core/config.hpp"
 #include "vectorfield_core/types.hpp"
 
@@ -36,6 +39,9 @@ struct Kinematics
   MotionModel type{MotionModel::kDifferential};
   /// \f$v_{\max}\f$ (m/s).
   double max_linear_vel{0.5};
+  /// \f$v_{\mathrm{rev}}\f$ (m/s): the bound while drive_backward (math_spec §9.4 [Design, 0.3.0]);
+  /// fromConfig() sets reverseSpeedLimit(), the default +inf leaves linearLimit() at v_max.
+  double max_reverse_vel{std::numeric_limits<double>::infinity()};
   /// \f$v_{y,\max}\f$ (m/s), omnidirectional only.
   double max_lateral_vel{0.5};
   /// \f$\omega_{\max}\f$ (rad/s).
@@ -70,6 +76,14 @@ struct Kinematics
 
   /// @brief Drive sign \f$q\f$: −1 iff drive_backward.
   double driveSign() const noexcept { return drive_backward ? -1.0 : 1.0; }
+  /// @brief The translational speed bound of the kinematic box (math_spec §8.3): \f$v_{\max}\f$,
+  /// or \f$\min(v_{\max}, v_{\mathrm{rev}})\f$ while drive_backward on a base with a drive direction
+  /// [Design, 0.3.0].
+  double linearLimit() const noexcept
+  {
+    return drive_backward && !isHolonomic() ? std::min(max_linear_vel, max_reverse_vel)
+                                            : max_linear_vel;
+  }
   /// @brief True for the omnidirectional model (\f$v_y\f$ is commandable).
   bool isHolonomic() const noexcept { return type == MotionModel::kOmnidirectional; }
   /// @brief True for the Ackermann model.

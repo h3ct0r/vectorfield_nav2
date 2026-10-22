@@ -86,6 +86,7 @@ $x_{\mathrm{ref}}$ repeats the plan's symbol table verbatim.
 | $\gamma_{\mathrm{lim}}$ | external speed-limit scale | `speed_limit_scale` input, $(0, 1]$ |
 | $c$ | uniform kinematic-box scale | — |
 | $v_{\max},\ v_{y,\max},\ \omega_{\max}$ | velocity limits | `max_linear_vel` 0.5, `max_lateral_vel` 0.5, `max_angular_vel` 1.5 |
+| $v_{\mathrm{rev}}$ | speed bound while $q = -1$ (not omni) [Design, 0.3.0] ({ref}`sec-segments`) | `max_reverse_vel` auto ($v_{\max}$) |
 | $\bar\omega = \omega_{\max}\,\gamma_{\mathrm{lim}}$ | effective angular limit | — |
 | $a_{\mathrm{acc}},\ a_{\mathrm{dec}},\ \alpha_{\max}$ | acceleration limits | `max_linear_accel` 1.0, `max_linear_decel` 1.0, `max_angular_accel` 3.2 |
 | $a_{\mathrm{can}}$ | cancel deceleration | `cancel_deceleration` 1.0 |
@@ -913,7 +914,9 @@ condition ($k_f = 2$ and $\rho \ge 0.79$ m). Hence the latch below.
 
 ### 6.4 Modifications [Design]
 
-The contour runs at the active law's evaluation point $x$ ({ref}`sec-laws-points`).
+The contour runs at the active law's evaluation point $x$ ({ref}`sec-laws-points`), on the drive
+side in a reverse segment, where every rule below applies unchanged with $v_r^{-}$ of
+{ref}`sec-segments` [Design, 0.3.0].
 
 **Gate.** `obstacle_activation: always` reproduces the paper. `path_blocked` (default):
 
@@ -1116,9 +1119,10 @@ Changes for `motion_model: ackermann` only; every other model keeps §6.4–6.5.
 - **Dead ends and tight gaps.** Unchanged rules: the side probe rolls out the car's pipeline
   (band, law above, curvature clamp), so a side it cannot drive around (a gap narrower than about
   $\lambda + w_{\mathrm{lat}}$, a dead end) collides or never gets past the blockage; no episode
-  starts, the cap stops the car and kBlocked follows. No episode reverses in 0.x (the contour is
-  off in reverse segments, §9.4): a manoeuvre that needs a turn tighter than $R_{\min}$ ends in a
-  stop and kBlocked, and Nav2 replans.
+  starts, the cap stops the car and kBlocked follows. An episode never changes the drive
+  direction: on a reverse segment it runs in reverse throughout [Design, 0.3.0] (§9.4), and a
+  manoeuvre that needs a turn tighter than $R_{\min}$ ends in a stop and kBlocked, and Nav2
+  replans.
 
 (sec-cbf)=
 
@@ -1132,7 +1136,8 @@ blocking set, the side probe, the latch and the watchdog are not used. The desig
   ({ref}`sec-laws-points`), with $\delta_{\mathrm{safe}} = r_e + m$, $m$ = `cbf_margin`, and
   $r_e = \max_i \lVert v_i - e\rVert$ over the footprint vertices $v_i$ (disc: $R + \lVert e\rVert$), $e$ the
   robot-frame offset of $x$: $r_e = r_{\mathrm{circ}}$ at base_link (omni, HT, FL in FINAL_APPROACH),
-  $r_e \le r_{\mathrm{circ}} + d$ at $p_c$ (TC: 0.42), the flipped point in a reverse segment. The disc
+  $r_e \le r_{\mathrm{circ}} + d$ at $p_c$ (TC: 0.42), the flipped point in a reverse segment (the
+  filter is stateless, so it needs nothing else in reverse [Design, 0.3.0]). The disc
   of radius $r_e$ about $x$ contains the footprint at every heading, so $h_j \ge 0$ keeps every
   footprint point $m$ from every site centre ($m - \mathrm{res}/\sqrt2$ from the cell squares).
 - **Sites.** $j = 1$: the continuous $\mathrm{EDT}_{\mathrm{all}}$ query of §6.1. $j = 2, \dots, k$
@@ -1397,7 +1402,9 @@ Application:
 ### 8.3 Kinematic box
 
 Limits: $\lvert v_x \rvert \le v_{\max}$, $\lvert v_y \rvert \le v_{y,\max}$, $\lvert\omega\rvert \le \bar\omega$;
-omni also $\lVert v_{xy} \rVert \le v_{\max}$. Terms with a zero denominator are dropped.
+omni also $\lVert v_{xy} \rVert \le v_{\max}$. Terms with a zero denominator are dropped. With $q = -1$
+(diff, skid, Ackermann) $v_{\max}$ is $\min(v_{\max}, v_{\mathrm{rev}})$ in every rule below
+(`Kinematics::linearLimit()`) [Design, 0.3.0].
 
 - **Holonomic $\omega$**, static and time-varying alike: clamped to $\pm\bar\omega$ on its own; it never
   enters $c$ or the $\eta$-box. *Rationale*: $\omega$ does not move the base, and including it would
@@ -1624,9 +1631,19 @@ Plugin only, with `allow_reversing` (docs/design/m7_reversing.md).
 - **Direction-scoped state.** When $q$ changes, the core resets the hint, the last tangent,
   `last_psi_d`, `rotate_target`, ROTATE_TO_FIELD, the contour episode and the kBlocked latch; the
   limiter is kept, so $v$ passes through 0 within $a_{\mathrm{dec}}$ and $a_{\mathrm{acc}}$.
-- **Contour.** Off while $q$ differs from the configured sign: the gate, the side probes and the
-  circulation assume the drive direction. The collision rollout integrates the signed command, so
-  the cap and kBlocked act on backward motion as on forward motion.
+- **Reverse speed** [Design, 0.3.0]. With $q = -1$ (not omni) the field speed is
+  $v_r^{-} = \min(v_r, v_{\mathrm{rev}})$ (`referenceSpeed`) wherever the step uses $v_r$: the distance
+  field, the terminal profile (the approach to a cusp or a reverse goal), $\gamma_{\mathrm{col}}$, the
+  hold speed, the Ackermann floor $v_{\mathrm{ack}}/v_r^{-}$ and the side probe ({ref}`sec-contour-mods`);
+  the kinematic box bounds $\lvert v\rvert$ by $\min(v_{\max}, v_{\mathrm{rev}})$ ({ref}`sec-limiter`).
+  Configure-time values ($\ell_{\mathrm{look}}$, §11) keep $v_r$. `drive_backward` is $q = -1$ too.
+- **Contour.** Runs in both directions [Design, 0.3.0] (0.x before 0.3.0: off while $q$ differed from
+  the configured sign). Reverse is the flipped kinematics and law, so §6.4 applies as stated: the
+  evaluation point is the law's on the drive side (FL $p - d\mathbf h$, Ackermann $p_r$), the gate
+  samples the active segment ahead in station, the side probe rolls out the reverse pipeline,
+  $\sigma_c$ and the exits are planar, and the watchdog counts path length. The collision rollout
+  integrates the signed command, so the cap and kBlocked act on backward motion as on forward
+  motion; a dead end on a reverse leg stops the robot with kBlocked.
 - **Replans.** A new plan becomes active from its first segment, except that segment 0 is skipped
   when it is shorter than $2\ell_c$, its $q$ differs from the active one and segment 1's equals
   it (`firstActiveSegment`): the robot is at that cusp. The goal identity is kept while the stop
@@ -1783,6 +1800,8 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | $\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)$, or $>$ `window_limit` when set (Gen A/B prune_distance) | the goal must enter the window before braking must start |
 | FL with $d \le 0$ [Spec] | $M(\psi)$ divides by $d$; the plan omits this rule (`upstream_audit.md`, item O3) |
 | Ackermann with cbf [Design, M7] | a car cannot follow an arbitrary $F^\star$ ({ref}`sec-cbf`) |
+| $v_{\mathrm{rev}} > v_{\max}$ [Design, 0.3.0] | the reverse bound only lowers the forward one |
+| Ackermann with `max_reverse_vel` set below $v_{\mathrm{ack}}$ [Design, 0.3.0] | the band cannot be commanded in reverse ({ref}`sec-segments`) |
 
 **Warn.**
 
@@ -2084,8 +2103,9 @@ there and the predicates defined in this document.
   $O(\Delta t^2)$ errors to every continuous-time statement.
 - **Cusps and reversing** are rejected unless `allow_reversing` ({ref}`sec-segments`); reversals
   shorter than $\ell_c$ are never stops and are followed in the segment's direction with a
-  deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly; a
-  reverse segment cannot contour; both directions share one speed limit [Design, M7]. Without
+  deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly
+  [Design, M7]; an absolute Nav2 speed limit is a fraction of $v_r$, so it scales $v_r^{-}$ by the
+  same fraction in reverse [Design, 0.3.0]. Without
   headings only a plan that doubles back for more than $2\ell_c$ reverses: a headingless route
   out to a waypoint and back along the same line is one, and a 177°+ corner may be one
   [Design, 0.2.1]. Orientations that a smoother derived from a headingless plan are taken at face

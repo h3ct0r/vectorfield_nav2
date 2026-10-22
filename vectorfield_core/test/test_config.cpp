@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -25,6 +26,7 @@
 
 #include "vectorfield_core/config.hpp"
 #include "vectorfield_core/gains.hpp"
+#include "vectorfield_core/kinematics.hpp"
 #include "vectorfield_core/types.hpp"
 
 namespace vf = vectorfield_core;
@@ -278,6 +280,39 @@ TEST(ConfigReject, DesiredSpeedAboveMaxLinearVel)
   expectOnly(vf::validateConfig(config, stockCostmap()), {issue::kSpeedAboveMax}, {});
   config.field.desired_speed = 0.5;  // equality is allowed
   expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+}
+
+TEST(ConfigReject, ReverseSpeedAboveMax)
+{
+  // max_reverse_vel (math_spec §9.4 [Design, 0.3.0]): auto = max_linear_vel; set: (0, v_max].
+  CoreConfig config = tc();
+  EXPECT_DOUBLE_EQ(vf::reverseSpeedLimit(config), config.motion.max_linear_vel);
+  EXPECT_DOUBLE_EQ(vf::resolveAutoValues(config).motion.max_reverse_vel, 0.5);
+  EXPECT_DOUBLE_EQ(vf::referenceSpeed(config, -1), config.field.desired_speed);
+  config.motion.max_reverse_vel = 0.6;
+  expectOnly(vf::validateConfig(config, stockCostmap()), {issue::kReverseAboveMax}, {});
+  config.motion.max_reverse_vel = 0.5;  // equality is allowed
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+  config.motion.max_reverse_vel = 0.2;  // below desired_speed: the reverse field runs at 0.2
+  expectOnly(vf::validateConfig(config, stockCostmap()), {}, {});
+  EXPECT_DOUBLE_EQ(vf::referenceSpeed(config, -1), 0.2);
+  EXPECT_DOUBLE_EQ(vf::referenceSpeed(config, 1), config.field.desired_speed);
+  EXPECT_DOUBLE_EQ(vf::Kinematics::fromConfig(config).max_reverse_vel, 0.2);
+  config.motion.max_reverse_vel = 0.0;
+  EXPECT_TRUE(vf::validateConfig(config, stockCostmap()).hasError(issue::kInvalidValue));
+  config.motion.max_reverse_vel = std::numeric_limits<double>::quiet_NaN();
+  EXPECT_TRUE(vf::validateConfig(config, stockCostmap()).hasError(issue::kInvalidValue));
+
+  // Omni has no drive direction; Ackermann needs v_ack <= max_reverse_vel when it is set.
+  CoreConfig omni = tc();
+  omni.motion.motion_model = vf::MotionModel::kOmnidirectional;
+  omni.motion.max_reverse_vel = 0.2;
+  EXPECT_DOUBLE_EQ(vf::referenceSpeed(omni, -1), omni.field.desired_speed);
+  CoreConfig car = ackermann();
+  car.motion.max_reverse_vel = 0.5 * car.motion.ackermann_min_speed;
+  EXPECT_TRUE(vf::validateConfig(car, std::nullopt).hasError(issue::kAckermannReverseBelowBand));
+  car.motion.max_reverse_vel = car.motion.ackermann_min_speed;
+  EXPECT_FALSE(vf::validateConfig(car, std::nullopt).hasError(issue::kAckermannReverseBelowBand));
 }
 
 TEST(ConfigReject, InPlaceFloorAboveRotateSpeed)

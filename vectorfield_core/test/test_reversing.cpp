@@ -22,7 +22,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "test_support.hpp"
@@ -436,28 +439,245 @@ TEST(Reversing, CuspJitterAcrossReplansDoesNotFlipTheDirection)
   EXPECT_LT((r.final_pose.p - C).norm(), 0.5 * kXyTol + 1e-6);
 }
 
-TEST(Reversing, TheContourIsOffInAReverseSegment)
+// ------------------------------------------------------------------------------------------------
+// Contour and speed in reverse (math_spec §6.4, §6.6, §9.4 [Design, 0.3.0])
+
+constexpr int kObstacleTag = 1;
+
+/// A forward leg (0, 0) -> (1, 0) and a reverse leg back along y = 0 to `x_goal`, yaw 0.
+std::vector<Pose2> outAndBack(double x_goal)
 {
-  // A disc on the reverse leg with obstacle_mode contour: no episode starts while reversing.
-  const double th = 0.0;
-  std::vector<Pose2> plan = leg(Vec2::Zero(), Vec2(1.5, 0.0), 0.05, th);
-  append(&plan, leg(Vec2(1.5, 0.0), Vec2(-1.5, 0.0), 0.05, th));
-  ObstacleWorld world(Vec2(-3.0, -2.0), 6.0, 4.0);
-  world.addDisc(Vec2(-0.8, 0.0), 0.15);
-  world.commit();
-  vf::CoreConfig config = reversingConfig(vf::MotionModel::kDifferential, vf::TrackingLaw::kAuto);
+  std::vector<Pose2> plan = leg(Vec2::Zero(), Vec2(1.0, 0.0), 0.05, 0.0);
+  append(&plan, leg(Vec2(1.0, 0.0), Vec2(x_goal, 0.0), 0.05, 0.0));
+  return plan;
+}
+
+/// The O57 car body (0.7 x 0.4 m, rear bumper 0.15 m behind the rear axle at x_r).
+vf::FootprintSpec carFootprint(double x_r)
+{
+  vf::FootprintSpec spec;
+  spec.polygon = {
+    Vec2(x_r - 0.15, -0.2), Vec2(x_r + 0.55, -0.2), Vec2(x_r + 0.55, 0.2), Vec2(x_r - 0.15, 0.2)};
+  return spec;
+}
+
+struct ReverseContourCase
+{
+  const char * name;
+  vf::MotionModel model;
+  vf::TrackingLaw law;
+};
+
+vf::CoreConfig reverseContourConfig(const ReverseContourCase & param)
+{
+  vf::CoreConfig config = reversingConfig(param.model, param.law);
   config.obstacles.obstacle_mode = vf::ObstacleMode::kContour;
-  config.obstacles.obstacle_activation = vf::ObstacleActivation::kAlways;
-  const RunResult r = follow(config, plan, Pose2{Vec2::Zero(), th}, &world, 30.0);
-  bool blocked = false;
+  if (param.model == vf::MotionModel::kAckermann) {
+    config.motion.min_turning_radius = 0.5;
+    config.motion.reference_point_offset = -0.2;
+    config.node.footprint = carFootprint(-0.2);
+    config.obstacles.obstacle_max_contour_length = 8.0;
+  }
+  return config;
+}
+
+class ReverseContour : public ::testing::TestWithParam<ReverseContourCase>
+{
+};
+
+// A disc of radius 0.15 at 0.1 m left of the reverse leg (the free side is y < 0), far enough
+// from the cusp that the gate opens on the reverse leg: the contour engages in reverse only, at
+// the law's point on the drive side (FL: d behind base_link; HT: base_link; Ackermann: the rear
+// axle), keeps one circulation side, passes on the free side with the point at least lambda - res
+// from the disc, never collides, rejoins and settles at the goal.
+TEST_P(ReverseContour, PassesADiscOnTheReverseLeg)
+{
+  const ReverseContourCase & param = GetParam();
+  const vf::CoreConfig config = reverseContourConfig(param);
+  const vf::CoreConfig resolved = vf::resolveAutoValues(config);
+  const double lambda = resolved.obstacles.obstacle_contour_distance;
+  const double R_o = 0.15;
+  const double y_o = 0.1;
+  const double x_disc = -(resolved.obstacles.obstacle_blend_start_distance + R_o + 1.0);
+  const double x_goal = x_disc - (3.0 + 2.0 * lambda);
+  const double half = R_o + lambda + 1.2;
+  ObstacleWorld world = centredWorld(x_goal - 1.5, 2.5, -half, half);
+  world.addDisc(Vec2(x_disc, y_o), R_o, kObstacleTag);
+  world.commit();
+  const RunResult r = follow(config, outAndBack(x_goal), Pose2{}, &world, 90.0);
+
+  const vf::FootprintChecker checker(vf::Footprint::fromSpec(config.node.footprint));
+  double min_clearance = vf::kInf;
+  double y_at_disc = vf::kNaN;
+  int collisions = 0;
+  int infeasible = 0;
   for (std::size_t k = 0; k < r.cycles.size(); ++k) {
-    if (r.signs[k] < 0) {
-      EXPECT_FALSE(r.cycles[k].after.contour.active) << "cycle " << k;
-      blocked = blocked || vf::Status::has(r.cycles[k].out.status, vf::Status::kBlocked);
+    const Cycle & c = r.cycles[k];
+    min_clearance =
+      std::min(min_clearance, world.distanceToSites(c.out.field.x_eval, kObstacleTag));
+    collisions += checker.collidesGroundTruth(c.pose_after, world.grid()) ? 1 : 0;
+    infeasible += vf::Status::has(c.out.status, vf::Status::kHeadingInfeasible) ? 1 : 0;
+    if (c.after.contour.active) {
+      EXPECT_EQ(r.signs[k], -1) << "an episode in the forward leg, cycle " << k;
+    }
+    if (std::isnan(y_at_disc) && c.rec.pose.p.x() >= x_disc && c.pose_after.p.x() < x_disc) {
+      y_at_disc = 0.5 * (c.rec.pose.p.y() + c.pose_after.p.y());
     }
   }
-  EXPECT_TRUE(blocked);  // the obstacle stops the robot instead
-  EXPECT_GT(minClearance(r, world), 0.0);
+  const std::vector<Episode> eps = episodes(r.cycles);
+  const double offset = param.model == vf::MotionModel::kAckermann ? 0.2 : kD;
+  std::printf(
+    "[reverse contour %s] lambda %.3f: %zu episode(s), min clearance %.3f, y at disc %.3f, "
+    "end %.1f s, final (%.3f, %.3f)\n",
+    param.name, lambda, eps.size(), min_clearance, y_at_disc, r.cycles.back().rec.t,
+    r.final_pose.p.x(), r.final_pose.p.y());
+  ASSERT_GE(eps.size(), 1U) << "the contour never engaged";
+  EXPECT_EQ(eps.size(), 1U);
+  EXPECT_TRUE(eps[0].sigma_constant);
+  EXPECT_GE(min_clearance, lambda - kRes);
+  EXPECT_EQ(collisions, 0);
+  EXPECT_EQ(infeasible, 0) << "kHeadingInfeasible";
+  ASSERT_FALSE(std::isnan(y_at_disc)) << "never passed the disc";
+  EXPECT_LT(y_at_disc, y_o - (R_o + lambda - kRes - offset)) << "not on the free side";
+  ASSERT_TRUE(r.settled) << "final pose " << r.final_pose.p.transpose();
+  EXPECT_LT((r.final_pose.p - Vec2(x_goal, 0.0)).norm(), kXyTol);
+  for (const Cycle & c : r.cycles) {
+    EXPECT_FALSE(vf::Status::has(c.out.status, vf::Status::kContourWatchdog));
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  Models, ReverseContour,
+  ::testing::Values(
+    ReverseContourCase{
+      "diff FL", vf::MotionModel::kDifferential, vf::TrackingLaw::kFeedbackLinearization},
+    ReverseContourCase{
+      "diff HT", vf::MotionModel::kDifferential, vf::TrackingLaw::kHeadingTracking},
+    ReverseContourCase{
+      "ackermann", vf::MotionModel::kAckermann, vf::TrackingLaw::kHeadingTracking}),
+  [](const ::testing::TestParamInfo<ReverseContourCase> & case_info) {
+    if (case_info.param.model == vf::MotionModel::kAckermann) {
+      return std::string("Ackermann");
+    }
+    return std::string(
+      case_info.param.law == vf::TrackingLaw::kFeedbackLinearization ? "DiffFl" : "DiffHt");
+  });
+
+// The O56 dead end on the reverse leg: a 1.2 m corridor closed across the path. Neither side probe
+// gets past the closing wall, so no episode starts; the cap stops the robot short of the wall
+// (backing up), kBlocked follows and stays set, and the footprint never touches a wall.
+TEST(Reversing, ADeadEndWhileReversingStopsWithKBlocked)
+{
+  ObstacleWorld world = centredWorld(-5.0, 2.5, -2.0, 2.0);
+  world.addBox(Vec2(-3.1, 0.6), Vec2(0.0, 0.7));
+  world.addBox(Vec2(-3.1, -0.7), Vec2(0.0, -0.6));
+  world.addBox(Vec2(-3.1, -0.7), Vec2(-3.0, 0.7));
+  world.commit();
+  const vf::CoreConfig config =
+    reverseContourConfig({"diff FL", vf::MotionModel::kDifferential, vf::TrackingLaw::kAuto});
+  const RunResult r = follow(config, outAndBack(-4.5), Pose2{}, &world, 30.0);
+  const vf::FootprintChecker checker(vf::Footprint::fromSpec(config.node.footprint));
+  std::size_t first_blocked = r.cycles.size();
+  for (std::size_t k = 0; k < r.cycles.size(); ++k) {
+    const Cycle & c = r.cycles[k];
+    ASSERT_FALSE(c.after.contour.active) << "episode at t = " << c.rec.t;
+    ASSERT_FALSE(checker.collidesGroundTruth(c.pose_after, world.grid())) << "t = " << c.rec.t;
+    if (first_blocked == r.cycles.size() && vf::Status::has(c.out.status, vf::Status::kBlocked)) {
+      first_blocked = k;
+      EXPECT_EQ(r.signs[k], -1);
+    }
+  }
+  ASSERT_LT(first_blocked, r.cycles.size()) << "never kBlocked";
+  for (std::size_t k = first_blocked; k < r.cycles.size(); ++k) {
+    EXPECT_TRUE(vf::Status::has(r.cycles[k].out.status, vf::Status::kBlocked)) << "cycle " << k;
+  }
+  EXPECT_FALSE(r.settled);
+  EXPECT_LT(std::abs(r.cycles.back().rec.cmd.vx), 1e-3) << "did not stop";
+  const double gap = travelToContact(checker, world, r.final_pose, Vec2(-1.0, 0.0));
+  std::printf("[reverse dead end] stopped %.3f m short of the wall\n", gap);
+  EXPECT_GE(gap, kStopMargin - kRes);
+  EXPECT_LT(gap, 3.0 * kStopMargin) << "stopped early";
+}
+
+// max_reverse_vel: reverse segments are driven at min(v_r, v_rev) with |v| <= v_rev, and the
+// forward leg is bit-identical to the run without it (diff FL, diff HT, Ackermann).
+TEST(Reversing, MaxReverseVelBoundsOnlyTheReverseSegments)
+{
+  const double v_rev = 0.2;
+  for (const auto & [model, law] :
+       {std::pair{vf::MotionModel::kDifferential, vf::TrackingLaw::kFeedbackLinearization},
+        std::pair{vf::MotionModel::kDifferential, vf::TrackingLaw::kHeadingTracking},
+        std::pair{vf::MotionModel::kAckermann, vf::TrackingLaw::kHeadingTracking}}) {
+    SCOPED_TRACE(std::string(vf::toString(model)) + " " + vf::toString(law));
+    std::vector<Pose2> plan = leg(Vec2::Zero(), Vec2(2.0, 0.0), 0.05, 0.0);
+    append(&plan, leg(Vec2(2.0, 0.0), Vec2(-1.0, 0.0), 0.05, 0.0));
+    const vf::CoreConfig base = reversingConfig(model, law);
+    vf::CoreConfig limited = base;
+    limited.motion.max_reverse_vel = v_rev;
+    EXPECT_NEAR(vf::referenceSpeed(vf::resolveAutoValues(limited), -1), v_rev, 1e-12);
+    const RunResult a = follow(base, plan, Pose2{}, nullptr, 40.0);
+    const RunResult b = follow(limited, plan, Pose2{}, nullptr, 40.0);
+    ASSERT_TRUE(a.settled);
+    ASSERT_TRUE(b.settled);
+    double fastest_a = 0.0;
+    double fastest_b = 0.0;
+    for (std::size_t k = 0; k < b.cycles.size(); ++k) {
+      if (b.signs[k] < 0) {
+        EXPECT_LE(std::abs(b.cycles[k].out.cmd.vx), v_rev + 1e-9) << "cycle " << k;
+        fastest_b = std::max(fastest_b, std::abs(b.cycles[k].out.cmd.vx));
+      } else {
+        // Same forward leg, command for command, until the first switch.
+        ASSERT_LT(k, a.cycles.size());
+        EXPECT_EQ(b.cycles[k].out.cmd.vx, a.cycles[k].out.cmd.vx) << "cycle " << k;
+        EXPECT_EQ(b.cycles[k].out.cmd.wz, a.cycles[k].out.cmd.wz) << "cycle " << k;
+      }
+    }
+    for (std::size_t k = 0; k < a.cycles.size(); ++k) {
+      if (a.signs[k] < 0) {
+        fastest_a = std::max(fastest_a, std::abs(a.cycles[k].out.cmd.vx));
+      }
+    }
+    std::printf(
+      "[max_reverse_vel %s] fastest reverse |v|: %.3f unlimited, %.3f with v_rev %.2f; %.1f s vs "
+      "%.1f s\n",
+      vf::toString(model), fastest_a, fastest_b, v_rev, a.cycles.back().rec.t,
+      b.cycles.back().rec.t);
+    EXPECT_GT(fastest_a, v_rev + 0.1);
+    EXPECT_GT(fastest_b, 0.9 * v_rev);  // the reverse field runs at v_rev, not slower
+  }
+}
+
+// CBF in a reverse segment (math_spec §6.7): the filter is stateless and runs at the law's point of
+// the active drive direction, so a disc 0.2 m off the reverse leg is passed with the barrier above
+// -res at the rear control point, without kBlocked, and the robot settles at the goal.
+TEST(Reversing, CbfFiltersOnTheReverseLeg)
+{
+  ObstacleWorld world = centredWorld(-5.0, 2.5, -2.5, 2.5);
+  world.addDisc(Vec2(-2.0, 0.2), 0.15, kObstacleTag);
+  world.commit();
+  vf::CoreConfig config =
+    reversingConfig(vf::MotionModel::kDifferential, vf::TrackingLaw::kFeedbackLinearization);
+  config.obstacles.obstacle_mode = vf::ObstacleMode::kCbf;
+  const RunResult r = follow(config, outAndBack(-4.0), Pose2{}, &world, 40.0);
+  double min_h = vf::kInf;
+  int active = 0;
+  int blocked = 0;
+  for (std::size_t k = 0; k < r.cycles.size(); ++k) {
+    const vf::CbfSample & cbf = r.cycles[k].out.field.cbf;
+    if (cbf.on) {
+      min_h = std::min(min_h, cbf.h);
+    }
+    if (cbf.active) {
+      ++active;
+      EXPECT_EQ(r.signs[k], -1) << "cycle " << k;
+    }
+    blocked += vf::Status::has(r.cycles[k].out.status, vf::Status::kBlocked) ? 1 : 0;
+  }
+  std::printf("[reverse cbf] min h %.3f, %d active cycles\n", min_h, active);
+  ASSERT_TRUE(r.settled) << "final pose " << r.final_pose.p.transpose();
+  EXPECT_EQ(blocked, 0);
+  EXPECT_GE(active, 1);
+  EXPECT_GE(min_h, -kRes);
 }
 
 }  // namespace

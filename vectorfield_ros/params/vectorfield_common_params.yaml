@@ -103,6 +103,13 @@ vectorfield_common_params:
     description: "Maximum forward speed (m/s)."
     validation:
       gt<>: [0.0]
+  max_reverse_vel:
+    type: double
+    default_value: -1.0
+    description: "Maximum speed while the base drives toward -x (m/s): reverse plan segments
+      (allow_reversing) and drive_backward. In (0, max_linear_vel]; the field speed there is
+      min(desired_speed, max_reverse_vel). Negative selects max_linear_vel. Ignored by
+      omnidirectional bases; an ackermann base needs it >= ackermann_min_speed."
   max_lateral_vel:
     type: double
     default_value: 0.5

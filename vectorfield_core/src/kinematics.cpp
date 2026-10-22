@@ -25,6 +25,7 @@ Kinematics Kinematics::fromConfig(const CoreConfig & config) noexcept
   Kinematics kinematics;
   kinematics.type = motion.motion_model;
   kinematics.max_linear_vel = motion.max_linear_vel;
+  kinematics.max_reverse_vel = reverseSpeedLimit(config);
   kinematics.max_lateral_vel = motion.max_lateral_vel;
   kinematics.max_angular_vel = motion.max_angular_vel;
   kinematics.max_linear_accel = motion.max_linear_accel;

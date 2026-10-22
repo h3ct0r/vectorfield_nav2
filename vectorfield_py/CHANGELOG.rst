@@ -2,6 +2,12 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* MotionConfig.max_reverse_vel, Kinematics.max_reverse_vel and linear_limit(),
+  reverse_speed_limit(), reference_speed(), and the issue codes REVERSE_ABOVE_MAX and
+  ACKERMANN_REVERSE_BELOW_BAND.
+
 0.2.0 (2026-10-20)
 ------------------
 * Bindings for the CBF and reversing parameters, and the 3D core as vectorfield.d3; new tools

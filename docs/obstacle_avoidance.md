@@ -196,8 +196,9 @@ contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
   rear axle, not at $\lambda$.
 - **Blocked instead of contoured.** The side probe rolls out the car's real kinematics. When
   neither side can be driven, the car stops and Nav2 replans: a gap narrower than about
-  $\lambda + w_{\mathrm{lat}}$, a dead end, or a turn tighter than $R_{\min}$. The contour never
-  reverses: it is off while a reverse plan segment is followed ({ref}`reversing`).
+  $\lambda + w_{\mathrm{lat}}$, a dead end, or a turn tighter than $R_{\min}$. An episode never
+  changes direction: on a reverse plan segment (0.3.0) the car contours backing up, at the rear
+  axle, with the same rules ({ref}`reversing`).
 
 (cbf-mode)=
 
@@ -287,7 +288,9 @@ The status text shows `CBF` while the filter binds.
   barrier disc is centred on the control point, so lateral clearances exceed the footprint's by
   up to `control_point_offset`.
 - **Ackermann:** the car contours with larger distances ({ref}`ackermann-contour`). An obstacle
-  it cannot drive around without reversing stops it, and Nav2 replans.
+  it cannot drive around without changing direction stops it, and Nav2 replans.
+- **Reverse plan segments** (0.3.0): obstacles are contoured while backing up, at the law's point
+  on the drive side, at most at `max_reverse_vel` ({ref}`reversing`).
 - **Rotation shim:** the shim undoes contour episodes by re-aiming at the path; see
   {doc}`motion_models`.
 - **Global planning still matters.** Contouring handles obstacles the global plan does not know

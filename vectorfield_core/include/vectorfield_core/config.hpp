@@ -189,6 +189,11 @@ struct MotionConfig
   OmniHeadingPolicy omni_heading_policy{OmniHeadingPolicy::kPathTangent};
   /// `max_linear_vel` \f$v_{\max}\f$ (m/s).
   double max_linear_vel{0.5};
+  /// `max_reverse_vel` \f$v_{\mathrm{rev}}\f$ (m/s): the speed bound while the body drives toward
+  /// \f$-x\f$ (\f$q = -1\f$: a reverse plan segment, or `drive_backward`), in \f$(0, v_{\max}]\f$;
+  /// negative selects auto, \f$v_{\max}\f$. The field speed there is \f$\min(v_r, v_{\mathrm{rev}})\f$;
+  /// omnidirectional bases ignore it (math_spec §9.4 [Design, 0.3.0]).
+  double max_reverse_vel{-1.0};
   /// `max_lateral_vel` \f$v_{y,\max}\f$ (m/s); omnidirectional only.
   double max_lateral_vel{0.5};
   /// `max_angular_vel` \f$\omega_{\max}\f$ (rad/s).
@@ -442,6 +447,11 @@ inline constexpr std::string_view kBrakingExceedsWindow = "braking_distance_exce
 inline constexpr std::string_view kFlOffset = "fl_control_point_offset";
 /// `obstacle_mode: cbf` with `motion_model: ackermann` (math_spec §6.7 [Design, M7]).
 inline constexpr std::string_view kAckermannCbfUnsupported = "ackermann_cbf_unsupported";
+/// `max_reverse_vel` \f$> v_{\max}\f$ (math_spec §9.4 [Design, 0.3.0]).
+inline constexpr std::string_view kReverseAboveMax = "max_reverse_vel_above_max_linear_vel";
+/// Ackermann: `max_reverse_vel` set below \f$v_{\mathrm{ack}}\f$, so the band cannot be commanded in
+/// reverse (math_spec §9.4 [Design, 0.3.0]).
+inline constexpr std::string_view kAckermannReverseBelowBand = "ackermann_reverse_below_min_speed";
 /// @}
 
 /// @name Warnings of math_spec §11 (sec-math-validation)
@@ -555,11 +565,21 @@ double ackermannAutoContourDistance(
 /// T_h)\f$, each only when auto (math_spec §11). Ackermann (math_spec §6.6 [Design, M7]):
 /// \f$\lambda\f$ = ackermannAutoContourDistance(), \f$D_{\mathrm{in}} = \lambda + \max(0.15,
 /// R_{\min})\f$, \f$D'_{\mathrm{in}} = D_{\mathrm{in}} + 0.2\f$ and \f$\ell_{\mathrm{look}} =
-/// \max(1.0,\ v_r T_h,\ D'_{\mathrm{in}} + 0.1)\f$. `final_approach_distance` stays auto: it needs
+/// \max(1.0,\ v_r T_h,\ D'_{\mathrm{in}} + 0.1)\f$. `max_reverse_vel` = reverseSpeedLimit()
+/// [Design, 0.3.0]. `final_approach_distance` stays auto: it needs
 /// the goal's xy_tol (finalApproachDistance()). The footprint radii come from
 /// computeFootprintRadii(). No validation is done.
 /// @throws std::bad_alloc only (the footprint polygon is copied).
 CoreConfig resolveAutoValues(const CoreConfig & config);
+
+/// @brief The reverse speed bound \f$v_{\mathrm{rev}}\f$: `max_reverse_vel`, or
+/// `max_linear_vel` when auto (math_spec §9.4 [Design, 0.3.0]).
+double reverseSpeedLimit(const CoreConfig & config) noexcept;
+
+/// @brief The field speed of drive sign q (math_spec §9.4 [Design, 0.3.0]): `desired_speed`
+/// \f$v_r\f$, and \f$\min(v_r, v_{\mathrm{rev}})\f$ for \f$q < 0\f$ on a base with a drive direction
+/// (not omnidirectional).
+double referenceSpeed(const CoreConfig & config, int drive_sign) noexcept;
 
 /// @brief FINAL_APPROACH entry distance for a goal tolerance (math_spec §9.2, §11): the explicit
 /// `final_approach_distance` when set; auto: \f$\max(2d,\ \mathrm{xy\_tol} + d)\f$ for feedback

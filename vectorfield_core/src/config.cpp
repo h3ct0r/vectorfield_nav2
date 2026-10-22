@@ -217,6 +217,7 @@ void checkDomain(const CoreConfig & config, ValidationReport * report)
   check.finiteValue("control_point_offset", motion.control_point_offset);
   check.nonNegative("heading_gain", motion.heading_gain);
   check.positive("max_linear_vel", motion.max_linear_vel);
+  check.autoOrPositive("max_reverse_vel", motion.max_reverse_vel);
   check.nonNegative("max_lateral_vel", motion.max_lateral_vel);
   check.positive("max_angular_vel", motion.max_angular_vel);
   check.positive("max_linear_accel", motion.max_linear_accel);
@@ -569,6 +570,7 @@ CoreConfig resolveAutoValues(const CoreConfig & config)
     obstacles.obstacle_blend_start_distance =
       ackermann ? obstacles.obstacle_full_switch_distance + 0.2 : lambda + 0.35;
   }
+  resolved.motion.max_reverse_vel = reverseSpeedLimit(config);
   if (isAuto(obstacles.obstacle_lookahead)) {
     obstacles.obstacle_lookahead =
       std::max(1.0, resolved.field.desired_speed * resolved.safety.collision_check_horizon);
@@ -578,6 +580,21 @@ CoreConfig resolveAutoValues(const CoreConfig & config)
     }
   }
   return resolved;
+}
+
+double reverseSpeedLimit(const CoreConfig & config) noexcept
+{
+  return isAuto(config.motion.max_reverse_vel) ? config.motion.max_linear_vel
+                                               : config.motion.max_reverse_vel;
+}
+
+double referenceSpeed(const CoreConfig & config, int drive_sign) noexcept
+{
+  const double v_r = config.field.desired_speed;
+  if (drive_sign >= 0 || config.motion.motion_model == MotionModel::kOmnidirectional) {
+    return v_r;
+  }
+  return std::min(v_r, reverseSpeedLimit(config));
 }
 
 double finalApproachDistance(const CoreConfig & config, double xy_tol) noexcept
@@ -695,6 +712,19 @@ ValidationReport validateConfig(
       errors, issue::kSpeedAboveMax,
       "desired_speed " + num(v_r) + " > max_linear_vel " + num(v_max) +
         ": the field speed must be commandable");
+  }
+  const double v_rev = r.motion.max_reverse_vel;
+  if (v_rev > v_max) {
+    addIssue(
+      errors, issue::kReverseAboveMax,
+      "max_reverse_vel " + num(v_rev) + " > max_linear_vel " + num(v_max) +
+        ": the reverse bound must not exceed the forward one");
+  }
+  if (ackermann && !isAuto(config.motion.max_reverse_vel) && v_rev < r.motion.ackermann_min_speed) {
+    addIssue(
+      errors, issue::kAckermannReverseBelowBand,
+      "max_reverse_vel " + num(v_rev) + " < ackermann_min_speed " +
+        num(r.motion.ackermann_min_speed) + ": the band cannot be commanded in reverse");
   }
   if (in_place_vel > rotate_vel) {
     addIssue(

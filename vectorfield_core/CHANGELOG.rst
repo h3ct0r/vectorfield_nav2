@@ -4,6 +4,15 @@ Changelog for package vectorfield_core
 
 Forthcoming
 -----------
+* max_reverse_vel (MotionConfig, auto = max_linear_vel): with q = -1 (a reverse plan segment or
+  drive_backward; not omni) the field speed is min(desired_speed, max_reverse_vel) and the
+  kinematic box bounds |v| by it (Kinematics::max_reverse_vel, linearLimit(); reverseSpeedLimit(),
+  referenceSpeed()). Errors max_reverse_vel_above_max_linear_vel and, for Ackermann,
+  ackermann_reverse_below_min_speed. Forward behaviour is unchanged.
+* The obstacle contour runs on reverse plan segments: at the law's point on the drive side, with
+  the side probe rolling out the reverse pipeline (math_spec §9.4 [Design, 0.3.0]). New oracles:
+  a disc on a reverse leg (diff FL, diff HT, Ackermann), a dead end while reversing, the reverse
+  speed bound, and the CBF filter in reverse.
 * findCusps() and planHasHeadings(): a turn of the chord-decimated plan sharper than 90° is a
   cusp only where the plan's headings change driving direction or, for a plan without headings
   (NavFn, Theta*, NavigateThroughPoses waypoints), where it doubles back along itself for more than

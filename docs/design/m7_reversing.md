@@ -70,11 +70,9 @@ twice. The core goal identity is kept while the stop moves less than $2\ell_c$ w
 | omni | no drive direction ($q$ is ignored), but cusps are still stops: the legs overlap, and a closest point that jumps between them would cut the reversal short |
 
 **Safety.** The rollout integrates the signed command, so footprint checks follow the backward
-motion; $s_{\mathrm{free}}$ is path length and kBlocked is direction-free. The obstacle contour is
-off in a segment whose $q$ differs from the configured sign (0.x): its gate, side probes and
-circulation assume the drive direction; an obstacle on a reverse leg stops the robot (cap,
-kBlocked, NoValidControl, replan). Reverse speed uses the same $v_r$ and box; there is no
-`max_reverse_vel` in 0.x (use speed-filter zones); the Ackermann band floor applies both ways.
+motion; $s_{\mathrm{free}}$ is path length and kBlocked is direction-free. Until 0.3.0 the
+obstacle contour was off in a segment whose $q$ differed from the configured sign and reverse
+segments used the forward speed; both are now handled (see *Reverse speed and contour*, below).
 
 **Nav2 path constraints (Lyrical, FPH).** `enforce_path_inversion` truncates the window at the
 first raw-pose inversion (no decimation, no headings: any raw turn of more than 90°, so a sharp
@@ -92,8 +90,8 @@ tracking or the omni heading policy. Without either constraint the two windows a
 (parity test), so nothing changes. Humble and Jazzy have no path handler: `LegacyPathHandler`
 never truncates, and segment windows give the same behaviour; nothing else is mirrored.
 
-**Parameters** (additive): `cusp_tolerance` (Phases, 0.05 m, > 0; plugin only). `allow_reversing`
-documents segment following. `TrackerInput::drive_sign` (0 = configured) and
+**Parameters** (additive): `cusp_tolerance` (Phases, 0.05 m, > 0; plugin only); `max_reverse_vel`
+(Motion, 0.3.0, below). `allow_reversing` documents segment following. `TrackerInput::drive_sign` (0 = configured) and
 `TrackerState::drive_sign` are new core fields; the 0.x API stays source-compatible.
 
 **Visualization.** The active cusp is the `goal` namespace (point, XY ring at 2 `cusp_tolerance`,
@@ -101,6 +99,100 @@ settle ring at `cusp_tolerance`); the status text adds `REV` while $q = -1$.
 
 **Limits.** No reversal shorter than $\ell_c$ is a stop; a plan without headings alternates
 direction blindly, and reverses only where it doubles back for more than $2\ell_c$ (an out-and-back
-waypoint route on NavFn is one); a reverse segment cannot contour; one speed limit for both
-directions. A smoother that orients a headingless plan (nav2_smoother) marks the legs that leave
+waypoint route on NavFn is one). A smoother that orients a headingless plan (nav2_smoother) marks the legs that leave
 toward $-x$ of the identity as reverse, and they are driven so.
+
+## Reverse speed and contour (0.3.0)
+
+Real bases back up slower than they drive forward, and sense less behind them. 0.3.0 adds a
+reverse speed bound and runs the obstacle contour (and checks the CBF filter) on reverse
+segments. The changes to {doc}`math_spec` are tagged [Design, 0.3.0] in §1, §6.4, §6.6, §6.7,
+§8.3, §9.4 and §11. Forward behaviour is bit-identical: every forward quantity below is the 0.2
+value, and the existing oracles are unchanged.
+
+**The reverse.** Reverse means $q = -1$, the body driving toward $-x$: a reverse plan segment, or
+`drive_backward` (whose robots back up all the time). Omnidirectional bases have no drive
+direction and ignore everything below.
+
+**`max_reverse_vel`** $v_{\mathrm{rev}}$ (Motion; default $-1$ = auto = `max_linear_vel`, so nothing
+changes until it is set; error unless $0 < v_{\mathrm{rev}} \le v_{\max}$; Ackermann: error when set
+below $v_{\mathrm{ack}}$, where the band could not be commanded). With $q = -1$:
+
+- the field speed is $v_r^{-} = \min(v_r, v_{\mathrm{rev}})$ (`referenceSpeed()`). Everything built on
+  $v_r$ uses it: the distance field's $\lVert\Phi\rVert$, the terminal profile (so the cusp approach
+  and the final approach of a reverse goal brake from $v_r^{-}$), the collision scale
+  $\gamma_{\mathrm{col}} = \min(1, v_{\mathrm{cap}}/v_r^{-})$, the hold speed, the Ackermann floor
+  $v_{\mathrm{ack}}/v_r^{-}$, the side probe's $T_{\mathrm{side}}$ and its $v_r^2/(2a_{\mathrm{dec}})$
+  test; the external speed limit $\gamma_{\mathrm{lim}}$ scales $v_r^{-}$ like $v_r$ (an absolute
+  Nav2 limit is a fraction of `desired_speed`, so it is conservative in reverse);
+- the kinematic box bounds $\lvert v\rvert \le \min(v_{\max}, v_{\mathrm{rev}})$
+  (`Kinematics::linearLimit()`, §8.3), on the law's command and therefore in the rollouts and the
+  side probe, which run the same pipeline;
+- the Ackermann band raises $q v$ to $v_{\mathrm{ack}}$, i.e. $\lvert v\rvert$ in reverse (unchanged).
+
+Configure-time quantities stay forward: `obstacle_lookahead` (auto $\max(1, v_r T_h)$, longer than
+the reverse needs) and the §11 rules on $v_r$ and $v_{\max}$ (each holds a fortiori for
+$v_r^{-} \le v_r$). The rollout's pose reservation keeps $v_{\max}$, an upper bound. No rear-sensor
+warning: the core does not know the sensors; {doc}`../tuning` gives the advice. The curve
+follower's progress supervision uses $v_r^{-}$ for a `drive_backward` robot.
+
+**Contour on a reverse segment.** The Tracker already flips its kinematics and law for $q = -1$
+(the configured kinematics with `drive_backward` toggled, as for a `drive_backward` robot, whose
+contour has always run). Each piece of §6.4 is stated in terms that carry over:
+
+- *Evaluation point and footprint side.* The contour runs at the law's point on the drive side:
+  FL's $p_c = p - d\,\mathbf h$ (behind base_link), HT's base_link, Ackermann's rear axle $p_r$ (the
+  no-slip point in both directions). $\lambda$'s auto value and the inscribed rule use
+  $\lvert d\rvert$ and the base_link radii, which are direction-free; the leading part of the
+  footprint is the rear, and the rollout checks the real polygon.
+- *Gate.* The plugin passes only the active segment, which is traversed toward increasing
+  station whatever $q$; the gate samples $[s^\star, s^\star + \ell_{\mathrm{look}}]$ ahead along the
+  reverse leg, i.e. behind the body. The blocking set, $B(s^\star)$ and the past-the-blockage test
+  are station-based and unchanged.
+- *Side probe.* It rolls out `stepNominal` with the flipped kinematics: diff and skid FL with the
+  control point behind, HT on $\psi_{\mathrm{dr}} = \psi + \pi$, Ackermann HT with $v < 0$ and
+  $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$, all through the box at $v_{\mathrm{rev}}$ and the plant's
+  exact integration of the signed command. A side the robot cannot back around collides or never
+  gets past the blockage.
+- *Circulation sign.* $\sigma_c$ latches a direction of the field $T_\lambda = \sigma_c J n_o$ in the
+  plane; the probe ranking and its tie-break ($\operatorname{sgn}((Jn_o)^\top\Phi)$, then $+1$) never
+  refer to the body, so the side means the same in both directions.
+- *Exits and watchdog.* The exit tests use $n$, $\Phi$ and $D_o$ at the evaluation point (the
+  Ackermann `b_site` fallback too); the watchdog counts $\lVert(v_x, v_y)\rVert\Delta t$, a path length.
+- *Dead end.* Unchanged rule: no episode without a collision-free side past the blockage; the
+  cap stops the robot while backing up and kBlocked follows (NoValidControl, replan).
+- *Segment switch.* A change of $q$ still ends an active episode and clears kBlocked
+  (`resetDirectionScoped`): an obstacle met in reverse is re-evaluated going forward.
+
+So the change in the core is that the episode is no longer suppressed while $q$ differs from the
+configured sign. The tests are new oracles.
+
+**CBF in reverse.** The filter is stateless: $\delta_{\mathrm{safe}}$, the sites and the QP are
+evaluated each cycle at the law's point of the active drive direction (the flipped point, §6.7),
+and the CBF hold and kBlocked are direction-free. It already ran on reverse segments in 0.2; 0.3.0
+adds the test.
+
+**Tests.** Core (`test_reversing.cpp`): a cusp plan whose reverse leg has a 0.15 m disc 0.1 m
+off the path, for diff FL, diff HT and Ackermann ($R_{\min}$ 0.5, $x_r = -0.2$): one episode, in
+reverse only, a constant $\sigma_c$, the evaluation point at least $\lambda - \mathrm{res}$ from the
+disc, the free side, no collision, settled at the goal (min clearance 0.508, 0.388, 0.774 m
+for $\lambda$ 0.47, 0.32, 0.75); the O56 dead end on the reverse leg (no episode, kBlocked kept,
+stopped 0.10 m short); `max_reverse_vel` 0.2 (reverse $\lvert v\rvert \le 0.2$, reached; forward
+commands identical); CBF with a disc 0.2 m off the reverse leg ($\min h \ge -\mathrm{res}$, no
+kBlocked). Controller layer 2: a cusp plan with a lethal box on the reverse leg (differential,
+Ackermann) succeeds with the contour active only in reverse; `max_reverse_vel` bounds the
+published reverse command. System (`test_reversing_kinematic`, differential): Smac
+Reeds-Shepp backs up 2.7 m past an unmapped box (global obstacle layer off, NavigateToPose
+replanning only when the plan becomes invalid), the base at least 0.50 m from the box (bound
+$\lambda - d - 0.05 = 0.22$); the reverse ground-truth speed stays within `max_reverse_vel` of the
+reversing overlay (0.2 m/s).
+
+**Limits.** The reverse lookahead and the window are the forward ones. With Nav2's 1 Hz
+replanning and a global costmap blind to the obstacle, a plan restarted from the pose a contour
+has displaced can pass the obstacle closer than the footprint but not within
+$w_{\mathrm{lat}} - $ `obstacle_gate_tolerance` (a Reeds-Shepp plan cannot turn back to the line
+at once): the gate leaves that graze to the predictor (§6.4), the robot stops with kBlocked and
+Nav2 recovers. This is not specific to reversing; the system test replans only on an invalid
+plan, and a global obstacle layer, which plans around the obstacle, avoids it. The 2 m `corridor_door`
+is narrower than an Ackermann circulation ($2(\lambda + w_{\mathrm{lat}})$), so the system test
+runs the box case for the differential base only; the core and layer-2 tests cover Ackermann.

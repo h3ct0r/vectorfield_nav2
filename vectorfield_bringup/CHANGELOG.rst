@@ -4,6 +4,8 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* The reversing scenario overlay sets max_reverse_vel: 0.2; scenarios may set max_reverse_vel
+  (at most the model's max_linear_vel).
 * identify_skid_slip.py joins its spin thread before shutting down: a thread still in rclpy at
   exit aborted the process (std::terminate) after a good result, which failed
   test_skid_slip_kinematic on Jazzy.

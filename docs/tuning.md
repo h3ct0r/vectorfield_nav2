@@ -15,7 +15,11 @@ changes without ROS using `vf-tune`. Every parameter is listed in {doc}`paramete
    otherwise the smoother clips single axes and bends the path; with `scale_velocities: true` it
    scales all axes together.
 2. **Speed.** `desired_speed` $v_r$ is the field's speed and must not exceed `max_linear_vel`.
-   Speed limits from Nav2, the braking cap and the clearance slowdown lower it further.
+   Speed limits from Nav2, the braking cap and the clearance slowdown lower it further. A base
+   that backs up (`allow_reversing`, `drive_backward`) with fewer or no sensors behind it should
+   set `max_reverse_vel` lower, for example to half of `max_linear_vel`: backing up then runs at
+   `min(desired_speed, max_reverse_vel)`, and the braking cap and the contour's side probe use that
+   speed.
 3. **Convergence.** `convergence_gain` $k_f$ sets how sharply the field turns toward the path
    ({ref}`sec-gains`). The initial slope of the gain function is $G'(0) = 2k_f/\pi$ for `atan`
    (default) and $k_f$ for `rational`. Larger values converge in a shorter distance and turn
@@ -55,6 +59,8 @@ more for each goal's overrides. The findings, with their codes:
 | `ackermann_min_turning_radius` | error | `min_turning_radius` ≤ 0 with `ackermann` | set the car's turning radius |
 | `braking_distance_exceeds_window` | error | $\sigma_b + d + 0.1$ m exceeds half the local costmap | lower $\sigma_b$ or enlarge the costmap |
 | `fl_control_point_offset` | error | $d$ ≤ 0 with feedback linearisation | $d$ > 0 |
+| `max_reverse_vel_above_max_linear_vel` | error | `max_reverse_vel` > `max_linear_vel` | lower `max_reverse_vel`, or leave it negative (auto: `max_linear_vel`) |
+| `ackermann_reverse_below_min_speed` | error | `ackermann` with `max_reverse_vel` set below `ackermann_min_speed` | raise `max_reverse_vel` or lower `ackermann_min_speed` |
 | `rotate_vel_above_max_angular_vel` | warning | `rotate_to_heading_angular_vel` > `max_angular_vel` | the smaller one is used |
 | `discrete_overshoot` | warning | $G'(0)\, v_r\, \Delta t \ge 1$ | lower $k_f$ or raise the control rate |
 | `fl_gain_offset` | warning | $G'(0)\, d > 0.5$: the field turns faster than the heading can follow | lower $k_f$ or $d$ |

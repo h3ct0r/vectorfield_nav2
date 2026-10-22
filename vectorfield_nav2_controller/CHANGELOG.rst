@@ -4,6 +4,9 @@ Changelog for package vectorfield_nav2_controller
 
 Forthcoming
 -----------
+* Obstacles on a reverse leg are contoured (the core no longer turns the contour off in reverse
+  segments), and max_reverse_vel bounds the reverse speed. Layer-2 tests: a box on the reverse
+  leg of a cusp plan (differential, Ackermann) and the reverse speed bound.
 * A forward plan with a corner sharper than 90° (a NavigateThroughPoses waypoint the next leg
   leaves at 150°, or a sharp 90° corner the grid makes slightly sharper) is no longer rejected as
   reversing (INVALID_PATH) or, with allow_reversing, split and driven backward: intakePlan() uses

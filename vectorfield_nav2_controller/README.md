@@ -114,7 +114,7 @@ Each is raised after the last command has been set to zero.
 ## Limitations
 
 - Reversing segments (cusps) are rejected unless `allow_reversing: true`, which follows them
-  segment by segment with a stop at each cusp; a reverse segment cannot contour obstacles;
+  segment by segment with a stop at each cusp (`max_reverse_vel` bounds the reverse speed);
   `drive_backward` drives a whole path backward.
 - Obstacles are taken from the local costmap only, as a static snapshot per cycle.
 - Ackermann: no in-place rotations; obstacle contouring uses distances that grow with

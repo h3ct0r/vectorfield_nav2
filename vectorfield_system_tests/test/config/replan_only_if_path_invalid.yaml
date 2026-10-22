@@ -1,0 +1,8 @@
+# Test overlay: NavigateToPose plans once and replans only when the path becomes invalid, so a
+# global costmap without its obstacle layer keeps the first plan. Nav2's 1 Hz replanning would
+# restart the plan from the pose a contour episode has displaced; a Reeds-Shepp plan from there
+# can graze the unmapped obstacle, which the gate leaves to the collision predictor (math_spec
+# §6.4), so the robot stops and Nav2 recovers instead of the controller contouring.
+bt_navigator:
+  ros__parameters:
+    default_nav_to_pose_bt_xml: "navigate_w_replanning_only_if_path_becomes_invalid.xml"

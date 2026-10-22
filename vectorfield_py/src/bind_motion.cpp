@@ -35,6 +35,7 @@ void bindKinematics(py::module_ & m, py::module_ & sim)
     "Motion model and limits shared by the laws, the limiter, the predictor and sim.integrate.");
   k.field("type", &Kinematics::type, "MotionModel.")
     .field("max_linear_vel", &Kinematics::max_linear_vel, "v_max (m/s).")
+    .field("max_reverse_vel", &Kinematics::max_reverse_vel, "v_rev (m/s) while drive_backward.")
     .field("max_lateral_vel", &Kinematics::max_lateral_vel, "vy_max (m/s).")
     .field("max_angular_vel", &Kinematics::max_angular_vel, "omega_max (rad/s).")
     .field("max_linear_accel", &Kinematics::max_linear_accel, "a_acc (m/s^2).")
@@ -57,6 +58,9 @@ void bindKinematics(py::module_ & m, py::module_ & sim)
     .def_static(
       "from_config", &Kinematics::fromConfig, py::arg("config"), "The kinematics of a CoreConfig.")
     .def_property_readonly("drive_sign", &Kinematics::driveSign, "q: -1 iff drive_backward.")
+    .def(
+      "linear_limit", &Kinematics::linearLimit,
+      "Box speed bound: v_max, or min(v_max, v_rev) while drive_backward (not omni).")
     .def_property_readonly("is_holonomic", &Kinematics::isHolonomic, "Omnidirectional.")
     .def_property_readonly("is_ackermann", &Kinematics::isAckermann, "Ackermann.")
     .def_property_readonly("is_unicycle", &Kinematics::isUnicycle, "Differential or skid steer.")

@@ -198,7 +198,7 @@ BoxResult uniformBox(const Twist2 & cmd, const Kinematics & kinematics, double o
     c = scaleTerm(c, kinematics.max_lateral_vel, std::abs(cmd.vy));
     result.cmd = Twist2{c * cmd.vx, c * cmd.vy, clamp(cmd.wz, -omega_bar, omega_bar)};
   } else {
-    c = scaleTerm(c, kinematics.max_linear_vel, std::abs(cmd.vx));
+    c = scaleTerm(c, kinematics.linearLimit(), std::abs(cmd.vx));
     c = scaleTerm(c, omega_bar, std::abs(cmd.wz));
     result.cmd = Twist2{c * cmd.vx, 0.0, c * cmd.wz};
   }
@@ -220,7 +220,7 @@ BoxResult etaBox(
     set = set.intersect(boxAxisInterval(a.y(), b.y(), kinematics.max_lateral_vel));
     set = set.intersect(boxNormInterval(a, b, kinematics.max_linear_vel));
   } else {
-    set = set.intersect(boxAxisInterval(a.x(), b.x(), kinematics.max_linear_vel));
+    set = set.intersect(boxAxisInterval(a.x(), b.x(), kinematics.linearLimit()));
     set = set.intersect(boxAxisInterval(a.y(), b.y(), omega_bar));
   }
 

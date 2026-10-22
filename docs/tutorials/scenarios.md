@@ -283,9 +283,10 @@ tolerance and the `cusp_tolerance` settle radius); the robot stops inside the in
 the marker moves to the next cusp or the goal. `vectorfield_system_tests` runs this scenario for
 the differential and the Ackermann base.
 
-**Tweak.** `cusp_tolerance` (0.05 m) sets how close to a cusp the robot stops. Obstacle
-contouring is off while backing up, so an obstacle on a reverse leg stops the robot and Nav2
-replans. A goal checker succeeds as soon as the robot is within its tolerance of the plan's last
+**Tweak.** `cusp_tolerance` (0.05 m) sets how close to a cusp the robot stops, and
+`max_reverse_vel` (0.2 m/s in the overlay; remove it to back up at `desired_speed`) how fast it
+backs up. An obstacle on a reverse leg is contoured as a forward one; a dead end stops the robot
+and Nav2 replans. A goal checker succeeds as soon as the robot is within its tolerance of the plan's last
 pose, even before the plan's end: avoid goals that the plan passes earlier. On Lyrical the path
 handler's `enforce_path_inversion: true` with `SimpleGoalChecker`'s `path_length_tolerance`
 prevents it; the controller builds its own window either way.

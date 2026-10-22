@@ -109,6 +109,9 @@ void bindGroups(py::module_ & m)
     .field("heading_gain", &MotionConfig::heading_gain, "k_psi (1/s).")
     .field("omni_heading_policy", &MotionConfig::omni_heading_policy, "OmniHeadingPolicy.")
     .field("max_linear_vel", &MotionConfig::max_linear_vel, "v_max (m/s).")
+    .field(
+      "max_reverse_vel", &MotionConfig::max_reverse_vel,
+      "v_rev (m/s) while q = -1 (not omni); negative: auto (max_linear_vel).")
     .field("max_lateral_vel", &MotionConfig::max_lateral_vel, "vy_max (m/s), omni only.")
     .field("max_angular_vel", &MotionConfig::max_angular_vel, "omega_max (rad/s).")
     .field("max_linear_accel", &MotionConfig::max_linear_accel, "a_acc (m/s^2).")
@@ -293,6 +296,12 @@ void bindValidation(py::module_ & m)
     "resolve_auto_values", &vf::resolveAutoValues, py::arg("config"),
     "A copy with every configure-time auto value filled (final_approach_distance stays auto).");
   m.def(
+    "reverse_speed_limit", &vf::reverseSpeedLimit, py::arg("config"),
+    "v_rev: max_reverse_vel, or max_linear_vel when auto.");
+  m.def(
+    "reference_speed", &vf::referenceSpeed, py::arg("config"), py::arg("drive_sign"),
+    "Field speed of drive sign q: desired_speed, min(desired_speed, v_rev) for q < 0 (not omni).");
+  m.def(
     "final_approach_distance", &vf::finalApproachDistance, py::arg("config"), py::arg("xy_tol"),
     "FINAL_APPROACH entry distance for a goal XY tolerance.");
   m.def(
@@ -335,6 +344,8 @@ void bindValidation(py::module_ & m)
     {"BRAKING_EXCEEDS_WINDOW", vf::issue::kBrakingExceedsWindow},
     {"FL_OFFSET", vf::issue::kFlOffset},
     {"ACKERMANN_CBF_UNSUPPORTED", vf::issue::kAckermannCbfUnsupported},
+    {"REVERSE_ABOVE_MAX", vf::issue::kReverseAboveMax},
+    {"ACKERMANN_REVERSE_BELOW_BAND", vf::issue::kAckermannReverseBelowBand},
     {"ROTATE_ABOVE_MAX", vf::issue::kRotateAboveMax},
     {"DISCRETE_OVERSHOOT", vf::issue::kDiscreteOvershoot},
     {"FL_GAIN_OFFSET", vf::issue::kFlGainOffset},

@@ -387,6 +387,36 @@ TEST(LimiterUniformBox, DiffSkidAckermann)
   EXPECT_DOUBLE_EQ(box.c, 0.5 / 0.8);
 }
 
+// max_reverse_vel (math_spec §8.3, §9.4 [Design, 0.3.0]): with drive_backward the box bounds |v|
+// by min(v_max, v_rev); forward it stays v_max, and omni ignores it.
+TEST(LimiterUniformBox, ReverseSpeedBound)
+{
+  Kinematics diff;
+  diff.max_linear_vel = 0.5;
+  diff.max_reverse_vel = 0.2;
+  EXPECT_EQ(diff.linearLimit(), 0.5);
+  BoxResult box = vf::uniformBox(Twist2{-0.4, 0.0, 0.4}, diff, 1.2);
+  EXPECT_DOUBLE_EQ(box.cmd.vx, -0.4) << "forward drive: v_max only";
+  diff.drive_backward = true;
+  EXPECT_EQ(diff.linearLimit(), 0.2);
+  box = vf::uniformBox(Twist2{-0.4, 0.0, 0.4}, diff, 1.2);
+  EXPECT_DOUBLE_EQ(box.c, 0.5);
+  EXPECT_DOUBLE_EQ(box.cmd.vx, -0.2);
+  EXPECT_DOUBLE_EQ(box.cmd.wz, 0.2) << "omega scaled with v";
+  // The eta box intersects |a_x + eta b_x| <= v_rev.
+  box = vf::etaBox(Vec2(-0.1, 0.0), Vec2(-0.3, 0.0), 1.0, 0.0, Twist2{}, diff, 1.2);
+  EXPECT_TRUE(box.eta_box);
+  EXPECT_NEAR(box.eta, (0.2 - 0.1) / 0.3, 1e-12);
+  EXPECT_NEAR(box.cmd.vx, -0.2, 1e-12);
+  Kinematics defaulted;  // +inf: v_max
+  defaulted.drive_backward = true;
+  EXPECT_EQ(defaulted.linearLimit(), defaulted.max_linear_vel);
+  Kinematics omni = omniKinematics();
+  omni.drive_backward = true;
+  omni.max_reverse_vel = 0.1;
+  EXPECT_EQ(omni.linearLimit(), omni.max_linear_vel);
+}
+
 // Holonomic omega never enters c: it is clamped on its own (math_spec §8.3).
 TEST(LimiterUniformBox, HolonomicOmegaIsExcluded)
 {

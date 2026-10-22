@@ -232,6 +232,96 @@ TEST(Reversing, WithoutAllowReversingTheCuspIsStillInvalid)
   EXPECT_EQ(harness.result().reason, "INVALID_PATH") << describe(harness);
 }
 
+/// Distance from a point to an axis-aligned box (0 inside).
+double boxDistance(const vf::Vec2 & x, const vf::Vec2 & lo, const vf::Vec2 & hi)
+{
+  const double dx = std::max({lo.x() - x.x(), 0.0, x.x() - hi.x()});
+  const double dy = std::max({lo.y() - x.y(), 0.0, x.y() - hi.y()});
+  return std::hypot(dx, dy);
+}
+
+class ReverseContour : public ::testing::TestWithParam<std::string>
+{
+};
+
+TEST_P(ReverseContour, ABoxOnTheReverseLegIsContouredInReverse)
+{
+  // math_spec §6.4, §6.6, §9.4 [Design, 0.3.0]: forward to the cusp (1, 0), then back along
+  // y = 0 to (-5, 0) past a lethal 0.3 m box 0.1 m left of the reverse leg. The contour engages
+  // only while reversing, passes on the free side (y < 0) and the goal succeeds.
+  HarnessOptions options = reversingOptions(GetParam(), "auto");
+  options.initial_pose = vf::Pose2{};
+  options.costmap_size = 9.0;
+  options.costmap_center = vf::Vec2(-2.0, 0.0);
+  options.parameters.push_back(pluginParameter(options, "obstacle_mode", std::string("contour")));
+  options.parameters.push_back(pluginParameter(options, "obstacle_max_contour_length", 8.0));
+  ServerHarness harness(options);
+  harness.configure();
+  harness.activate();
+  const vf::Vec2 lo(-1.3, 0.1);
+  const vf::Vec2 hi(-1.0, 0.4);
+  harness.setLethalBox(lo, hi);
+  std::vector<vf::Pose2> plan = line(vf::Vec2::Zero(), vf::Vec2(1.0, 0.0), 0.05, 0.0);
+  const std::vector<vf::Pose2> back = line(vf::Vec2(1.0, 0.0), vf::Vec2(-5.0, 0.0), 0.05, 0.0);
+  plan.insert(plan.end(), back.begin() + 1, back.end());
+  harness.followPath(mapPlan(plan));
+  ASSERT_EQ(harness.runUntilDone(120.0), GoalStatus::kSucceeded) << describe(harness);
+  const Summary summary = summarize(harness, vf::Vec2(1.0, 0.0));
+  EXPECT_EQ(summary.segments, 2U);
+  EXPECT_EQ(summary.flips, 1);
+  EXPECT_FALSE(summary.rotated);
+  int reverse_contour = 0;
+  double clearance = vf::kInf;
+  double y_beside = vf::kNaN;
+  for (const CycleRecord & r : harness.history()) {
+    if (!r.computed) {
+      continue;
+    }
+    const bool active = r.diagnostics.output.field.contour.active;
+    EXPECT_FALSE(active && r.diagnostics.drive_sign > 0) << "an episode in the forward leg";
+    reverse_contour += active && r.diagnostics.drive_sign < 0 ? 1 : 0;
+    clearance = std::min(clearance, boxDistance(r.pose_map.p, lo, hi) - options.robot_radius);
+    if (std::isnan(y_beside) && r.pose_map.p.x() < 0.5 * (lo.x() + hi.x())) {
+      y_beside = r.pose_map.p.y();
+    }
+  }
+  EXPECT_GT(reverse_contour, 0) << "the contour never engaged in reverse";
+  EXPECT_GT(clearance, 0.05);
+  EXPECT_LT(y_beside, -0.1) << "not on the free side";
+  EXPECT_EQ(countExceptions(harness, "NoValidControl"), 0U);
+  EXPECT_LT(finalDistance(harness, plan.back().p), 0.25);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+  Reverse, ReverseContour, ::testing::Values("differential", "ackermann"),
+  [](const ::testing::TestParamInfo<std::string> & case_info) { return case_info.param; });
+
+// max_reverse_vel: the reverse leg of a cusp plan is driven at |v| <= v_rev, the forward leg is not.
+TEST(Reversing, MaxReverseVelBoundsTheReverseLeg)
+{
+  HarnessOptions options = reversingOptions("differential", "auto");
+  options.parameters.push_back(pluginParameter(options, "max_reverse_vel", 0.2));
+  ServerHarness harness(options);
+  harness.configure();
+  harness.activate();
+  const std::vector<vf::Pose2> plan = cuspPlan(vf::Vec2::Zero(), 1.5);
+  harness.followPath(mapPlan(plan));
+  ASSERT_EQ(harness.runUntilDone(60.0), GoalStatus::kSucceeded) << describe(harness);
+  double forward = 0.0;
+  double reverse = 0.0;
+  for (const CycleRecord & r : harness.history()) {
+    if (!r.computed) {
+      continue;
+    }
+    double & fastest = r.diagnostics.drive_sign < 0 ? reverse : forward;
+    fastest = std::max(fastest, std::abs(r.published.linear.x));
+  }
+  EXPECT_LE(reverse, 0.2 + 1e-6);
+  EXPECT_GT(reverse, 0.15);
+  EXPECT_GT(forward, 0.3);
+  EXPECT_DOUBLE_EQ(harness.controller()->appliedConfig().motion.max_reverse_vel, 0.2);
+}
+
 /// A NavigateThroughPoses plan of NavFn with a forward corner of `turn` (rad, to the left) at a
 /// waypoint near (1.5, 0): identity orientations except the waypoint's and the goal's (along the
 /// second leg), and the second leg from the grid vertex nearest the waypoint, 1.5 m long.

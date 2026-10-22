@@ -34,8 +34,9 @@ CONTROLLER = PACKAGE / 'config' / 'controller'
 SCENARIO = PACKAGE / 'config' / 'scenario'
 TEMPLATE_PREFIX = 'nav2_params_vectorfield_'
 EXAMPLES = PACKAGE / 'config' / 'examples'
-#: Controller keys a scenario may set (behaviour only, merged into the model's FollowPath).
-SCENARIO_CONTROLLER_KEYS = {'allow_reversing', 'cusp_tolerance'}
+#: Controller keys a scenario may set (behaviour only, merged into the model's FollowPath), and
+#: max_reverse_vel, which can only lower the model's max_linear_vel.
+SCENARIO_CONTROLLER_KEYS = {'allow_reversing', 'cusp_tolerance', 'max_reverse_vel'}
 TEMPLATES = sorted(EXAMPLES.glob(TEMPLATE_PREFIX + '*.yaml'))
 SHIM = 'nav2_rotation_shim_controller::RotationShimController'
 SHIM_KEYS = {'angular_dist_threshold', 'forward_sampling_distance', 'rotate_to_goal_heading'}
@@ -170,6 +171,12 @@ def test_scenarios_never_set_smoother_limits(path):
     assert set(controller.get('FollowPath', {})) <= SCENARIO_CONTROLLER_KEYS, (
         'a scenario sets only behaviour keys (no plugin, no limits)'
     )
+    reverse = controller.get('FollowPath', {}).get('max_reverse_vel')
+    if reverse is not None:
+        for model in demo.MOTION_MODELS:
+            merged = _merged(model, ('kinematic_sim', path.stem))
+            limits = {**_defaults(), **_node(merged, 'controller_server')['FollowPath']}
+            assert 0.0 < reverse <= limits['max_linear_vel'], model
 
 
 @pytest.mark.parametrize(

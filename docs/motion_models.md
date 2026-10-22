@@ -56,10 +56,14 @@ cusps and drives each segment in its own direction:
   `control_point_offset` behind `base_link`, heading tracking steers the rear toward the field,
   and Ackermann tracks with $v < 0$ under the same turning-radius limit. An omnidirectional base
   has no drive direction; it still stops at each cusp, because the legs of a reversal overlap;
-- obstacle contouring is off while backing up (0.x); collision prediction works in both
-  directions, so an obstacle on a reverse leg stops the robot, and Nav2 replans;
-- both directions use the same speed limits (`desired_speed`, `max_linear_vel`); use a speed
-  filter to back up slower;
+- obstacles on a reverse leg are contoured as forward ones (0.3.0): the contour runs at the law's
+  point on the drive side (the rear), its side probe backs up with the same law and limits, and
+  a dead end stops the robot with kBlocked, so Nav2 replans; `obstacle_mode: cbf` filters at the
+  rear point; collision prediction works in both directions;
+- `max_reverse_vel` (0.3.0; default `max_linear_vel`) bounds the speed while backing up: the field
+  runs at `min(desired_speed, max_reverse_vel)` there, so the approach to a cusp or a goal brakes
+  from it, and the command never exceeds it. It also applies to `drive_backward`; an Ackermann
+  base needs it at or above `ackermann_min_speed`, and an omnidirectional base ignores it;
 - replans that move a cusp by a cell or two never make the robot change direction twice.
 
 The velocity smoother must allow $v_x < 0$ (the shipped overlays do), and the goal checker sees

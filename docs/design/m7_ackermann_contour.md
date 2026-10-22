@@ -63,8 +63,9 @@ the speed band, the law above and the curvature clamp. A side the car cannot dri
 collides or never gets past the blockage: a gap narrower than about $\lambda + w_{\mathrm{lat}}$, a
 dead end, or a wall wider than $v_r T_{\mathrm{side}}$. Then no episode starts, the cap stops the
 car at least $m_s$ short, kBlocked raises NoValidControl and Nav2 replans. $T_{\mathrm{side}}$
-grows with $\lambda$ and $D_{\mathrm{in}}'$ by itself. 0.x never reverses inside an episode: the
-contour is off in reverse segments (§9.4) and an episode never commands $v < 0$. A manoeuvre that
+grows with $\lambda$ and $D_{\mathrm{in}}'$ by itself. An episode never changes the drive direction:
+forward it never commands $v < 0$, and on a reverse segment (0.3.0, §9.4) it backs up throughout,
+with the same probe, law and curvature clamp at the rear axle. A manoeuvre that
 needs a turn tighter than $R_{\min}$ ends in a stop and kBlocked. A planner with reversing
 (Smac Hybrid-A* Reeds-Shepp, `allow_reversing`) can then plan a three-point turn.
 

@@ -42,6 +42,7 @@
 #include "rclcpp/qos.hpp"
 #include "rclcpp/time.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
+#include "vectorfield_core/config.hpp"
 #include "vectorfield_core/occupancy.hpp"
 #include "vectorfield_core/tracker.hpp"
 #include "vectorfield_curve_follower/follower_params.hpp"
@@ -961,7 +962,14 @@ struct CurveFollower::Impl
     supervision.tracker_ran = ran;
     supervision.status = ran ? output.status : vf::Status::kNone;
     supervision.position = pose.p;
-    supervision.nominal_speed = desired_speed * limit_scale;
+    // The field speed of the configured drive direction: min(v_r, max_reverse_vel) for a
+    // drive_backward robot (math_spec §9.4 [Design, 0.3.0]).
+    const double drive_speed =
+      run.tracker
+        ? vf::referenceSpeed(
+            run.tracker->config(), static_cast<int>(run.tracker->kinematics().driveSign()))
+        : desired_speed;
+    supervision.nominal_speed = drive_speed * limit_scale;
     const SupervisorDecision decision = run.supervisor.update(supervision);
 
     bool ended = false;

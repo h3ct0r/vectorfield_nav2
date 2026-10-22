@@ -124,6 +124,7 @@ constexpr CommonParamRow kRows[] = {
   VF_CORE_ROW(motion, heading_gain),
   VF_CORE_ROW(motion, omni_heading_policy),
   VF_CORE_ROW(motion, max_linear_vel),
+  VF_CORE_ROW(motion, max_reverse_vel),
   VF_CORE_ROW(motion, max_lateral_vel),
   VF_CORE_ROW(motion, max_angular_vel),
   VF_CORE_ROW(motion, max_linear_accel),

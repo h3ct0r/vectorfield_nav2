@@ -92,16 +92,16 @@ struct Model
   double r_insc;
   /// \f$v_{\mathrm{stop}}\f$ of the kBlocked set test (Ackermann: \f$v_{\mathrm{ack}}\f$).
   double v_stop;
-  /// The obstacle contour may run: false in a reverse plan segment (math_spec §9.4).
-  bool contour_allowed;
 };
 
 /// @brief Builds the Model of a Tracker from its members.
 Model makeModel(
   const CoreConfig & config, const Kinematics & kinematics, const GainFunction & gain,
-  const ControlLaw & law, const FootprintChecker & checker, bool contour_allowed) noexcept
+  const ControlLaw & law, const FootprintChecker & checker) noexcept
 {
-  const double v_r = config.field.desired_speed;
+  // The field speed of the drive direction: min(v_r, v_rev) in reverse (math_spec §9.4
+  // [Design, 0.3.0]); the forward value is desired_speed itself.
+  const double v_r = referenceSpeed(config, static_cast<int>(kinematics.driveSign()));
   const int direction = config.field.direction < 0 ? -1 : 1;
   const FootprintRadii & radii = checker.footprint().radii();
   return Model{
@@ -119,8 +119,7 @@ Model makeModel(
     config.obstacles.obstacle_blend_start_distance,
     radii.w_lat,
     radii.r_insc,
-    kinematics.isAckermann() ? kinematics.ackermann_min_speed : kVStop,
-    contour_allowed};
+    kinematics.isAckermann() ? kinematics.ackermann_min_speed : kVStop};
 }
 
 /// @brief The goal of the cycle, frozen for the step (math_spec §5, §9).
@@ -1739,8 +1738,8 @@ void prepareObstacles(StepEnv * env, TrackerState * st, StepScratch * scratch) n
   if (obstacles.valid) {
     reserveScratch(model, obstacles, scratch);
   }
-  obstacles.contour_on = obstacles.valid && model.contour_allowed &&
-                         model.config.obstacles.obstacle_mode == ObstacleMode::kContour;
+  obstacles.contour_on =
+    obstacles.valid && model.config.obstacles.obstacle_mode == ObstacleMode::kContour;
   obstacles.cbf_on = obstacles.valid && model.config.obstacles.obstacle_mode == ObstacleMode::kCbf;
   obstacles.use_blocking = obstacles.contour_on && model.config.obstacles.obstacle_activation ==
                                                      ObstacleActivation::kPathBlocked;
@@ -2068,7 +2067,7 @@ TrackerOutput Tracker::step(
   if (!input.cancel) {
     state.limiter.cancel_hard = false;  // the hard bound lasts for the rest of one cancel only
   }
-  const Model model = makeModel(config_, drive_kinematics, gain_, drive_law, checker_, !flip);
+  const Model model = makeModel(config_, drive_kinematics, gain_, drive_law, checker_);
   const GoalEnv goal = makeGoalEnv(model, input, &state);
   StepEnv env = makeStepEnv(model, input, goal);
 
@@ -2196,14 +2195,14 @@ ProbeSample Tracker::probe(
   const bool flip = flipped(input);
   const ControlLaw & drive_law = flip ? law_flipped_ : law_;
   const Model model =
-    makeModel(config_, flip ? kinematics_flipped_ : kinematics_, gain_, drive_law, checker_, !flip);
+    makeModel(config_, flip ? kinematics_flipped_ : kinematics_, gain_, drive_law, checker_);
   const GoalEnv goal = makeGoalEnv(model, input, &frozen);
   StepEnv env = makeStepEnv(model, input, goal);
   bindObstacleMap(input, &scratch.edt_k, &env.obstacles);
   env.obstacles.k_valid = env.obstacles.valid && scratch.k_valid && scratch.edt_k.hasSites();
   env.obstacles.gate_open = state.contour.gate_open;
   env.obstacles.use_blocking =
-    env.obstacles.valid && !flip && config_.obstacles.obstacle_mode == ObstacleMode::kContour &&
+    env.obstacles.valid && config_.obstacles.obstacle_mode == ObstacleMode::kContour &&
     config_.obstacles.obstacle_activation == ObstacleActivation::kPathBlocked;
   env.obstacles.blocking = &scratch.blocking;
   env.obstacles.cbf_on =

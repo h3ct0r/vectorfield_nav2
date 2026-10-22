@@ -164,3 +164,28 @@ def test_cbf_parameters_and_issues():
     config.motion.min_turning_radius = 0.5
     obstacles.cbf_gain = 2.0
     assert vf.validate_config(config).has_error(vf.issue.ACKERMANN_CBF_UNSUPPORTED)
+
+
+def test_max_reverse_vel():
+    """max_reverse_vel: auto = max_linear_vel; (0, v_max]; the reverse field speed and box."""
+    config = vf.CoreConfig()
+    assert config.motion.max_reverse_vel < 0.0
+    assert vf.reverse_speed_limit(config) == config.motion.max_linear_vel
+    assert vf.resolve_auto_values(config).motion.max_reverse_vel == config.motion.max_linear_vel
+    config.motion.max_reverse_vel = 0.2
+    assert vf.validate_config(config).ok
+    assert vf.reference_speed(config, -1) == 0.2
+    assert vf.reference_speed(config, 1) == config.field.desired_speed
+    kinematics = vf.Tracker(config).kinematics
+    assert kinematics.max_reverse_vel == 0.2
+    assert kinematics.linear_limit() == config.motion.max_linear_vel
+    kinematics.drive_backward = True
+    assert kinematics.linear_limit() == 0.2
+    config.motion.max_reverse_vel = 2.0 * config.motion.max_linear_vel
+    assert vf.validate_config(config).has_error(vf.issue.REVERSE_ABOVE_MAX)
+    config.motion.max_reverse_vel = 0.0
+    assert vf.validate_config(config).has_error(vf.issue.INVALID_VALUE)
+    config.motion.max_reverse_vel = 0.01
+    config.motion.motion_model = vf.MotionModel.ACKERMANN
+    config.motion.min_turning_radius = 0.5
+    assert vf.validate_config(config).has_error(vf.issue.ACKERMANN_REVERSE_BELOW_BAND)

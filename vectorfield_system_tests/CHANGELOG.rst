@@ -4,6 +4,10 @@ Changelog for package vectorfield_system_tests
 
 Forthcoming
 -----------
+* test_reversing_kinematic: the global obstacle layer is off and NavigateToPose replans only
+  when the plan becomes invalid (test overlay replan_only_if_path_invalid); the reverse
+  ground-truth speed stays within the overlay's max_reverse_vel, and (differential) Smac backs up
+  2.7 m past an unmapped box on the reverse leg, which the contour passes in reverse.
 * test_through_poses_kinematic (differential): NavigateThroughPoses through a 150° waypoint
   corner on NavFn succeeds, driving forward only. NavHarness.navigate_through() sends
   NavigateThroughPoses goals (Humble to Lyrical).
