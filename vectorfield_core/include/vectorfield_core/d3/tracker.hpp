@@ -24,6 +24,7 @@
 #include "vectorfield_core/config.hpp"
 #include "vectorfield_core/d3/curve.hpp"
 #include "vectorfield_core/d3/field.hpp"
+#include "vectorfield_core/d3/frame.hpp"
 #include "vectorfield_core/d3/law.hpp"
 #include "vectorfield_core/d3/types.hpp"
 #include "vectorfield_core/gains.hpp"
@@ -69,9 +70,9 @@ struct Tracker3State
 {
   /// Current phase (kFollow, kFinalApproach or kStopped).
   Phase phase{Phase::kFollow};
-  /// Closest-point hint.
+  /// Closest-point hint, in the curve frame \f$\mathcal F\f$ (a moving frame does not stale it).
   CurveHint3 hint;
-  /// \f$T_{\mathrm{last}}\f$ for the hairpin rule.
+  /// \f$T_{\mathrm{last}}\f$ for the hairpin rule, in the curve frame.
   Vec3 last_tangent{Vec3::Zero()};
   /// Previous \f$\psi_d\f$.
   double last_psi_d{kNaN};
@@ -88,9 +89,9 @@ struct Tracker3State
 /// @brief Inputs of one Tracker3 cycle.
 struct Tracker3Input
 {
-  /// Body pose (curve frame).
+  /// Body pose (evaluation frame).
   Pose3 pose;
-  /// Measured twist (seeds the limiter).
+  /// Measured twist (seeds the limiter; evaluation frame).
   Twist3 measured;
   /// Time t (s).
   double t{0.0};
@@ -98,6 +99,9 @@ struct Tracker3Input
   double dt{0.05};
   /// The curve (not owned; must outlive the call).
   const Curve3 * curve{nullptr};
+  /// The frame the curve lives in at time t (math_spec §14.7). Default: identity, static, which
+  /// is bit-identical to a tracker without frames.
+  CurveFrame3 frame;
   /// Goal identity; a change resets the latch, the hold and FINAL_APPROACH / STOPPED.
   std::uint32_t goal_seq{0};
   /// \f$\gamma_{\mathrm{lim}} \in [0, 1]\f$.
@@ -133,11 +137,17 @@ struct Tracker3Output
   double box_scale{1.0};
   /// Limiter \f$\alpha\f$.
   double limiter_alpha{1.0};
+  /// Velocity of the curve frame at the body, \f$R(v_{\mathcal F} + \omega_{\mathcal F} \times
+  /// p_{\mathcal F})\f$ (evaluation frame); zero for a static frame. The goal hold of an open
+  /// curve in a moving frame commands its chord over dt (math_spec §14.7).
+  Vec3 frame_velocity{Vec3::Zero()};
+  /// Foot \f$x^\star_{\mathcal F}\f$ in the curve frame.
+  Vec3 x_star_curve{Vec3::Zero()};
 };
 
 /// @brief A minimal 3D tracker: FOLLOW, FINAL_APPROACH (open curves), settled and goal hold,
-/// cancel → STOPPED (math_spec §14.5). No obstacles. `step` is `const noexcept`, allocation-free
-/// and thread-safe (the state is passed in and out).
+/// cancel → STOPPED (math_spec §14.5), in a static or moving curve frame (§14.7). No obstacles.
+/// `step` is `const noexcept`, allocation-free and thread-safe (the state is passed in and out).
 class Tracker3
 {
 public:

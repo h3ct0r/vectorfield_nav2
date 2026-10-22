@@ -79,10 +79,12 @@ LawOutput3 VelocityLaw3::command(
   LawOutput3 out;
   const double g = std::isnan(gamma) ? 0.0 : clamp(gamma, 0.0, 1.0);
   const double p_T = sample.Phi_T.norm();
-  const bool time_varying = !sample.terminal && p_T > 0.0;
+  // A static terminal field has Phi_T = 0; a terminal field transported by a moving frame keeps
+  // eta1 = g v_r (the relative speed), math_spec §14.7.
+  const bool time_varying = p_T > 0.0;
   if (time_varying && p_T < (1.0 - assumption3_margin) * g * v_r) {
     // eta-box: the largest eta in [0, eta1] inside every bound, Phi_T kept (math_spec §8.3).
-    const double eta1 = solveEta(sample.Phi_S, sample.Phi_T, g * v_r);
+    const double eta1 = sample.terminal ? g * v_r : solveEta(sample.Phi_S, sample.Phi_T, g * v_r);
     out.F = eta1 * sample.Phi_S + sample.Phi_T;
     Interval set{0.0, eta1};
     for (int i = 0; i < 3; ++i) {

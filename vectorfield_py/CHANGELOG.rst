@@ -4,6 +4,12 @@ Changelog for package vectorfield_py
 
 Forthcoming
 -----------
+* vectorfield.d3 moving frames: CurveFrame (T_eval_curve (4, 4), v, w, moving, at(), velocity()),
+  exp_se3(), log_se3(), body_twist(), FrameTwistEstimator, FrameTwistConfig, FrameEstimate and
+  FrameSampleResult; Tracker.step(frame=...), TrackerOutput.Phi_T, v_c, frame_velocity and
+  x_star_curve; d3.sim.ClosedLoopSimulator(frame=..., frame_motion=...), frame_at() and the
+  records' frame (N, 4, 4). vf-sim3d --frame-velocity and --frame-rate (the plot and the GIF
+  draw the moving curve).
 * CbfSample.turn_margin and the issue codes ACKERMANN_CBF_WINDOW and ACKERMANN_CBF_MARGIN;
   ACKERMANN_CBF_UNSUPPORTED is removed (obstacle_mode cbf now supports Ackermann). vf-tune hints
   for the new warnings.

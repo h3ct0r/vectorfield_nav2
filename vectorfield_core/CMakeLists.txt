@@ -108,6 +108,7 @@ add_library(vectorfield_core
   src/d3/curve_spec.cpp
   src/d3/expression_curve.cpp
   src/d3/field.cpp
+  src/d3/frame.cpp
   src/d3/law.cpp
   src/d3/parametric_curve.cpp
   src/d3/polyline_curve.cpp

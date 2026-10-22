@@ -162,6 +162,31 @@ void DistanceField3::evaluateTerminal(
   finalize(&s);
 }
 
+void DistanceField3::evaluateTerminal(
+  const Vec3 & x, const ClosestPoint3 & cp, double sigma, const TerminalProfile & profile,
+  const Vec3 & v_transport, FieldSample3 * sample) const noexcept
+{
+  evaluateTerminal(x, cp, sigma, profile, sample);
+  if (sample == nullptr || !sample->valid) {
+    return;
+  }
+  FieldSample3 & s = *sample;
+  s.v_c = v_transport;
+  if (!isFinite(v_transport)) {
+    s.status |= Status::kNonFinite;
+    s.valid = false;
+    s.Phi = Vec3::Zero();
+    return;
+  }
+  const ClampedFeedforward3 clamped = clampFeedforward(v_transport, v_r_, eps_v_);
+  s.Phi_T = clamped.Phi_T;
+  if (clamped.clamped) {
+    s.status |= Status::kAssumption3Clamped;
+  }
+  s.Phi = v_r_ * s.Phi_S + s.Phi_T;
+  finalize(&s);
+}
+
 Vec3 DistanceField3::at(const Curve3 & curve, const Vec3 & x, double t) const noexcept
 {
   EvalContext3 context;

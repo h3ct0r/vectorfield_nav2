@@ -62,9 +62,11 @@ struct FieldSample3
   double phi{1.0};
   /// \f$\Phi_S = -Gn + H\varphi T_d\f$.
   Vec3 Phi_S{Vec3::Zero()};
-  /// \f$\Phi_T = \Pi_T v_c\f$ after the Assumption-3 clamp.
+  /// \f$\Phi_T = \Pi_T v_c\f$ after the Assumption-3 clamp; for an open curve in a moving frame
+  /// the clamped transport velocity \f$v_{\mathrm{tr}}\f$ (math_spec §14.7).
   Vec3 Phi_T{Vec3::Zero()};
-  /// Curve velocity \f$v_c\f$ at the foot.
+  /// Curve velocity \f$v_c\f$ at the foot (frame motion included); for an open curve in a moving
+  /// frame the transport velocity \f$v_{\mathrm{tr}}\f$ at x before the clamp.
   Vec3 v_c{Vec3::Zero()};
   /// \f$\Phi = \eta\Phi_S + \Phi_T\f$.
   Vec3 Phi{Vec3::Zero()};
@@ -116,6 +118,14 @@ public:
   void evaluateTerminal(
     const Vec3 & x, const ClosestPoint3 & cp, double sigma, const TerminalProfile & profile,
     FieldSample3 * sample) const noexcept;
+
+  /// @brief Terminal field of an open curve that is static in a moving frame (math_spec §14.7
+  /// [Design, 0.3.0]): \f$\Phi = v_r(-Gn + H\varphi(\sigma)T_d) + \Phi_T\f$ with
+  /// \f$\Phi_T\f$ the transport velocity `v_transport` of the frame at x after the
+  /// Assumption-3 clamp. Relative to the frame the body then follows the static terminal field.
+  void evaluateTerminal(
+    const Vec3 & x, const ClosestPoint3 & cp, double sigma, const TerminalProfile & profile,
+    const Vec3 & v_transport, FieldSample3 * sample) const noexcept;
 
   /// @brief Convenience: closest point (no hint, global stage) and evaluate() on `curve` at
   /// time t. For plots and tests; the Tracker keeps hints.

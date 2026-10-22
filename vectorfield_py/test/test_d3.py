@@ -195,3 +195,153 @@ def test_vf_sim3d_plot_gif_and_csv(tmp_path, capsys):
         vf_sim3d.main(['--help'])
     assert info.value.code == 0
     assert vf_sim3d.main(['--curve', 'cos(s); sin(s); t', '--open']) == 2
+
+
+def _rotation(yaw, pitch, roll):
+    cy, sy, cp, sp = math.cos(yaw), math.sin(yaw), math.cos(pitch), math.sin(pitch)
+    cr, sr = math.cos(roll), math.sin(roll)
+    return np.array(
+        [
+            [cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+            [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+            [-sp, cp * sr, cp * cr],
+        ]
+    )
+
+
+def _transform(yaw, pitch, roll, translation):
+    T = np.eye(4)
+    T[:3, :3] = _rotation(yaw, pitch, roll)
+    T[:3, 3] = translation
+    return T
+
+
+def test_curve_frame_and_se3():
+    """CurveFrame defaults, validation and extrapolation; exp_se3 / log_se3 / body_twist."""
+    frame = d3.CurveFrame()
+    assert not frame.moving and np.array_equal(frame.T_eval_curve, np.eye(4))
+    frame = d3.CurveFrame(v=[0.1, 0.0, 0.0])
+    assert frame.moving
+    np.testing.assert_allclose(frame.at(2.0).T_eval_curve[:3, 3], [0.2, 0.0, 0.0], atol=1e-15)
+    with pytest.raises(ValueError):
+        d3.CurveFrame(T_eval_curve=np.eye(3))
+    with pytest.raises(ValueError):
+        frame.T_eval_curve = np.ones((4, 4))
+    v, w = np.array([0.3, -0.2, 0.5]), np.array([0.4, -1.0, 2.5])
+    T = d3.exp_se3(v, w)
+    back_v, back_w = d3.log_se3(T)
+    np.testing.assert_allclose(back_v, v, atol=1e-12)
+    np.testing.assert_allclose(back_w, w, atol=1e-12)
+    a = _transform(3.1, 0.2, -0.1, [1.0, 2.0, 3.0])
+    tv, tw = d3.body_twist(a, a @ d3.exp_se3(v, w, 0.05), 0.05)
+    np.testing.assert_allclose(tv, v, atol=1e-9)
+    np.testing.assert_allclose(tw, w, atol=1e-9)
+    rotating = d3.CurveFrame(w=[0.0, 0.0, 0.5])
+    np.testing.assert_allclose(
+        rotating.velocity(np.array([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]])),
+        [[0.0, 0.5, 0.0], [-1.0, 0.0, 0.0]],
+        atol=1e-15,
+    )
+
+
+def test_frame_twist_estimator_constant_twist_across_pi():
+    """The estimator recovers a constant twist to 1e-6 while the heading crosses +-pi."""
+    v, w = np.array([0.3, -0.1, 0.2]), np.array([0.2, -0.1, 1.2])
+    T0 = _transform(math.pi - 0.05, 0.1, -0.2, [1.0, -2.0, 0.5])
+    estimator = d3.FrameTwistEstimator(d3.FrameTwistConfig(cutoff_hz=2.0))
+    assert estimator.add_pose(0.0, T0) == d3.FrameSampleResult.STARTED
+    for k in range(1, 41):
+        t = 0.05 * k
+        assert estimator.add_pose(t, T0 @ d3.exp_se3(v, w, t)) == d3.FrameSampleResult.ACCEPTED
+        estimate = estimator.estimate(t)
+        assert estimate.ready and not estimate.stale
+        np.testing.assert_allclose(estimate.v, v, atol=1e-6)
+        np.testing.assert_allclose(estimate.w, w, atol=1e-6)
+    jump = T0 @ d3.exp_se3(v, w, 2.05)
+    jump[0, 3] += 1.0
+    assert estimator.add_pose(2.05, jump) == d3.FrameSampleResult.OUTLIER
+    assert estimator.outliers == 1
+    assert estimator.estimate(5.0).stale and not estimator.estimate(5.0).curve_frame().moving
+    assert estimator.estimate(2.0).curve_frame().moving
+
+
+def test_tracker_in_a_translating_frame():
+    """Phi_T = (I - T T^T) u for a circle in a translating frame, and the closed loop converges."""
+    circle = d3.make_curve(d3.CurveSpec.builtin('circle', radius=2.0))
+    T = _transform(0.3, 0.2, 0.0, [0.2, 0.0, 0.5])
+    v_F = np.array([0.15, 0.05, 0.03])
+    frame = d3.CurveFrame(T, v=v_F)
+    u = T[:3, :3] @ v_F
+    tracker = d3.Tracker(d3.TrackerConfig(desired_speed=0.5))
+    out, _ = tracker.step(circle, (T @ [2.3, 0.4, 0.2, 1.0])[:3], frame=frame)
+    # The circle runs counterclockwise in F's xy plane: T_F = z x x*_F / R, mapped by R_F.
+    t_eval = T[:3, :3] @ np.cross([0.0, 0.0, 1.0], np.asarray(out.x_star_curve) / 2.0)
+    np.testing.assert_allclose(out.Phi_T, u - (t_eval @ u) * t_eval, atol=1e-9)
+    np.testing.assert_allclose(np.linalg.norm(out.Phi), 0.5, atol=1e-12)
+    simulator = d3.sim.ClosedLoopSimulator(tracker, frame=frame)
+    simulator.reset((T @ [2.5, 0.3, 0.3, 1.0])[:3])
+    run = simulator.run(circle, 40.0)
+    assert run['frame'].shape == (len(run['t']), 4, 4)
+    assert run['D'][run['t'] >= 15.0].max() < 0.01
+    assert not np.any(run['status'] & int(vf.Status.ASSUMPTION3_CLAMPED))
+    np.testing.assert_allclose(
+        simulator.frame_at(10.0).T_eval_curve[:3, 3], T[:3, 3] + 10.0 * u, atol=1e-12
+    )
+
+
+def test_simulator_frame_motion_callback_and_open_curve_hold():
+    """A frame_motion callback drives the frame; an open helix in a rotating frame settles."""
+    calls = []
+
+    def motion(t):
+        calls.append(t)
+        return d3.CurveFrame(w=[0.0, 0.0, 0.15]).at(t)
+
+    helix = d3.make_curve(d3.CurveSpec.builtin('helix', cx=0.8))
+    tracker = d3.Tracker(d3.TrackerConfig(desired_speed=0.5))
+    simulator = d3.sim.ClosedLoopSimulator(tracker, frame_motion=motion, stop_when_settled=False)
+    simulator.reset([2.0, -0.2, -0.1])
+    run = simulator.run(helix, 60.0)
+    assert len(calls) == len(run['t'])
+    settled = np.flatnonzero(run['settled'])
+    assert settled.size > 0
+    follow = (run['t'] >= 15.0) & (run['t'] < run['t'][settled[0]])
+    assert run['D'][follow].max() < 0.02
+    assert run['settled'][settled[0] :].all()  # the hold rides with the frame
+    assert np.linalg.norm(simulator.last_output.frame_velocity) > 0.05
+
+    def broken(t):
+        raise RuntimeError('frame source failed')
+
+    simulator = d3.sim.ClosedLoopSimulator(tracker, frame_motion=broken)
+    simulator.reset([2.0, 0.0, 0.0])
+    with pytest.raises(RuntimeError, match='frame source failed'):
+        simulator.run(helix, 1.0)
+
+
+def test_vf_sim3d_moving_frame(tmp_path, capsys):
+    """vf-sim3d --frame-velocity / --frame-rate run in a moving frame and plot it."""
+    _needs('matplotlib', 'PIL')
+    png, gif = tmp_path / 'moving.png', tmp_path / 'moving.gif'
+    argv = [
+        '--curve',
+        'helix:turns=1,cx=0.8',
+        '--frame-velocity',
+        '0.05,0,0',
+        '--frame-rate',
+        '0,0,0.15',
+        '-o',
+        str(png),
+        '--gif',
+        str(gif),
+        '--gif-seconds',
+        '1',
+        '--fps',
+        '4',
+    ]
+    assert vf_sim3d.main(argv) == 0
+    out = capsys.readouterr().out
+    assert 'frame        v = (0.05, 0, 0) m/s, w = (0, 0, 0.15) rad/s' in out
+    assert 'settled      yes' in out
+    assert png.stat().st_size > 1000 and gif.stat().st_size > 1000
+    assert vf_sim3d.main(['--curve', 'circle', '--frame-rate', '1,2']) == 2

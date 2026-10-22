@@ -86,6 +86,14 @@ Namespace `vectorfield_core::d3` ({doc}`core_3d`).
 :members:
 ```
 
+```{doxygenstruct} vectorfield_core::d3::CurveFrame3
+:members:
+```
+
+```{doxygenclass} vectorfield_core::d3::FrameTwistEstimator3
+:members:
+```
+
 ## vectorfield_ros
 
 The shared ROS 2 layer. `MarkerBuilder` turns one cycle's tracker output into the marker arrays

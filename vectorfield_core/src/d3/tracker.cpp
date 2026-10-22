@@ -130,30 +130,69 @@ Tracker3Output Tracker3::step(
     state.phase = Phase::kStopped;
   }
 
-  // 3. Closest point and field.
+  // 3. Closest point and field. The search runs in the curve frame F with the hint kept there;
+  // x*, T, n and the velocities are mapped to the evaluation frame (math_spec §14.7). The
+  // identity static frame skips every mapping, so it is bit-identical to a tracker without frames.
   const Curve3 * curve = input.curve;
-  const bool inputs_ok = curve != nullptr && isFinite(input.pose) && std::isfinite(input.t);
+  const CurveFrame3 & frame = input.frame;
+  const bool identity = !frame.moving && frame.T_eval_curve.matrix() == Eigen::Matrix4d::Identity();
+  const bool inputs_ok = curve != nullptr && isFinite(input.pose) && std::isfinite(input.t) &&
+                         (identity || isFinite(frame));
   bool field_ok = false;
   const double tol = config_.goal_tolerance;
+  // Goal hold in a moving frame: the chord that keeps the body fixed in F over the next
+  // period, (T exp(dt xi) p_F - p)/dt (no drift under ZOH for a constant twist).
+  Vec3 hold_velocity = Vec3::Zero();
   if (inputs_ok) {
+    const Mat3 R = frame.T_eval_curve.linear();
+    const Vec3 c = frame.T_eval_curve.translation();
+    const Vec3 x_curve = identity ? input.pose.p : Vec3(R.transpose() * (input.pose.p - c));
     EvalContext3 context;
     context.t = input.t;
     context.direction = config_.direction;
     context.last_tangent = state.last_tangent;
-    const ClosestPoint3 cp = curve->closestPoint(input.pose.p, context, state.hint);
+    const ClosestPoint3 cp_curve = curve->closestPoint(x_curve, context, state.hint);
+    ClosestPoint3 cp = cp_curve;
+    if (!identity) {
+      cp.x_star = R * cp_curve.x_star + c;
+      cp.T = R * cp_curve.T;
+      cp.n = R * cp_curve.n;
+    }
+    output.x_star_curve = cp_curve.x_star;
+    output.frame_velocity = frameVelocity(frame, x_curve);
+    if (frame.moving) {
+      hold_velocity = output.frame_velocity;
+      if (input.dt > 0.0 && std::isfinite(input.dt)) {
+        hold_velocity = (extrapolate(frame, input.dt) * x_curve - input.pose.p) / input.dt;
+      }
+    }
     if (curve->isClosed()) {
-      field_.evaluate(input.pose.p, cp, curve->velocity(cp, input.t), &output.field);
+      // v_c = R (v_F + w_F x r_F + dr_F/dt) at the foot.
+      Vec3 v_c = curve->velocity(cp_curve, input.t);
+      if (!identity) {
+        if (frame.moving) {
+          v_c += frame.twist.v + frame.twist.w.cross(cp_curve.x_star);
+        }
+        v_c = R * v_c;
+      }
+      field_.evaluate(input.pose.p, cp, v_c, &output.field);
     } else {
       const double s_goal = config_.direction > 0 ? curve->endStation(input.t) : 0.0;
       const double sigma = static_cast<double>(config_.direction) * (s_goal - cp.s_star);
-      field_.evaluateTerminal(input.pose.p, cp, sigma, profile_, &output.field);
+      if (frame.moving) {
+        field_.evaluateTerminal(
+          input.pose.p, cp, sigma, profile_, output.frame_velocity, &output.field);
+      } else {
+        field_.evaluateTerminal(input.pose.p, cp, sigma, profile_, &output.field);
+      }
       output.has_goal = true;
-      output.goal = curve->pointAt(s_goal, input.t);
+      const Vec3 goal_curve = curve->pointAt(s_goal, input.t);
+      output.goal = identity ? goal_curve : Vec3(R * goal_curve + c);
     }
     field_ok = output.field.valid;
-    if (cp.valid) {
-      state.hint = makeHint(cp);
-      state.last_tangent = cp.T;
+    if (cp_curve.valid) {
+      state.hint = makeHint(cp_curve);
+      state.last_tangent = cp_curve.T;
     }
   } else {
     output.field.status |= Status::kNonFinite;
@@ -173,10 +212,15 @@ Tracker3Output Tracker3::step(
     }
   }
 
-  // 5. Target.
+  // 5. Target. The goal hold of an open curve in a moving frame rides with the frame: the
+  // target is the chord velocity of the body's point of F (inside the kinematic box), not zero.
   const bool stopped = state.phase == Phase::kStopped;
-  const bool zero_target = stopped || state.holding || !field_ok;
-  if (!zero_target) {
+  const bool transport_hold = state.holding && frame.moving && field_ok && !stopped;
+  const bool zero_target = stopped || (state.holding && !transport_hold) || !field_ok;
+  if (transport_hold) {
+    output.box_scale = uniformBoxScale(hold_velocity, config_.limits);
+    output.cmd_target.v = output.box_scale * hold_velocity;
+  } else if (!zero_target) {
     const LawOutput3 law = law_.command(
       output.field, input.speed_limit_scale, config_.desired_speed, config_.assumption3_margin,
       input.pose.yaw, state.last_psi_d);

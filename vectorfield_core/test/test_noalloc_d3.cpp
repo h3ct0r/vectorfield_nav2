@@ -14,7 +14,8 @@
 
 // O3D-9 (math_spec §14.6): after 10 warm-up cycles, 1000 Tracker3::step calls plus the plant
 // perform zero allocations and deallocations, on an open built-in helix (terminal field), a closed
-// moving expression curve (feedforward, eta-box) and a closed 3D polyline. The global operator
+// moving expression curve (feedforward, eta-box), a closed 3D polyline, and a circle and the
+// helix in a moving curve frame (math_spec §14.7, including the goal hold). The global operator
 // new/delete are replaced by counting versions (skipped under sanitizers by the CMake glob).
 
 #include <gtest/gtest.h>
@@ -148,7 +149,8 @@ namespace
 namespace d3 = vectorfield_core::d3;
 using d3::Vec3;
 
-void expectNoAllocation(const d3::Curve3 & curve, const Vec3 & start)
+void expectNoAllocation(
+  const d3::Curve3 & curve, const Vec3 & start, const d3::CurveFrame3 & frame = {})
 {
   const d3::Tracker3 tracker{d3::Tracker3Config{}};
   d3::Tracker3State state = d3::Tracker3::initialState();
@@ -163,6 +165,8 @@ void expectNoAllocation(const d3::Curve3 & curve, const Vec3 & start)
     input.pose = plant.pose;
     input.measured = plant.twist;
     input.t = 0.05 * k;
+    input.frame = frame;
+    input.frame.T_eval_curve = d3::extrapolate(frame, input.t);
     const d3::Tracker3Output out = tracker.step(input, state, &state);
     plant = d3::sim::integrate(plant, out.cmd, input.dt, params);
   };
@@ -215,4 +219,19 @@ TEST(D3NoAlloc, ClosedPolyline)
   const d3::PolylineCurve3 curve(
     {Vec3(0, 0, 0), Vec3(3, 0, 0.5), Vec3(3, 3, 1.0), Vec3(0, 3, 0.5)}, true);
   expectNoAllocation(curve, Vec3(0.5, -0.4, 0.3));
+}
+
+// A moving curve frame (math_spec §14.7): a closed circle in a rotating, translating frame and
+// the open helix in a rotating frame (transported terminal field, then the goal hold).
+TEST(D3NoAlloc, MovingFrame)
+{
+  d3::CurveFrame3 frame;
+  frame.moving = true;
+  frame.twist.v = Vec3(0.05, 0.02, 0.0);
+  frame.twist.w = Vec3(0.0, 0.05, 0.15);
+  const auto circle = d3::makeCurve3(builtin("circle"), {});
+  expectNoAllocation(*circle, Vec3(1.3, 0.2, -0.3), frame);
+  frame.twist.v = Vec3::Zero();
+  const auto helix = d3::makeCurve3(builtin("helix"), {});
+  expectNoAllocation(*helix, Vec3(1.3, 0.2, -0.3), frame);
 }

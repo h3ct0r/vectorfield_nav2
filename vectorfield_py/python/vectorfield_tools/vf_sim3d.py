@@ -16,8 +16,9 @@
 
 Runs ``vectorfield.d3.Tracker`` against a point plant (optionally with a first-order velocity
 lag) at a fixed control period, prints a summary, and optionally writes a 3D plot (mplot3d), an
-animated GIF and the records as CSV. The 2D tools are unchanged; see ``vf-sim`` for robots in
-the plane.
+animated GIF and the records as CSV. ``--frame-velocity`` and ``--frame-rate`` put the curve in a
+frame that moves with a constant body twist (math_spec 14.7). The 2D tools are unchanged; see
+``vf-sim`` for robots in the plane.
 """
 
 import os
@@ -35,6 +36,8 @@ EPILOG = """examples:
   vf-sim3d --curve viviani:radius=2 --pose 2.5,0.5,0.6 --duration 60 --gif viviani.gif
   vf-sim3d --curve 'cos(s); sin(s); 0.3*sin(2*s)' --streamlines 10 -o loop.svg
   vf-sim3d --curve path.csv --open --speed 0.8 --csv run.csv
+  vf-sim3d --curve circle:radius=2 --frame-velocity 0.15,0.05,0 -o translating.png
+  vf-sim3d --curve helix:cx=0.8 --frame-rate 0,0,0.15 --gif rotating.gif
 
 exit status: 0 ok, 1 missing optional dependency, 2 invalid input or curve"""
 
@@ -57,6 +60,16 @@ def build_parser():
     )
     group.add_argument(
         '--lag', type=_cli.number, default=0.0, help='velocity time constant tau (s, default 0)'
+    )
+    group.add_argument(
+        '--frame-velocity',
+        metavar='VX,VY,VZ',
+        help='linear velocity of the curve frame, in the frame (m/s; default static)',
+    )
+    group.add_argument(
+        '--frame-rate',
+        metavar='WX,WY,WZ',
+        help='angular velocity of the curve frame, in the frame (rad/s; default static)',
     )
     group.add_argument(
         '--yaw-policy',
@@ -105,15 +118,21 @@ def simulate(
     duration=None,
     lag=0.0,
     yaw_policy='path_tangent',
+    frame=None,
 ):
-    """Run the closed loop; returns the dict of arrays of ``d3.sim.ClosedLoopSimulator.run``."""
+    """Run the closed loop; returns the dict of arrays of ``d3.sim.ClosedLoopSimulator.run``.
+
+    ``frame`` is an optional ``d3.CurveFrame`` at t = 0; a moving frame keeps its twist.
+    """
     config = d3.TrackerConfig(desired_speed=speed, convergence_gain=gain, control_frequency=rate)
     config.limits.max_speed = max(config.limits.max_speed, 1.2 * speed)
     yaw_config = config.yaw
     yaw_config.policy = _yaw_policy(yaw_policy)
     config.yaw = yaw_config
     tracker = d3.Tracker(config)
-    simulator = d3.sim.ClosedLoopSimulator(tracker, period=1.0 / rate, velocity_time_constant=lag)
+    simulator = d3.sim.ClosedLoopSimulator(
+        tracker, period=1.0 / rate, velocity_time_constant=lag, frame=frame
+    )
     simulator.reset(np.asarray(start, dtype=float), yaw=yaw)
     if duration is None:
         laps = 1.0 if not curve.is_closed else 2.0
@@ -121,7 +140,29 @@ def simulate(
     return simulator.run(curve, duration)
 
 
-def summary(run, curve):
+def frame_from_args(args):
+    """Build the ``d3.CurveFrame`` of --frame-velocity / --frame-rate (None: static curve)."""
+    if not (args.frame_velocity or args.frame_rate):
+        return None
+    v = (
+        _cli.numbers(args.frame_velocity, count=(3,), name='--frame-velocity')
+        if args.frame_velocity
+        else (0.0, 0.0, 0.0)
+    )
+    w = (
+        _cli.numbers(args.frame_rate, count=(3,), name='--frame-rate')
+        if args.frame_rate
+        else (0.0, 0.0, 0.0)
+    )
+    return d3.CurveFrame(v=np.array(v, dtype=float), w=np.array(w, dtype=float), moving=True)
+
+
+def curve_points(points, transform):
+    """Curve-frame points (N, 3) mapped by a (4, 4) transform."""
+    return points @ transform[:3, :3].T + transform[:3, 3]
+
+
+def summary(run, curve, frame=None):
     """Text lines describing a run."""
     t, D = run['t'], run['D']
     after = D[t >= 0.5 * t[-1]] if len(t) else D
@@ -130,6 +171,11 @@ def summary(run, curve):
         f'D start/end  {D[0]:.4f} / {D[-1]:.4f} m',
         f'max D, 2nd half  {after.max():.4f} m',
     ]
+    if frame is not None and frame.moving:
+        v = ', '.join(f'{x:g}' for x in frame.v)
+        w = ', '.join(f'{x:g}' for x in frame.w)
+        clamped = int(np.count_nonzero(run['status'] & int(vf.Status.ASSUMPTION3_CLAMPED)))
+        lines.append(f'frame        v = ({v}) m/s, w = ({w}) rad/s; Assumption-3 clamps {clamped}')
     if not curve.is_closed:
         lines.append(f'settled      {"yes" if run["settled"][-1] else "no"}')
     return lines
@@ -156,9 +202,24 @@ def write_csv(path, run):
 
 
 def draw(ax, curve, run, field=None, streamline_count=0):
-    """Curve, streamlines, trajectory, start and goal on a 3D axis."""
+    """Curve, streamlines, trajectory, start and goal on a 3D axis.
+
+    In a moving frame the curve is drawn where it ends (solid) and where it started (faded);
+    streamlines are drawn only for a static curve.
+    """
     points = curve.sample()
+    frames = run.get('frame')
+    moved = frames is not None and len(frames) and not np.allclose(frames[0], frames[-1])
+    if moved:
+        start_points = curve_points(points, frames[0])
+        points = curve_points(points, frames[-1])
+        ax.plot(
+            *start_points.T, color=plotting.INK, lw=0.8, alpha=0.3, ls='--', label='curve at t0'
+        )
+        streamline_count = 0
     ax.plot(*points.T, color=plotting.INK, lw=1.4, label='curve')
+    if moved:
+        points = np.vstack([points, start_points])
     if field is not None and streamline_count > 0:
         for line in curves3d.streamlines(
             curve, field, curves3d.seeds_around(curve, streamline_count)
@@ -180,6 +241,7 @@ def _main(argv):
         start, yaw = default_start(curve), 0.0
     if not (args.speed > 0 and args.rate > 0):
         raise _cli.InputError('--speed and --rate must be positive')
+    frame = frame_from_args(args)
     run = simulate(
         curve,
         start,
@@ -190,9 +252,10 @@ def _main(argv):
         args.duration,
         args.lag,
         args.yaw_policy,
+        frame,
     )
     print(f'curve        {curves3d.describe_spec(spec)}')
-    for line in summary(run, curve):
+    for line in summary(run, curve, frame):
         print(line)
     if args.csv:
         write_csv(args.csv, run)
@@ -223,20 +286,29 @@ def animate(plt, curve, run, path, fps=12.0, seconds=8.0, dpi=72):
     fig, ax = curves3d.axes3d(plt, figsize=(5.0, 4.2))
     points = curve.sample()
     path_points = run['position']
-    ax.plot(*points.T, color=plotting.INK, lw=1.2)
+    frames = run.get('frame')
+    moving = frames is not None and len(frames) and not np.allclose(frames[0], frames[-1])
+    (line,) = ax.plot(*points.T, color=plotting.INK, lw=1.2)
     (trail,) = ax.plot([], [], [], color=plotting.SERIES[1], lw=1.2)
     (body,) = ax.plot([], [], [], marker='o', ms=5, color=plotting.SERIES[1], ls='none')
-    curves3d.set_equal_aspect(ax, np.vstack([points, path_points]))
+    extent = [points, path_points]
+    if moving:
+        extent += [curve_points(points, frames[0]), curve_points(points, frames[-1])]
+    curves3d.set_equal_aspect(ax, np.vstack(extent))
 
     def update(frame):
         k = indices[frame]
+        if moving:
+            moved = curve_points(points, frames[k])
+            line.set_data(moved[:, 0], moved[:, 1])
+            line.set_3d_properties(moved[:, 2])
         trail.set_data(path_points[: k + 1, 0], path_points[: k + 1, 1])
         trail.set_3d_properties(path_points[: k + 1, 2])
         body.set_data([path_points[k, 0]], [path_points[k, 1]])
         body.set_3d_properties([path_points[k, 2]])
         ax.view_init(elev=25.0, azim=-60.0 + 90.0 * frame / len(indices))
         ax.set_title(f't = {run["t"][k]:.1f} s, D = {run["D"][k]:.3f} m')
-        return trail, body
+        return line, trail, body
 
     animation = FuncAnimation(fig, update, frames=len(indices), blit=False)
     animation.save(str(path), writer=PillowWriter(fps=fps), dpi=dpi)

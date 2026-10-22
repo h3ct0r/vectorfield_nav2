@@ -73,6 +73,33 @@ Vec3 toVec3(const DoubleArray & array, const char * what)
   return Vec3(array.at(0), array.at(1), array.at(2));
 }
 
+Vec3 optionalVec3(const py::object & value, const char * what)
+{
+  return value.is_none() ? Vec3::Zero() : toVec3(value.cast<DoubleArray>(), what);
+}
+
+d3::Isometry3 toIsometry3(const DoubleArray & array, const char * what)
+{
+  if (array.ndim() != 2 || array.shape(0) != 4 || array.shape(1) != 4) {
+    throw py::value_error(std::string(what) + " must be a homogeneous transform of shape (4, 4)");
+  }
+  const auto view = array.unchecked<2>();
+  Eigen::Matrix4d m;
+  for (py::ssize_t i = 0; i < 4; ++i) {
+    for (py::ssize_t j = 0; j < 4; ++j) {
+      m(i, j) = view(i, j);
+    }
+  }
+  if (m.row(3) != Eigen::RowVector4d(0.0, 0.0, 0.0, 1.0)) {
+    throw py::value_error(std::string(what) + ": the last row must be (0, 0, 0, 1)");
+  }
+  d3::Isometry3 T = d3::Isometry3::Identity();
+  T.matrix() = m;
+  return T;
+}
+
+Eigen::Matrix4d fromIsometry3(const d3::Isometry3 & T) { return T.matrix(); }
+
 // Applies f to one point (3,) or to every row of (N, 3).
 py::array_t<double> mapPoints3(
   const DoubleArray & points, const std::function<Vec3(const Vec3 &)> & f)
@@ -112,6 +139,23 @@ struct Simulator3Box
   d3::sim::ClosedLoopSimulator3 simulator;
 };
 
+// A Python frame_motion(t) -> CurveFrame as a core FrameMotion3 that takes the GIL.
+d3::sim::FrameMotion3 frameMotion(const py::object & callable)
+{
+  if (callable.is_none()) {
+    return nullptr;
+  }
+  // The Python object is released with the GIL held, whichever thread drops the function.
+  const std::shared_ptr<py::object> fn(new py::object(callable), [](py::object * o) {
+    const py::gil_scoped_acquire gil;
+    delete o;
+  });
+  return [fn](double t) {
+    const py::gil_scoped_acquire gil;
+    return (*fn)(t).cast<d3::CurveFrame3>();
+  };
+}
+
 py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
 {
   const auto n = static_cast<py::ssize_t>(records.size());
@@ -127,6 +171,8 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
   py::array_t<std::int32_t> phase(n);
   py::array_t<std::uint32_t> status(n);
   py::array_t<bool> settled(n);
+  py::array_t<double> frame(std::vector<py::ssize_t>{n, 4, 4});
+  auto fr = frame.mutable_unchecked<3>();
   auto p = position.mutable_unchecked<2>();
   auto vv = v.mutable_unchecked<2>();
   auto ff = F.mutable_unchecked<2>();
@@ -146,6 +192,11 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
       vv(i, j) = r.cmd.v[j];
       ff(i, j) = r.F[j];
     }
+    for (py::ssize_t j = 0; j < 4; ++j) {
+      for (py::ssize_t k = 0; k < 4; ++k) {
+        fr(i, j, k) = r.T_eval_curve.matrix()(j, k);
+      }
+    }
   }
   py::dict out;
   out["t"] = t;
@@ -160,6 +211,7 @@ py::dict recordsToDict(const std::vector<d3::sim::SimulationRecord3> & records)
   out["phase"] = phase;
   out["status"] = status;
   out["settled"] = settled;
+  out["frame"] = frame;
   return out;
 }
 
@@ -393,8 +445,157 @@ void bindField3(py::module_ & m)
     .def_property_readonly("direction", &d3::DistanceField3::direction, "Direction.");
 }
 
+void bindFrames3(py::module_ & m)
+{
+  py::class_<d3::CurveFrame3>(
+    m, "CurveFrame",
+    "The frame a curve lives in (CurveFrame3): T_eval_curve (4, 4) maps curve-frame points to "
+    "the evaluation frame; the body twist v, w (3,) is expressed in the curve frame; moving "
+    "enables the frame terms (math_spec 14.7).")
+    .def(
+      py::init([](
+                 const py::object & T_eval_curve, const py::object & v, const py::object & w,
+                 const py::object & moving) {
+        d3::CurveFrame3 frame;
+        if (!T_eval_curve.is_none()) {
+          frame.T_eval_curve = toIsometry3(T_eval_curve.cast<DoubleArray>(), "T_eval_curve");
+        }
+        frame.twist.v = optionalVec3(v, "v");
+        frame.twist.w = optionalVec3(w, "w");
+        frame.moving = moving.is_none()
+                         ? (frame.twist.v.squaredNorm() > 0.0 || frame.twist.w.squaredNorm() > 0.0)
+                         : moving.cast<bool>();
+        return frame;
+      }),
+      py::arg("T_eval_curve") = py::none(), py::arg("v") = py::none(), py::arg("w") = py::none(),
+      py::arg("moving") = py::none(),
+      "Identity and static by default; `moving` defaults to a non-zero twist.")
+    .def_property(
+      "T_eval_curve", [](const d3::CurveFrame3 & f) { return fromIsometry3(f.T_eval_curve); },
+      [](d3::CurveFrame3 & f, const DoubleArray & T) {
+        f.T_eval_curve = toIsometry3(T, "T_eval_curve");
+      },
+      "Curve frame to evaluation frame (4, 4).")
+    .def_property(
+      "v", [](const d3::CurveFrame3 & f) { return f.twist.v; },
+      [](d3::CurveFrame3 & f, const DoubleArray & v) { f.twist.v = toVec3(v, "v"); },
+      "Linear velocity of the frame, in the frame (3,).")
+    .def_property(
+      "w", [](const d3::CurveFrame3 & f) { return f.twist.w; },
+      [](d3::CurveFrame3 & f, const DoubleArray & w) { f.twist.w = toVec3(w, "w"); },
+      "Angular velocity of the frame, in the frame (3,).")
+    .def_readwrite("moving", &d3::CurveFrame3::moving, "The frame moves.")
+    .def(
+      "at",
+      [](const d3::CurveFrame3 & f, double tau) {
+        d3::CurveFrame3 out = f;
+        out.T_eval_curve = d3::extrapolate(f, tau);
+        return out;
+      },
+      py::arg("tau"), "The frame tau seconds later under its constant twist (exact).")
+    .def(
+      "velocity",
+      [](const d3::CurveFrame3 & f, const DoubleArray & x_curve) {
+        return mapPoints3(x_curve, [&](const Vec3 & x) { return d3::frameVelocity(f, x); });
+      },
+      py::arg("x_curve"),
+      "Velocity R (v + w x x_F) of frame-fixed points x_curve (3,) or (N, 3), evaluation frame.")
+    .def("__repr__", [](const d3::CurveFrame3 & f) {
+      return "CurveFrame(moving=" + std::string(f.moving ? "True" : "False") + ")";
+    });
+
+  m.def(
+    "exp_se3",
+    [](const DoubleArray & v, const DoubleArray & w, double tau) {
+      d3::FrameTwist3 xi;
+      xi.v = toVec3(v, "v");
+      xi.w = toVec3(w, "w");
+      return fromIsometry3(d3::expSE3(xi, tau));
+    },
+    py::arg("v"), py::arg("w"), py::arg("tau") = 1.0,
+    "exp(tau xi^) of the body twist (v, w) as a (4, 4) transform.");
+  m.def(
+    "log_se3",
+    [](const DoubleArray & T) {
+      const d3::FrameTwist3 xi = d3::logSE3(toIsometry3(T, "T"));
+      return py::make_tuple(xi.v, xi.w);
+    },
+    py::arg("T"), "log of a (4, 4) rigid transform: (v, w) with |w| <= pi.");
+  m.def(
+    "body_twist",
+    [](const DoubleArray & a, const DoubleArray & b, double dt) {
+      const d3::FrameTwist3 xi = d3::bodyTwist(toIsometry3(a, "a"), toIsometry3(b, "b"), dt);
+      return py::make_tuple(xi.v, xi.w);
+    },
+    py::arg("a"), py::arg("b"), py::arg("dt"),
+    "log(a^-1 b)/dt: the constant body twist (v, w) moving a to b in dt.");
+
+  py::enum_<d3::FrameSampleResult3>(m, "FrameSampleResult", "What a sample did to the estimator.")
+    .value("ACCEPTED", d3::FrameSampleResult3::kAccepted)
+    .value("STARTED", d3::FrameSampleResult3::kStarted)
+    .value("DUPLICATE", d3::FrameSampleResult3::kDuplicate)
+    .value("TOO_CLOSE", d3::FrameSampleResult3::kTooClose)
+    .value("OUTLIER", d3::FrameSampleResult3::kOutlier)
+    .value("INVALID", d3::FrameSampleResult3::kInvalid);
+
+  StructBinder<d3::FrameTwistConfig3>(m, "FrameTwistConfig", "FrameTwistEstimator settings.")
+    .field("min_dt", &d3::FrameTwistConfig3::min_dt, "Minimum pair dt (s).")
+    .field("max_dt", &d3::FrameTwistConfig3::max_dt, "Maximum pair dt (s); longer restarts.")
+    .field("cutoff_hz", &d3::FrameTwistConfig3::cutoff_hz, "LPF cutoff (Hz); <= 0 disables it.")
+    .field("max_speed", &d3::FrameTwistConfig3::max_speed, "Outlier speed (m/s).")
+    .field("max_angular_rate", &d3::FrameTwistConfig3::max_angular_rate, "Outlier rate (rad/s).")
+    .field("input_timeout", &d3::FrameTwistConfig3::input_timeout, "Staleness age (s).")
+    .finish();
+
+  py::class_<d3::FrameEstimate3>(m, "FrameEstimate", "The frame at a query time.")
+    .def_readonly("ready", &d3::FrameEstimate3::ready, "A pose and a twist are known.")
+    .def_readonly("stale", &d3::FrameEstimate3::stale, "Not ready or older than input_timeout.")
+    .def_property_readonly(
+      "pose", [](const d3::FrameEstimate3 & e) { return fromIsometry3(e.pose); },
+      "Frame pose (4, 4), extrapolated or held.")
+    .def_property_readonly(
+      "v", [](const d3::FrameEstimate3 & e) { return e.twist.v; }, "Linear velocity (3,).")
+    .def_property_readonly(
+      "w", [](const d3::FrameEstimate3 & e) { return e.twist.w; }, "Angular velocity (3,).")
+    .def_readonly("age", &d3::FrameEstimate3::age, "Age of the latest sample (s).")
+    .def("curve_frame", &d3::FrameEstimate3::curveFrame, "The CurveFrame (moving iff not stale).");
+
+  py::class_<d3::FrameTwistEstimator3>(
+    m, "FrameTwistEstimator",
+    "Pose and body twist of a moving frame from sampled poses (log_SE3 differencing, outlier "
+    "rejection, low-pass) or from twist samples.")
+    .def(py::init<const d3::FrameTwistConfig3 &>(), py::arg("config") = d3::FrameTwistConfig3{})
+    .def_property(
+      "config", [](const d3::FrameTwistEstimator3 & e) { return e.config(); },
+      &d3::FrameTwistEstimator3::setConfig, "Settings (a copy).")
+    .def("reset", &d3::FrameTwistEstimator3::reset, "Forgets every sample.")
+    .def(
+      "add_pose",
+      [](d3::FrameTwistEstimator3 & e, double stamp, const DoubleArray & pose) {
+        return e.addPose(stamp, toIsometry3(pose, "pose"));
+      },
+      py::arg("stamp"), py::arg("pose"), "A (4, 4) pose sample of the frame.")
+    .def(
+      "add_twist",
+      [](
+        d3::FrameTwistEstimator3 & e, double stamp, const DoubleArray & pose, const DoubleArray & v,
+        const DoubleArray & w) {
+        d3::FrameTwist3 xi;
+        xi.v = toVec3(v, "v");
+        xi.w = toVec3(w, "w");
+        return e.addTwist(stamp, toIsometry3(pose, "pose"), xi);
+      },
+      py::arg("stamp"), py::arg("pose"), py::arg("v"), py::arg("w"),
+      "A pose and the body twist in the frame (Odometry).")
+    .def("estimate", &d3::FrameTwistEstimator3::estimate, py::arg("now"), "The frame at `now`.")
+    .def_property_readonly(
+      "outliers", &d3::FrameTwistEstimator3::outliers, "Samples dropped as outliers.");
+}
+
 void bindTracker3(py::module_ & m, py::module_ & sim)
 {
+  bindFrames3(m);
+
   py::class_<d3::Limits3>(m, "Limits", "Velocity, acceleration and yaw limits.")
     .def(py::init<>())
     .def_readwrite("max_speed", &d3::Limits3::max_speed, "||v|| bound (m/s).")
@@ -476,7 +677,15 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
     .def_readonly("cancel_complete", &d3::Tracker3Output::cancel_complete, "Cancel done.")
     .def_readonly("goal", &d3::Tracker3Output::goal, "Goal of an open curve (3,).")
     .def_readonly("has_goal", &d3::Tracker3Output::has_goal, "Open curve.")
-    .def_readonly("psi_d", &d3::Tracker3Output::psi_d, "Desired yaw.");
+    .def_readonly("psi_d", &d3::Tracker3Output::psi_d, "Desired yaw.")
+    .def_property_readonly(
+      "Phi_T", [](const d3::Tracker3Output & o) { return o.field.Phi_T; }, "Feedforward (3,).")
+    .def_property_readonly(
+      "v_c", [](const d3::Tracker3Output & o) { return o.field.v_c; },
+      "Curve velocity at the foot (transport velocity for an open curve in a moving frame).")
+    .def_readonly(
+      "frame_velocity", &d3::Tracker3Output::frame_velocity, "Frame velocity at the body (3,).")
+    .def_readonly("x_star_curve", &d3::Tracker3Output::x_star_curve, "Foot in the curve frame.");
 
   py::class_<d3::Tracker3>(m, "Tracker", "The minimal 3D tracker (experimental).")
     .def(py::init<const d3::Tracker3Config &>(), py::arg("config") = d3::Tracker3Config{})
@@ -488,9 +697,12 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
         const d3::Tracker3 & tracker, const Curve3Box & curve, const DoubleArray & position,
         double yaw, const d3::Tracker3State & state, double t, double dt,
         const py::object & measured_v, double measured_wz, std::uint32_t goal_seq,
-        double speed_limit_scale, bool cancel) {
+        double speed_limit_scale, bool cancel, const py::object & frame) {
         d3::Tracker3Input input;
         input.curve = curve.curve.get();
+        if (!frame.is_none()) {
+          input.frame = frame.cast<d3::CurveFrame3>();
+        }
         input.pose.p = toVec3(position, "position");
         input.pose.yaw = yaw;
         input.t = t;
@@ -509,8 +721,9 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       py::arg("curve"), py::arg("position"), py::arg("yaw") = 0.0,
       py::arg("state") = d3::Tracker3State{}, py::arg("t") = 0.0, py::arg("dt") = 0.05,
       py::arg("measured_v") = py::none(), py::arg("measured_wz") = 0.0, py::arg("goal_seq") = 0U,
-      py::arg("speed_limit_scale") = 1.0, py::arg("cancel") = false,
-      "One control cycle; returns (TrackerOutput, next TrackerState).");
+      py::arg("speed_limit_scale") = 1.0, py::arg("cancel") = false, py::arg("frame") = py::none(),
+      "One control cycle; returns (TrackerOutput, next TrackerState). `frame`: the CurveFrame "
+      "of this cycle (default identity, static).");
 
   sim.def(
     "integrate",
@@ -539,16 +752,27 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
     .def(
       py::init([](
                  const d3::Tracker3 & tracker, double period, double velocity_time_constant,
-                 bool stop_when_settled, bool stop_when_stopped) {
+                 bool stop_when_settled, bool stop_when_stopped, const py::object & frame,
+                 const py::object & frame_motion) {
         d3::sim::SimulationOptions3 options;
         options.period = period;
         options.plant.velocity_time_constant = velocity_time_constant;
         options.stop_when_settled = stop_when_settled;
         options.stop_when_stopped = stop_when_stopped;
+        if (!frame.is_none()) {
+          options.frame = frame.cast<d3::CurveFrame3>();
+        }
+        options.frame_motion = frameMotion(frame_motion);
         return Simulator3Box{d3::sim::ClosedLoopSimulator3(tracker, options)};
       }),
       py::arg("tracker"), py::arg("period") = 0.05, py::arg("velocity_time_constant") = 0.0,
-      py::arg("stop_when_settled") = true, py::arg("stop_when_stopped") = true)
+      py::arg("stop_when_settled") = true, py::arg("stop_when_stopped") = true,
+      py::arg("frame") = py::none(), py::arg("frame_motion") = py::none(),
+      "`frame`: the CurveFrame at the reset time, moved with its constant twist; "
+      "`frame_motion(t) -> CurveFrame` overrides it (math_spec 14.7).")
+    .def(
+      "frame_at", [](const Simulator3Box & s, double t) { return s.simulator.frameAt(t); },
+      py::arg("t"), "The curve frame at time t.")
     .def(
       "reset",
       [](Simulator3Box & s, const DoubleArray & position, double yaw, double t0) {
@@ -582,7 +806,7 @@ void bindTracker3(py::module_ & m, py::module_ & sim)
       "Steps for `duration` seconds (or until settled / a cancel completes; cancel_at is "
       "relative to the current time) and returns every record since reset as a dict of "
       "arrays: t, position (N, 3), yaw, v (N, 3), wz, D, sigma, s_star, F (N, 3), phase, "
-      "status, settled.")
+      "status, settled, frame (N, 4, 4).")
     .def_property_readonly(
       "position", [](const Simulator3Box & s) { return s.simulator.pose().p; }, "Position (3,).")
     .def_property_readonly(

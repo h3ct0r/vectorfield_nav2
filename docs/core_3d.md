@@ -26,6 +26,7 @@ equations are in {doc}`design/math_spec` §14, and the design rationale is in
 | `VelocityLaw3`, `CommandLimiter3`, `Limits3`, `YawConfig3` | `Limits`, `YawConfig` | $v = F$ with the box, the yaw policy, uniform-$\alpha$ limiting |
 | `Tracker3`, `Tracker3Config` | `Tracker`, `TrackerConfig` | FOLLOW, FINAL_APPROACH, settled and goal hold, cancel → STOPPED |
 | `sim::integrate`, `sim::ClosedLoopSimulator3` | `d3.sim.integrate`, `d3.sim.ClosedLoopSimulator` | Point plant with an optional velocity lag $\tau$, closed loop |
+| `CurveFrame3`, `FrameTwistEstimator3`, `expSE3()`, `logSE3()` | `CurveFrame`, `FrameTwistEstimator`, `exp_se3()`, `log_se3()` | Curves in a moving frame, the frame twist from sampled poses [0.3.0] |
 
 The 3D core is compiled into the same `vectorfield_core` library as the planar core. Include
 `vectorfield_core/d3.hpp`; the planar umbrella header does not include it. It reuses the planar
@@ -76,6 +77,8 @@ frame. Rotate it by $-\psi$ for a body-frame velocity setpoint.
 vf-sim3d --curve helix -o helix.png
 vf-sim3d --curve viviani --pose 2.5,0.5,0.6 --streamlines 10 --gif viviani.gif
 vf-sim3d --curve 'cos(s); sin(s); 0.3*sin(2*s)' --lag 0.1 --csv run.csv
+vf-sim3d --curve helix:cx=0.8 --frame-rate 0,0,0.15 --gif rotating.gif
+vf-sim3d --curve circle:radius=2 --frame-velocity 0.15,0.05,0 -o translating.png
 vf-curve --dim 3 --list
 vf-curve --dim 3 --curve torus_knot:p=3,q=2 --export knot.csv --export knot.yaml --plot -o knot.png
 ```
@@ -83,6 +86,65 @@ vf-curve --dim 3 --curve torus_knot:p=3,q=2 --export knot.csv --export knot.yaml
 `vf-curve --dim 3 --export FILE.yaml` writes the 3D spec as a mapping. It looks like `Curve.msg`
 with `z_expression` and 3D points, but it is not a ROS message. `--curve` reads it back, as it
 does an `x,y,z` CSV. The 2D tools are unchanged.
+
+## Moving frames
+
+*New in 0.3.0, experimental.* A curve can live in a frame $\mathcal F$ that moves rigidly, for
+example a path attached to a moving platform. `Tracker3Input::frame` is a `CurveFrame3`: the
+transform $T_{\mathrm{eval}\leftarrow\mathcal F}$ at the cycle's time, the frame's body twist
+$(v_{\mathcal F}, \omega_{\mathcal F})$ expressed in $\mathcal F$, and `moving`. The tracker
+maps the body into $\mathcal F$, searches there (the hint stays in $\mathcal F$), and maps the
+foot, tangent and normal back. A curve point moves at
+$\partial_t r = R\,(v_{\mathcal F} + \omega_{\mathcal F} \times r_{\mathcal F} +
+\partial_t r_{\mathcal F})$.
+
+- **Closed curves** get the feedforward $\Phi_T = \Pi_T\,\partial_t r$ at the foot, as for a
+  curve that moves through `t`: $\lVert\Phi\rVert = v_r$, and only the normal motion of the
+  curve is compensated.
+- **Open curves** must be static in $\mathcal F$. The body follows the static terminal field
+  *relative to the frame* and adds the frame's velocity at its own position, so it settles at the
+  goal as the goal moves. The goal hold then rides with the frame instead of commanding zero.
+- **Speed.** When the feedforward exceeds $(1-\varepsilon_v)v_r$ it is clamped and
+  kAssumption3Clamped is set. No clamp occurs anywhere on the curve if
+  $\lVert v_{\mathcal F}\rVert + \lVert\omega_{\mathcal F}\rVert \max_s\lVert
+  r_{\mathcal F}(s)\rVert < (1-\varepsilon_v)v_r$.
+- **A static frame** (the default: identity, not moving) gives results bit-identical to 0.2.
+
+```python
+import numpy as np
+from vectorfield import d3
+
+helix = d3.make_curve(d3.CurveSpec.builtin('helix', cx=0.8))  # 0.8 m off the frame's z axis
+frame = d3.CurveFrame(w=[0.0, 0.0, 0.15])                     # turning at 0.15 rad/s about z
+tracker = d3.Tracker(d3.TrackerConfig(desired_speed=0.5))
+simulator = d3.sim.ClosedLoopSimulator(tracker, frame=frame, stop_when_settled=False)
+simulator.reset(np.array([2.0, -0.2, -0.1]))
+run = simulator.run(helix, 60.0)          # run['frame'] holds the (4, 4) frame of every step
+print(run['D'][run['t'] > 15].max())       # about 0.017 m, until the goal
+
+# The frame twist from sampled poses (TF), 20 Hz:
+estimator = d3.FrameTwistEstimator()
+for k in range(21):
+    estimator.add_pose(0.05 * k, d3.exp_se3([0.1, 0.0, 0.0], [0.0, 0.0, 0.3], 0.05 * k))
+estimate = estimator.estimate(1.0)         # pose extrapolated with the exact SE(3) exponential
+cycle_frame = estimate.curve_frame()      # pass to Tracker.step(..., frame=cycle_frame)
+```
+
+:::{figure} _static/figures/moving_frame_3d.svg
+:alt: A helix drawn at three times as its frame turns about the vertical axis, with an orange trajectory that joins the turning helix and follows it to its end.
+:width: 70%
+
+A helix 0.8 m off the axis of a frame turning at 0.1 rad/s, drawn at three times, and a
+`Tracker3` run at 0.5 m/s and 20 Hz (orange) that joins it and settles at the moving goal (×).
+:::
+
+The simulator moves the frame with its constant twist, exactly
+($T(t) = T(t_0)\exp((t - t_0)\hat\xi)$), or calls `frame_motion(t)` for any other motion.
+`FrameTwistEstimator` mirrors the follower's planar estimator: it differences consecutive
+poses with $\log_{SE(3)}$ (exact for a constant twist, also when the orientation crosses
+$\pm\pi$), drops outliers, low-pass filters the twist and marks old input stale. Under ZOH a
+moving frame adds to the residual distance: 8 mm on a 2 m circle translating at 0.16 m/s, and
+17 mm on the helix above (math_spec §14.7).
 
 ## Behaviour
 
@@ -111,7 +173,8 @@ does not allocate.
 
 - No obstacles. A spherical-obstacle CBF filter (the closed-form one-constraint case of
   {ref}`cbf-mode`) is future work.
-- No moving frames (`CurveFrame`). A moving curve is an expression in `t`, and it must be closed.
+- An open curve must be static in its frame: an expression in `t` must be closed. Moving frames
+  have no ROS source yet; feed `FrameTwistEstimator` yourself.
 - Polylines are deduplicated but not resampled or filleted.
 - No rotate phases, collision rollout or goal yaw. The yaw only follows the policy.
 - No ROS node or messages: `Curve.msg` and FollowCurve stay planar.

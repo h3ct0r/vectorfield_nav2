@@ -24,6 +24,7 @@
 #include <functional>
 #include <vector>
 
+#include "vectorfield_core/d3/frame.hpp"
 #include "vectorfield_core/d3/tracker.hpp"
 #include "vectorfield_core/d3/types.hpp"
 #include "vectorfield_core/status.hpp"
@@ -58,6 +59,9 @@ PlantState3 integrate(
 /// @brief An additive velocity disturbance \f$\delta_v(t, \mathrm{pose})\f$ (m/s).
 using Disturbance3 = std::function<Vec3(double t, const Pose3 & pose)>;
 
+/// @brief The curve frame at time t (pose and twist), for a frame with a prescribed motion.
+using FrameMotion3 = std::function<CurveFrame3(double t)>;
+
 /// @brief Options of ClosedLoopSimulator3.
 struct SimulationOptions3
 {
@@ -71,6 +75,12 @@ struct SimulationOptions3
   bool stop_when_settled{true};
   /// run() stops when a cancel completes.
   bool stop_when_stopped{true};
+  /// The curve frame at the reset time \f$t_0\f$. A moving frame moves with its constant twist,
+  /// exactly: \f$T(t) = T(t_0)\exp((t - t_0)\hat\xi)\f$ (math_spec §14.7). Default: identity.
+  CurveFrame3 frame;
+  /// Optional frame motion; when set it gives the frame (and the twist the tracker sees) at
+  /// every step and `frame` is ignored.
+  FrameMotion3 frame_motion;
 };
 
 /// @brief One recorded step.
@@ -96,13 +106,17 @@ struct SimulationRecord3
   double s_star{0.0};
   /// Field at the body.
   Vec3 F{Vec3::Zero()};
+  /// The curve frame \f$T_{\mathrm{eval}\leftarrow\mathcal F}\f$ at the start of the step.
+  Isometry3 T_eval_curve{Isometry3::Identity()};
 };
 
-/// @brief Closed loop of a Tracker3 and the plant at a fixed period (ZOH).
+/// @brief Closed loop of a Tracker3 and the plant at a fixed period (ZOH). The simulator owns
+/// the curve frame: step() replaces Tracker3Input::frame by frameAt() of the step's time.
 class ClosedLoopSimulator3
 {
 public:
-  /// @throws ConfigError on a non-positive period or a negative time constant.
+  /// @throws ConfigError on a non-positive period, a negative time constant, or a non-rigid
+  /// `options.frame`.
   explicit ClosedLoopSimulator3(Tracker3 tracker, SimulationOptions3 options = {});
 
   /// @brief Resets pose, time, twist, tracker state and records.
@@ -116,6 +130,9 @@ public:
     const Tracker3Input & input, double duration,
     const std::function<void(double t, Tracker3Input * input)> & update = {});
 
+  /// @brief The curve frame at time t: `frame_motion(t)`, or `frame` extrapolated from the reset
+  /// time.
+  CurveFrame3 frameAt(double t) const;
   /// @brief Current pose.
   const Pose3 & pose() const noexcept { return plant_.pose; }
   /// @brief Current time.
@@ -136,6 +153,7 @@ private:
   Tracker3Output last_output_;
   PlantState3 plant_;
   double t_{0.0};
+  double t0_{0.0};
   std::vector<SimulationRecord3> records_;
 };
 

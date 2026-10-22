@@ -2140,9 +2140,9 @@ there and the predicates defined in this document.
   out to a waypoint and back along the same line is one, and a 177°+ corner may be one
   [Design, 0.2.1]. Orientations that a smoother derived from a headingless plan are taken at face
   value (nav2_smoother marks a leg reverse when it leaves toward $-x$ of an identity yaw).
-- **The 3D core** ({ref}`sec-3d`) is experimental. It has no obstacles, no moving frames and no
-  rotate phases, and its open curves must be static. The ZOH equilibrium $D_{\mathrm{zoh}}$ of
-  §14.3 applies to every holonomic law.
+- **The 3D core** ({ref}`sec-3d`) is experimental. It has no obstacles and no rotate phases, and
+  its open curves must be static in their frame (moving frames: §14.7 [Design, 0.3.0]). The
+  ZOH equilibrium $D_{\mathrm{zoh}}$ of §14.3 applies to every holonomic law.
 
 (sec-3d)=
 
@@ -2212,9 +2212,10 @@ $$
 with the Assumption-3 clamp of §4.2 and the cancellation-free branch of §4.3. Hence
 $\lVert\Phi\rVert = v_r$ (O1, O7), $\dot D = n^\top(\dot x - v_c) = -\eta G$ (O9), and
 $v_r - p_T \le \eta \le v_r + p_T$ (Lemma 8). $v_c = \partial_t r(u^\star, t)$ is a central
-difference with $\delta_t$ (§4.2). There is no moving frame in 3D. For a static open curve the
-terminal field is that of §5.1, with $\sigma = \mathrm{dir}\,(s_{\mathrm{goal}} - s^\star)$ and
-the same $\varphi$. Open time-varying curves are rejected (UNSUPPORTED).
+difference with $\delta_t$ (§4.2); a moving frame adds its terms (§14.7). For a static open
+curve the terminal field is that of §5.1, with
+$\sigma = \mathrm{dir}\,(s_{\mathrm{goal}} - s^\star)$ and the same $\varphi$. Open time-varying curves are rejected (UNSUPPORTED); an open
+curve in a moving frame is transported (§14.7).
 
 **ZOH equilibrium** [Derived]. A holonomic body under zero-order hold moves along the chord of
 length $\ell = v_r\Delta t$ in direction $\Phi(x_k)$. Near a curve of curvature $\kappa$, the chord
@@ -2288,7 +2289,52 @@ obstacles, rotate phases or rollouts.
 | O3D-6 | $v_r - p_T \le \eta \le v_r + p_T$ (time-varying, random) | $10^{-12}$ |
 | O3D-7 | closed loop (Tracker3, 0.5 m/s, 20 Hz ZOH), helix and Viviani: $D < 0.01$ m after the transient; helix: $D = D_{\mathrm{zoh}}$ | 3 % |
 | O3D-8 | open polyline: settled within $\sigma_{\mathrm{stop}}$ of the goal; cancel → STOPPED | — |
-| O3D-9 | steady-state `Tracker3::step` performs no allocation | 0 |
+| O3D-9 | steady-state `Tracker3::step` performs no allocation (static and moving frames) | 0 |
+| O3D-10 | closed curve in a translating frame, $u = R v_{\mathcal F}$: $\Phi_T = (I - TT^\top)u$, $v_c = u$ [0.3.0] | $10^{-9}$ |
+| O3D-11 | $v_c$ = central difference ($10^{-5}$ s) of $T(t)\,r_{\mathcal F}(u^\star, t)$, rotating frame, moving expression [0.3.0] | $10^{-6}$ |
+| O3D-12 | closed loop, 2 m circle in a frame translating at 0.16 m/s: $D < 0.01$ m after the transient [0.3.0] | — |
+| O3D-13 | closed loop, helix in a frame rotating at 0.15 rad/s (vertical and tilted axis): $D < 0.02$ m until the goal, no kAssumption3Clamped, settled and held [0.3.0] | — |
+| O3D-14 | FrameTwistEstimator3 under a constant twist, heading crossing $\pm\pi$: estimate = twist [0.3.0] | $10^{-6}$ |
+
+(sec-3d-frames)=
+
+### 14.7 Moving frames [Design, 0.3.0]
+
+A curve may live in a frame $\mathcal F$ given by `CurveFrame3`
+$\{T_{\mathrm{eval}\leftarrow\mathcal F} = (R, c),\ \xi = (v_{\mathcal F}, \omega_{\mathcal F})\ \text{in}\ \mathcal F,\ \text{moving}\}$,
+with $\dot R = R[\omega_{\mathcal F}]_\times$ and $\dot c = R v_{\mathcal F}$ ({doc}`m7_3d`,
+"Moving frames"). The search runs at $x_{\mathcal F} = R^\top(x - c)$ with the hint and
+$T_{\mathrm{last}}$ kept in $\mathcal F$; $x^\star$, $T$, $n$ are mapped back by $(R, c)$ and
+$D$, $s^\star$, $\sigma$ are invariant. The rigid-body velocity of a curve point is
+
+$$
+\partial_t r = R\,\big(v_{\mathcal F} + \omega_{\mathcal F} \times r_{\mathcal F} + \partial_t r_{\mathcal F}\big).
+$$
+
+- **Closed curves:** $v_c = \partial_t r$ at the foot, $\Phi_T = \Pi_T v_c$, then §4.2–§4.3
+  unchanged ($\lVert\Phi\rVert = v_r$).
+- **Open curves** (static in $\mathcal F$): the transported terminal field
+  $\Phi = v_r(-Gn + H\varphi(\sigma)T_d) + \Phi_T$ with
+  $\Phi_T = \operatorname{clamp}(v_{\mathrm{tr}}(x))$ and
+  $v_{\mathrm{tr}}(x) = R(v_{\mathcal F} + \omega_{\mathcal F} \times x_{\mathcal F})$ at the
+  body. Unclamped, $\dot x_{\mathcal F} = R^\top(\dot x - v_{\mathrm{tr}})$ is the static terminal
+  field of §5.1 [Derived]. The law's $\eta$-box uses $\eta \in [0, \gamma v_r]$.
+- **Goal hold** (open curve, moving frame): $v = (T\exp(\Delta t\,\hat\xi)x_{\mathcal F} - x)/\Delta t$,
+  inside the uniform box, $\omega = 0$. It is exact under ZOH for a constant twist.
+- **Clamp:** the Assumption-3 clamp of §4.2 acts on $\Pi_T v_c$ (closed) or $v_{\mathrm{tr}}$
+  (open). It never acts on a curve with
+  $\lVert v_{\mathcal F}\rVert + \lVert\omega_{\mathcal F}\rVert\max_s\lVert r_{\mathcal F}\rVert
+  < (1 - \varepsilon_v)v_r$ [Derived].
+- **Exponential:** $\exp(\tau\hat\xi) = (R_\tau, V_\tau\,\tau v)$ with $\phi = \tau\omega$,
+  $\theta = \lVert\phi\rVert$, $K = [\phi]_\times$,
+  $R_\tau = I + \frac{\sin\theta}{\theta}K + \frac{1-\cos\theta}{\theta^2}K^2$,
+  $V_\tau = I + \frac{1-\cos\theta}{\theta^2}K + \frac{\theta - \sin\theta}{\theta^3}K^2$;
+  $\log$ inverts it with $V^{-1} = I - \tfrac12 K + \frac{1 - (\theta/2)\cot(\theta/2)}{\theta^2}K^2$
+  and $\theta \le \pi$ from a quaternion. Series are used below $\theta = 10^{-2}$.
+- **Estimator:** $\xi = \log(T_{k-1}^{-1}T_k)/\Delta t$ for pose pairs, with the planar rules for
+  duplicates, $\Delta t$ window, outliers ($\lVert v\rVert$, $\lVert\omega\rVert$), LPF and
+  staleness. Extrapolation uses $T_k\exp(\tau\hat\xi)$.
+- **Static frame** (identity, not moving): no mapping, so results are bit-identical to 0.2.
 
 (sec-math-viz)=
 

@@ -22,6 +22,7 @@
 #include "vectorfield_core/d3/curve.hpp"
 #include "vectorfield_core/d3/curve_spec.hpp"
 #include "vectorfield_core/d3/field.hpp"
+#include "vectorfield_core/d3/frame.hpp"
 #include "vectorfield_core/d3/law.hpp"
 #include "vectorfield_core/d3/parametric_curve.hpp"
 #include "vectorfield_core/d3/polyline_curve.hpp"

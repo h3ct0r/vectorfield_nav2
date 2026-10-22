@@ -63,6 +63,20 @@ ClosedLoopSimulator3::ClosedLoopSimulator3(Tracker3 tracker, SimulationOptions3 
     !std::isfinite(options_.plant.velocity_time_constant)) {
     throw ConfigError("PlantParams3.velocity_time_constant must be finite and >= 0");
   }
+  if (!isFinite(options_.frame)) {
+    throw ConfigError(
+      "SimulationOptions3.frame must be a finite rigid transform with a finite twist");
+  }
+}
+
+CurveFrame3 ClosedLoopSimulator3::frameAt(double t) const
+{
+  if (options_.frame_motion) {
+    return options_.frame_motion(t);
+  }
+  CurveFrame3 frame = options_.frame;
+  frame.T_eval_curve = extrapolate(options_.frame, t - t0_);
+  return frame;
 }
 
 void ClosedLoopSimulator3::reset(const Pose3 & pose, double t0, const Twist3 & twist)
@@ -70,6 +84,7 @@ void ClosedLoopSimulator3::reset(const Pose3 & pose, double t0, const Twist3 & t
   plant_.pose = pose;
   plant_.twist = twist;
   t_ = t0;
+  t0_ = t0;
   state_ = Tracker3::initialState();
   last_output_ = Tracker3Output{};
   records_.clear();
@@ -82,6 +97,7 @@ const SimulationRecord3 & ClosedLoopSimulator3::step(const Tracker3Input & input
   in.measured = plant_.twist;
   in.t = t_;
   in.dt = options_.period;
+  in.frame = frameAt(t_);
   last_output_ = tracker_.step(in, state_, &state_);
 
   SimulationRecord3 record;
@@ -95,6 +111,7 @@ const SimulationRecord3 & ClosedLoopSimulator3::step(const Tracker3Input & input
   record.sigma = last_output_.field.sigma;
   record.s_star = last_output_.field.s_star;
   record.F = last_output_.field.Phi;
+  record.T_eval_curve = in.frame.T_eval_curve;
   records_.push_back(record);
 
   plant_ = integrate(plant_, last_output_.cmd, options_.period, options_.plant);

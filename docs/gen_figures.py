@@ -271,6 +271,39 @@ def viviani_3d(plt):
     return fig
 
 
+def moving_frame_3d(plt):
+    """(8) The 3D core in a moving frame: a helix in a frame turning at 0.1 rad/s about z."""
+    curve = d3.make_curve(d3.CurveSpec.builtin('helix', cx=0.8))
+    frame = d3.CurveFrame(w=[0.0, 0.0, 0.1])
+    tracker = d3.Tracker(d3.TrackerConfig(desired_speed=0.5))
+    simulator = d3.sim.ClosedLoopSimulator(tracker, frame=frame)
+    simulator.reset(np.array([2.0, -0.2, -0.1]))
+    run = simulator.run(curve, 60.0)
+    fig, ax = curves3d.axes3d(plt, figsize=(6.0, 5.0))
+    points = curve.sample(ds=0.04)
+    snapshots = [0, len(run['t']) // 2, len(run['t']) - 1]
+    extent = [run['position']]
+    for k, alpha in zip(snapshots, (0.25, 0.5, 1.0)):
+        T = run['frame'][k]
+        moved = points @ T[:3, :3].T + T[:3, 3]
+        extent.append(moved)
+        ax.plot(
+            *moved.T,
+            color=plotting.INK,
+            lw=1.2,
+            alpha=alpha,
+            label=f'curve, t = {run["t"][k]:.0f} s',
+        )
+    path = run['position'][::2]
+    ax.plot(*path.T, color=plotting.SERIES[1], lw=1.1, label='Tracker3, 0.5 m/s, 20 Hz')
+    ax.scatter(*path[0], color=plotting.SERIES[1], s=14)
+    ax.scatter(*path[-1], color=plotting.SERIES[1], marker='x', s=24)
+    curves3d.set_equal_aspect(ax, np.vstack(extent), margin=0.05)
+    ax.view_init(elev=24.0, azim=-58.0)
+    ax.legend(loc='upper left')
+    return fig
+
+
 FIGURES = {
     'field_ellipse.svg': field_ellipse,
     'field_decomposition.svg': field_decomposition,
@@ -279,6 +312,7 @@ FIGURES = {
     'cbf_disc.svg': cbf_disc,
     'models_convergence.svg': models_convergence,
     'viviani_3d.svg': viviani_3d,
+    'moving_frame_3d.svg': moving_frame_3d,
 }
 
 

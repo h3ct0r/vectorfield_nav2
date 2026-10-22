@@ -4,6 +4,17 @@ Changelog for package vectorfield_core
 
 Forthcoming
 -----------
+* 3D core (experimental): moving curve frames (math_spec §14.7 [Design, 0.3.0], m7_3d.md "Moving
+  frames"). New d3/frame.hpp: CurveFrame3 {T_eval_curve, FrameTwist3 twist, moving},
+  expSE3()/logSE3()/bodyTwist()/extrapolate()/frameVelocity(), and FrameTwistEstimator3 (log_SE(3)
+  differencing of sampled poses, outlier rejection, LPF, staleness). Tracker3Input::frame: the
+  search runs in the curve frame with the hint kept there; closed curves get Phi_T = Pi_T v_c
+  with v_c = R (v_F + w_F x r_F + dr_F/dt); open curves (static in the frame) follow the
+  transported terminal field v_r Phi_S + v_tr(x) and the goal hold rides with the frame. New
+  DistanceField3::evaluateTerminal() overload, Tracker3Output::frame_velocity and x_star_curve,
+  SimulationOptions3::frame and frame_motion, SimulationRecord3::T_eval_curve,
+  ClosedLoopSimulator3::frameAt(). A static identity frame is bit-identical to 0.2. Oracles
+  O3D-10 to O3D-14 (test_d3_frame) and a moving-frame no-allocation case.
 * obstacle_mode cbf for Ackermann (math_spec §6.7 [Design, 0.3.0], m7_cbf.md "Ackermann"): the
   error ackermann_cbf_unsupported is removed. The filter runs at the rear axle on
   max(0, h_j − μ_j), with the turning margin μ_j = R_min (1 − sqrt(1 − c_j²)) for
