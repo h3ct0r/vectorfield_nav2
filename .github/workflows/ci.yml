@@ -43,6 +43,9 @@ jobs:
     container:
       image: ${{ matrix.image }}
     timeout-minutes: 120
+    env:
+      # rosdep installs vectorfield_mujoco's python3-mujoco-pip key with pip (PEP 668 on Noble+).
+      PIP_BREAK_SYSTEM_PACKAGES: '1'
     permissions:
       contents: read
       checks: write # mikepenz/action-junit-report check run
@@ -97,6 +100,7 @@ jobs:
             vectorfield_py
             vectorfield_sim
             vectorfield_bringup
+            vectorfield_mujoco
             vectorfield_system_tests
             vectorfield_nav2
           rosdep-check: true

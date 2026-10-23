@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<!--
+AgileX Scout Mini, converted from agilexrobotics/ugv_gazebo_sim scout/scout_description
+at commit 27633a956c845903ee630538afeb17fe70afdd84 (package.xml licence: BSD) by
+vectorfield_mujoco/tools/convert_scout_mini.py. Do not edit by hand: change the converter and
+rerun it. README.md lists the sources and every change made to them.
+-->
+<mujoco model="scout_mini">
+  <compiler angle="radian" meshdir="meshes" autolimits="true"/>
+
+  <default>
+    <default class="scout_mini">
+      <default class="scout_visual">
+        <geom type="mesh" group="2" contype="0" conaffinity="0" mass="0"/>
+      </default>
+      <default class="scout_collision">
+        <geom group="3" mass="0" material="scout_collision"/>
+      </default>
+      <!-- In-wheel motors: velocity servos on the wheel hinges (axle = body y, + = forward).
+           Wheel friction is isotropic (0.9, the Gazebo mu2) and wins over the floor's
+           through priority. ctrlrange covers the 20 km/h top speed. -->
+      <default class="scout_wheel">
+        <joint axis="0 1 0" damping="0.01" armature="0.002"/>
+        <geom type="cylinder" size="0.08 0.042" zaxis="0 1 0" group="3"
+          mass="0" friction="0.9 0.005 0.0001" priority="1" material="scout_collision"/>
+        <velocity kv="20" ctrlrange="-70 70" forcerange="-20 20"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="scout_body" rgba="0.22 0.23 0.25 1" specular="0.3" shininess="0.4"/>
+    <material name="scout_tire" rgba="0.1 0.1 0.1 1"/>
+    <material name="scout_hub" rgba="0.82 0.84 0.85 1" specular="0.5"/>
+    <material name="scout_trim" rgba="0.9 0.1 0.08 1"/>
+    <material name="scout_lidar" rgba="0.08 0.08 0.08 1"/>
+    <material name="scout_collision" rgba="0.6 0.3 0.3 0.4"/>
+    <mesh name="base_link" file="base_link.obj"/>
+    <mesh name="wheel_tire" file="wheel_tire.obj"/>
+    <mesh name="wheel_hub" file="wheel_hub.obj"/>
+    <mesh name="wheel_trim" file="wheel_trim.obj"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.157" childclass="scout_mini">
+      <freejoint name="root"/>
+      <!-- Datasheet total mass (20 kg) less the four upstream wheels; the
+           inertia of a solid box of the chassis collision box, centred on base_link. -->
+      <inertial pos="0 0 0" mass="8" diaginertia="0.1392 0.123 0.219"/>
+      <geom class="scout_visual" mesh="base_link" material="scout_body"
+        pos="0.015 0.02313167 0"/>
+      <geom name="chassis" class="scout_collision" type="box" size="0.195 0.21 0.09"/>
+      <!-- A top-mounted 2D lidar puck (upstream: laser_link 0.4 m above base_link). -->
+      <geom class="scout_visual" type="cylinder" size="0.04 0.025" pos="0 0 0.115"
+        material="scout_lidar"/>
+      <geom name="lidar" class="scout_collision" type="cylinder" size="0.04 0.025"
+        pos="0 0 0.115"/>
+      <site name="lidar" pos="0 0 0.125" size="0.01"/>
+      <site name="imu" pos="0 0 0" size="0.01"/>
+      <site name="base_footprint" pos="0 0 -0.157" size="0.01"/>
+      <body name="front_left_wheel_link" pos="0.1566278 0.2281768 -0.077">
+        <joint name="front_left_wheel" class="scout_wheel"/>
+        <inertial pos="0 0 0" mass="3" diaginertia="0.006564 0.0096 0.006564"/>
+        <geom name="front_left_wheel" class="scout_wheel"
+          pos="0 0.03 0"/>
+        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" euler="-1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" euler="-1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" euler="-1.5707963 0 0"/>
+      </body>
+      <body name="rear_left_wheel_link" pos="-0.1566278 0.2281768 -0.077">
+        <joint name="rear_left_wheel" class="scout_wheel"/>
+        <inertial pos="0 0 0" mass="3" diaginertia="0.006564 0.0096 0.006564"/>
+        <geom name="rear_left_wheel" class="scout_wheel"
+          pos="0 0.03 0"/>
+        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" euler="-1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" euler="-1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" euler="-1.5707963 0 0"/>
+      </body>
+      <body name="front_right_wheel_link" pos="0.1566278 -0.2281768 -0.077">
+        <joint name="front_right_wheel" class="scout_wheel"/>
+        <inertial pos="0 0 0" mass="3" diaginertia="0.006564 0.0096 0.006564"/>
+        <geom name="front_right_wheel" class="scout_wheel"
+          pos="0 -0.03 0"/>
+        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" euler="1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" euler="1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" euler="1.5707963 0 0"/>
+      </body>
+      <body name="rear_right_wheel_link" pos="-0.1566278 -0.2281768 -0.077">
+        <joint name="rear_right_wheel" class="scout_wheel"/>
+        <inertial pos="0 0 0" mass="3" diaginertia="0.006564 0.0096 0.006564"/>
+        <geom name="rear_right_wheel" class="scout_wheel"
+          pos="0 -0.03 0"/>
+        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" euler="1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" euler="1.5707963 0 0"/>
+        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" euler="1.5707963 0 0"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <velocity name="front_left_wheel" joint="front_left_wheel" class="scout_wheel"/>
+    <velocity name="rear_left_wheel" joint="rear_left_wheel" class="scout_wheel"/>
+    <velocity name="front_right_wheel" joint="front_right_wheel" class="scout_wheel"/>
+    <velocity name="rear_right_wheel" joint="rear_right_wheel" class="scout_wheel"/>
+  </actuator>
+
+  <sensor>
+    <gyro name="imu_gyro" site="imu"/>
+    <accelerometer name="imu_accel" site="imu"/>
+    <framequat name="imu_quat" objtype="site" objname="imu"/>
+  </sensor>
+</mujoco>

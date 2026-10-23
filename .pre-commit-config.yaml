@@ -37,7 +37,9 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # 3 MB: the vendored Scout Mini meshes and the gallery media stay under it.
       - id: check-added-large-files
+        args: [--maxkb=3072]
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-xml

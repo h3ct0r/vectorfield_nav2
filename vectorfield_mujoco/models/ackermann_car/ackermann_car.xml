@@ -1,0 +1,151 @@
+<?xml version="1.0"?>
+<!--
+  Copyright 2026 Héctor Azpúrua. Licensed under the Apache License, Version 2.0 (LICENSE).
+
+  A small front-steered, rear-driven car built from primitives for the ackermann example. It is
+  sized for vectorfield_bringup/config/controller/ackermann.yaml:
+  - base_link is the rear-axle centre (reference_point_offset: 0.0), at wheel-axle height; the
+    base_footprint site is on the ground below it;
+  - wheelbase L = 0.26 m, track 0.22 m, wheel radius 0.05 m;
+  - min_turning_radius R = 0.5 m at the rear axle: the bicycle angle is atan(L/R) = 0.479 rad
+    (27.5 deg) and the inner wheel's atan(L/(R - track/2)) = 0.588 rad (33.7 deg). The steering
+    hinges allow 0.65 rad, the inner angle plus a 0.06 rad margin;
+  - top speed 1.5 m/s at the rear wheels (the controller limit is 0.5 m/s).
+  Overall 0.42 m x 0.25 m (x from -0.08 to 0.34 m): the footprint polygon about base_link is
+  [[0.34, 0.125], [0.34, -0.125], [-0.08, -0.125], [-0.08, 0.125]].
+
+  Visual geoms are in group 2, collision geoms in group 3 (MuJoCo hides group 3 by default).
+-->
+<mujoco model="ackermann_car">
+  <compiler angle="radian" autolimits="true"/>
+
+  <default>
+    <default class="car">
+      <default class="car_visual">
+        <geom group="2" contype="0" conaffinity="0" mass="0"/>
+      </default>
+      <default class="car_collision">
+        <geom group="3" mass="0" material="car_collision"/>
+      </default>
+      <!-- Tyres: cylinders along the wheel axle (body y); their friction wins over the floor's. -->
+      <default class="car_tyre">
+        <geom type="cylinder" size="0.05 0.015" zaxis="0 1 0" group="3" mass="0" friction="1.0 0.005 0.0001"
+          priority="1" material="car_collision"/>
+      </default>
+      <default class="car_tyre_visual">
+        <geom type="cylinder" size="0.05 0.015" zaxis="0 1 0" group="2" contype="0" conaffinity="0" mass="0"
+          material="car_tyre"/>
+      </default>
+      <default class="car_hub_visual">
+        <geom type="cylinder" size="0.03 0.0155" zaxis="0 1 0" group="2" contype="0" conaffinity="0" mass="0"
+          material="car_hub"/>
+      </default>
+      <default class="car_wheel">
+        <joint type="hinge" axis="0 1 0" damping="0.0005" armature="0.0005"/>
+      </default>
+      <default class="car_steer">
+        <joint type="hinge" axis="0 0 1" range="-0.65 0.65" damping="0.2" armature="0.001"/>
+        <position kp="10" ctrlrange="-0.65 0.65" forcerange="-2 2"/>
+      </default>
+      <default class="car_drive">
+        <velocity kv="0.5" ctrlrange="-30 30" forcerange="-1.5 1.5"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="car_body" rgba="0.12 0.42 0.75 1" specular="0.6" shininess="0.6"/>
+    <material name="car_cabin" rgba="0.1 0.12 0.15 1" specular="0.8" shininess="0.8"/>
+    <material name="car_chassis" rgba="0.18 0.18 0.2 1"/>
+    <material name="car_tyre" rgba="0.08 0.08 0.08 1"/>
+    <material name="car_hub" rgba="0.75 0.77 0.8 1" specular="0.5"/>
+    <material name="car_light" rgba="1 0.95 0.7 1" emission="0.6"/>
+    <material name="car_lidar" rgba="0.08 0.08 0.08 1"/>
+    <material name="car_collision" rgba="0.6 0.3 0.3 0.4"/>
+  </asset>
+
+  <worldbody>
+    <body name="base_link" pos="0 0 0.05" childclass="car">
+      <freejoint name="root"/>
+      <inertial pos="0.13 0 0.03" mass="3" diaginertia="0.00925 0.0461 0.0513"/>
+      <!-- Chassis plate, body shell, hood, cabin, bumpers, headlights and the lidar puck. The nose
+           is narrower than the steered front wheels sweep (inner corner at 0.068 m off centre). -->
+      <geom class="car_visual" type="box" size="0.14 0.07 0.012" pos="0.06 0 0.005" material="car_chassis"/>
+      <geom class="car_visual" type="box" size="0.07 0.05 0.012" pos="0.27 0 0.005" material="car_chassis"/>
+      <geom class="car_visual" type="box" size="0.13 0.085 0.03" pos="0.06 0 0.045" material="car_body"/>
+      <geom class="car_visual" type="box" size="0.065 0.055 0.025" pos="0.255 0 0.04" material="car_body"/>
+      <geom class="car_visual" type="box" size="0.07 0.07 0.025" pos="0.07 0 0.1" material="car_cabin"/>
+      <geom class="car_visual" type="box" size="0.012 0.08 0.015" pos="0.33 0 0.03" material="car_chassis"/>
+      <geom class="car_visual" type="box" size="0.012 0.08 0.015" pos="-0.07 0 0.03" material="car_chassis"/>
+      <geom class="car_visual" type="box" size="0.004 0.015 0.008" pos="0.321 0.035 0.045" material="car_light"/>
+      <geom class="car_visual" type="box" size="0.004 0.015 0.008" pos="0.321 -0.035 0.045" material="car_light"/>
+      <geom class="car_visual" type="cylinder" size="0.03 0.012" pos="0.07 0 0.137" material="car_lidar"/>
+      <geom name="chassis" class="car_collision" type="box" size="0.135 0.085 0.045" pos="0.055 0 0.035"/>
+      <geom name="nose" class="car_collision" type="box" size="0.075 0.055 0.035" pos="0.265 0 0.03"/>
+      <geom name="cabin" class="car_collision" type="box" size="0.07 0.07 0.03" pos="0.07 0 0.11"/>
+      <site name="lidar" pos="0.07 0 0.145" size="0.01"/>
+      <site name="imu" pos="0.13 0 0.03" size="0.01"/>
+      <site name="base_footprint" pos="0 0 -0.05" size="0.01"/>
+
+      <!-- Rear wheels: driven, one velocity servo each (an electronic differential). -->
+      <body name="rear_left_wheel_link" pos="0 0.11 0">
+        <joint name="rear_left_wheel" class="car_wheel"/>
+        <inertial pos="0 0 0" mass="0.15" diaginertia="0.0001 0.00019 0.0001"/>
+        <geom name="rear_left_wheel" class="car_tyre"/>
+        <geom class="car_tyre_visual"/>
+        <geom class="car_hub_visual"/>
+      </body>
+      <body name="rear_right_wheel_link" pos="0 -0.11 0">
+        <joint name="rear_right_wheel" class="car_wheel"/>
+        <inertial pos="0 0 0" mass="0.15" diaginertia="0.0001 0.00019 0.0001"/>
+        <geom name="rear_right_wheel" class="car_tyre"/>
+        <geom class="car_tyre_visual"/>
+        <geom class="car_hub_visual"/>
+      </body>
+
+      <!-- Front wheels: steering knuckles (kingpin through the wheel centre) and free rolling. -->
+      <body name="front_left_steer_link" pos="0.26 0.11 0">
+        <joint name="front_left_steer" class="car_steer"/>
+        <inertial pos="0 0 0" mass="0.05" diaginertia="0.00002 0.00002 0.00002"/>
+        <body name="front_left_wheel_link">
+          <joint name="front_left_wheel" class="car_wheel"/>
+          <inertial pos="0 0 0" mass="0.15" diaginertia="0.0001 0.00019 0.0001"/>
+          <geom name="front_left_wheel" class="car_tyre"/>
+          <geom class="car_tyre_visual"/>
+          <geom class="car_hub_visual"/>
+        </body>
+      </body>
+      <body name="front_right_steer_link" pos="0.26 -0.11 0">
+        <joint name="front_right_steer" class="car_steer"/>
+        <inertial pos="0 0 0" mass="0.05" diaginertia="0.00002 0.00002 0.00002"/>
+        <body name="front_right_wheel_link">
+          <joint name="front_right_wheel" class="car_wheel"/>
+          <inertial pos="0 0 0" mass="0.15" diaginertia="0.0001 0.00019 0.0001"/>
+          <geom name="front_right_wheel" class="car_tyre"/>
+          <geom class="car_tyre_visual"/>
+          <geom class="car_hub_visual"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- The front wheels are grandchildren of base_link, so MuJoCo does not filter their contacts
+       with the chassis by itself. -->
+  <contact>
+    <exclude body1="base_link" body2="front_left_wheel_link"/>
+    <exclude body1="base_link" body2="front_right_wheel_link"/>
+  </contact>
+
+  <actuator>
+    <position name="steer_left" joint="front_left_steer" class="car_steer"/>
+    <position name="steer_right" joint="front_right_steer" class="car_steer"/>
+    <velocity name="rear_left_wheel" joint="rear_left_wheel" class="car_drive"/>
+    <velocity name="rear_right_wheel" joint="rear_right_wheel" class="car_drive"/>
+  </actuator>
+
+  <sensor>
+    <gyro name="imu_gyro" site="imu"/>
+    <accelerometer name="imu_accel" site="imu"/>
+    <framequat name="imu_quat" objtype="site" objname="imu"/>
+  </sensor>
+</mujoco>

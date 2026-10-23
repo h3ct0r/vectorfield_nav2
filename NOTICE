@@ -64,6 +64,31 @@ yet present.
    Version: master commit 508cce97d983c4c61099ceacc11c984a60053967
    (2026-07-03, "2.3.6 (Development)"; recorded in third_party/muparser/VERSION).
 
+3. AgileX Scout Mini description (ugv_gazebo_sim, scout/scout_description)
+   https://github.com/agilexrobotics/ugv_gazebo_sim
+   Copyright (c) 2015, Clearpath Robotics, Inc.
+   Copyright (c) 2020, Weston Robot Pte. Ltd.
+   License: BSD, as declared by scout_description's package.xml and the
+   notice of its wheel xacros (the repository has no LICENSE file).
+   Use: converted to MuJoCo (decimated meshes, MJCF) by
+   vectorfield_mujoco/tools/convert_scout_mini.py and vendored under
+   vectorfield_mujoco/models/scout_mini, whose README.md reproduces the
+   notice and lists every change.
+   Version: master commit 27633a956c845903ee630538afeb17fe70afdd84 (2026-06-03).
+
+
+Fetched at run time (not included)
+==================================
+
+vectorfield_mujoco downloads these MuJoCo Menagerie robots
+(https://github.com/google-deepmind/mujoco_menagerie, commit
+f3b6013629c7b94f8ee93fd977b161fa8350f9bc) on first use; each keeps the
+licence file of its directory:
+
+- pal_tiago (PAL Robotics TIAGo): Apache-2.0
+- stanford_tidybot (Stanford TidyBot): MIT
+- skydio_x2 (Skydio X2): Apache-2.0
+
 
 Acknowledged ideas (no code copied)
 ===================================

@@ -52,6 +52,8 @@ jobs:
     continue-on-error: true
     timeout-minutes: 120
     env:
+      # rosdep installs vectorfield_mujoco's python3-mujoco-pip key with pip (PEP 668).
+      PIP_BREAK_SYSTEM_PACKAGES: '1'
       # As in .devcontainer/rolling/Dockerfile: simulators and GUI keys we never build against.
       VF_ROLLING_SKIP_KEYS: >-
         slam_toolbox turtlebot3_gazebo gazebo_ros_pkgs ros_gz ros_gz_sim ros_gz_bridge rviz2
