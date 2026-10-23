@@ -2,8 +2,8 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * vectorfield.d3 obstacles (math_spec 14.8): Primitive (sphere, box, cylinder, plane;
   signed_distance(), validate()), PrimitiveType, VoxelGrid ((nz, ny, nx) masks),
   DistanceTransform (distances(), feature(), query()), ObstacleSet (add(), set_voxels(),

@@ -2,8 +2,8 @@
 Changelog for package vectorfield_system_tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * test_follower_3d (experimental 3D follower on point_sim_3d, every distro): an open helix, two
   laps of a Viviani curve (max |D| after lap 1 < 0.05 m), a sphere beside a circle seen through
   the simulator's point cloud (true barrier >= -resolution) and a cancel, each ending with one

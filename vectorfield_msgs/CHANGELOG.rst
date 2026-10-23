@@ -2,8 +2,8 @@
 Changelog for package vectorfield_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * Curve3, FieldState3 and the FollowCurve3 action for the experimental 3D follower
   (vectorfield_follower_3d): a curve in R^3 (polyline, expressions x/y/z, built-in shapes with a
   6-DoF pose), FollowCurve's goal fields and result codes, and a per-cycle state for plots. Additive:

@@ -2,8 +2,8 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * 3D core (experimental): obstacle avoidance by a 3D CBF safety filter (math_spec §14.8
   [Design, 0.3.0], m7_3d.md "Obstacles"). New d3/obstacles.hpp: analytic Primitive3 obstacles
   (sphere, oriented box, vertical cylinder or infinite pole, solid half-space) with exact

@@ -2,8 +2,8 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * follower3d_demo.launch.py (experimental): point_sim_3d, the 3D follower with its lifecycle
   manager and RViz with the new rviz/follower_3d.rviz; scripts/send_curve3d.py sends the 3D
   examples of the new vectorfield_bringup.curves3d module (helix, viviani, torus_knot,

@@ -2,8 +2,8 @@
 Changelog for package vectorfield_behavior_tree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * A goal that gets no result fails with GOAL_REJECTED, SEND_GOAL_FAILURE or TIMEOUT in
   error_code_id: Lyrical's BtActionNode sets them, and the node does on Humble and Jazzy.
 

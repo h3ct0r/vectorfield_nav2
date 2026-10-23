@@ -2,8 +2,8 @@
 Changelog for package vectorfield_nav2_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * obstacle_mode cbf for Ackermann (core 0.3.0): layer-2 case of a box beside an Ackermann plan,
   passed with the margin.
 * Obstacles on a reverse leg are contoured (the core no longer turns the contour off in reverse

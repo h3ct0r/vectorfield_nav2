@@ -2,8 +2,8 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * The obstacle_mode description covers cbf for Ackermann (rear axle, turning margin).
 * Parameter max_reverse_vel (default -1: max_linear_vel), the speed bound while backing up.
 * The status text puts the phase, the command, D and sigma, and the flags on their own lines,

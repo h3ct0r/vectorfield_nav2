@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_sim</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>Lightweight kinematic robot simulator for headless tests and demos on every supported distro: differential, skid-steer, omnidirectional and Ackermann bases with slip, odometry and TF, a simulated laser scan, and runtime-settable unmapped obstacles.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

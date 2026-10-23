@@ -2,8 +2,8 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.3.0 (2026-10-23)
+------------------
 * First version (experimental): the ``follower_3d`` lifecycle component with the
   ``follow_curve_3d`` action (FollowCurve3) around vectorfield_core's Tracker3, for drones and
   other robots that take a 3D velocity setpoint. Odometry in, TwistStamped out (global ENU or

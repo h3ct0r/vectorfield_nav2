@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_behavior_tree</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>Nav2 behaviour-tree action node FollowCurve, which sends vectorfield_msgs FollowCurve goals to the vectorfield_nav2 curve follower, and bt_runner, a minimal executor that ticks a behaviour tree from a file.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>
