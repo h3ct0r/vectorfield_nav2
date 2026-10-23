@@ -21,6 +21,10 @@
 # - Launch tests are excluded (-LE launch_test): the image copies /opt/ros and
 #   the Nav2 install tree but not the system libraries in /usr (for example
 #   GraphicsMagick for map_server). Lyrical has the same Nav2 API and runs them.
+# - The image's ROS packages are all on AMENT_PREFIX_PATH, so rosdep on our
+#   sources installs none of their system dependencies (for example
+#   libexpected-dev, which rsl under generate_parameter_library needs). A first
+#   rosdep pass over the installed share trees installs only those system keys.
 # - No apt upgrade (it would drift the ABI under the prebuilt Nav2) and no
 #   rosdep check (Nav2 keys do not resolve in Rolling's rosdistro by design).
 # - A failure opens, or comments on, a tracking issue.
@@ -47,6 +51,12 @@ jobs:
       image: ghcr.io/ros-navigation/nav2_docker:rolling-nightly-standard
     continue-on-error: true
     timeout-minutes: 120
+    env:
+      # As in .devcontainer/rolling/Dockerfile: simulators and GUI keys we never build against.
+      VF_ROLLING_SKIP_KEYS: >-
+        slam_toolbox turtlebot3_gazebo gazebo_ros_pkgs ros_gz ros_gz_sim ros_gz_bridge rviz2
+        nav2_rviz_plugins nav2_bringup nav2_system_tests nav2_minimal_tb3_sim
+        nav2_minimal_tb4_description nav2_minimal_tb4_sim
     outputs:
       outcome: ${{ steps.build_test.outcome }}
     steps:
@@ -64,6 +74,9 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
           rosdep update --rosdistro rolling
+          rosdep install -y -r --ignore-src --rosdistro rolling \
+            --from-paths /opt/ros/rolling/share /root/nav2_ws/install/*/share \
+            -t build_export -t buildtool_export -t exec --skip-keys "${VF_ROLLING_SKIP_KEYS}"
           rosdep install --from-paths ws/src --ignore-src -y -r --rosdistro rolling
           cd ws
           colcon build --event-handlers console_cohesion+ \
