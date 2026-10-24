@@ -111,7 +111,9 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
    tilted the friction sideways, and the base turned at 0.15 to 0.25 of its no-slip yaw rate
    instead of the 0.50 of isotropic Coulomb friction (half track² / (half wheelbase² + half
    track²)). Now the wheels stay on the floor up to 5 rad/s in place and the base turns at
-   0.49 of the no-slip rate, 0.45 of the command on arcs.
+   0.49 of the no-slip rate, 0.45 of the command on arcs. The trade-off: driving straight at
+   0.2 m/s the base runs about 5 % faster than the wheels' rim speed (none at 0.5 m/s and
+   above); a first touch of 0.1 removes that but brings the hop back above 2 rad/s in place.
 9. **Sensors.** `lidar` site on a 2D lidar puck on top of the chassis, 0.29 m above the ground
    (upstream `laser_link` was 0.4 m above `base_link`, above the 0.5 m walls of the example
    worlds); `imu` site at `base_link` with gyro, accelerometer and orientation sensors;

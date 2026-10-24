@@ -2,10 +2,10 @@
   "configById": {
     "3D!vectorfield": {
       "cameraState": {
-        "distance": 12,
-        "perspective": false,
-        "phi": 0,
-        "thetaOffset": 90,
+        "distance": 8,
+        "perspective": true,
+        "phi": 50,
+        "thetaOffset": 45,
         "targetOffset": [
           0,
           0,
@@ -26,8 +26,8 @@
         "near": 0.5,
         "far": 5000
       },
-      "followMode": "follow-none",
-      "followTf": "map",
+      "followMode": "follow-position",
+      "followTf": "base_link",
       "scene": {
         "transforms": {
           "showLabel": false,
@@ -72,7 +72,7 @@
           "visible": true
         },
         "/FollowPath/field_grid": {
-          "visible": false
+          "visible": true
         },
         "/FollowPath/window": {
           "visible": true,

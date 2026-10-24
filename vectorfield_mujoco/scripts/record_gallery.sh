@@ -90,7 +90,7 @@ settings() {
     drone)
       # Take-off and the helix around the pillar and the sphere.
       CAPTION='Drone · Skydio X2 · 3D follower helix + CBF'
-      SPEED=1.5 GIF_FROM=0 GIF_LEN=13 GIF_SPEED=2 POSTER=19
+      SPEED=1.5 GIF_FROM=0 GIF_LEN=10 GIF_SPEED=2 POSTER=19 GIF_COLORS=64
       ;;
     curve_following)
       # About a lap of the lemniscate, through its crossing.

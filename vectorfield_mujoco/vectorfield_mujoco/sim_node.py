@@ -82,6 +82,7 @@ import collections
 import contextlib
 import math
 import os
+import time
 
 import numpy as np
 import rclpy
@@ -107,6 +108,9 @@ TRAIL_WIDTH = 0.025
 
 #: Colours of the Path overlays, in the order of ``overlay_topics``.
 PATH_COLOURS = ((0.1, 0.45, 1.0, 0.9), (0.1, 0.8, 0.3, 0.9), (0.9, 0.2, 0.7, 0.9))
+
+#: Wall-clock seconds close() waits for the passive viewer's thread to stop.
+VIEWER_CLOSE_TIMEOUT = 2.0
 
 #: The wall-clock rate (Hz) at which the passive viewer is synchronised.
 VIEWER_RATE = 30.0
@@ -907,6 +911,8 @@ class MujocoSim(Node):
         self._camera = None
         self._recorder = None
         self._viewer = None
+        # Whether a viewer was opened (main() then exits without the interpreter's teardown).
+        self.viewer_used = False
         requested = [
             name
             for name, on in (
@@ -1034,6 +1040,7 @@ class MujocoSim(Node):
         except Exception as e:  # no display after all
             self.get_logger().error(f'viewer off: {e}')
             return
+        self.viewer_used = True
         with self._viewer.lock():
             self._viewer.opt.geomgroup[:] = scene.visual_option().geomgroup
             self._viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
@@ -1123,8 +1130,13 @@ class MujocoSim(Node):
             self._camera[0].close()
             self._camera = None
         if self._viewer is not None:
-            self._viewer.close()
-            self._viewer = None
+            viewer, self._viewer = self._viewer, None
+            viewer.close()
+            # The viewer renders in its own thread: give it time to drop its window and GL
+            # context before the process goes on to exit.
+            deadline = time.monotonic() + VIEWER_CLOSE_TIMEOUT
+            while viewer.is_running() and time.monotonic() < deadline:
+                time.sleep(0.02)
 
 
 def main(args=None):
@@ -1147,11 +1159,18 @@ def main(args=None):
         if node is None or rclpy.ok():
             raise
     finally:
+        viewer_used = False
         if node is not None:
             node.close()
+            viewer_used = node.viewer_used
             node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+    if viewer_used:
+        # Everything is closed and flushed; the viewer's GLFW thread can still crash the
+        # interpreter's teardown (a segfault at the end of an example with viewer:=true), so
+        # leave without it.
+        os._exit(0)
 
 
 if __name__ == '__main__':

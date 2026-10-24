@@ -4,6 +4,10 @@ Changelog for package vectorfield_mujoco
 
 Forthcoming
 -----------
+* mujoco_sim waits for the passive viewer's thread when it closes and, after a viewer session,
+  exits without the interpreter's teardown: with viewer:=true the node crashed (SIGSEGV) at the
+  end of an example.
+* The drone clip shows the 3D follower's coloured field arrows.
 * New package: MuJoCo physics for the examples (source-only; MuJoCo comes from pip through the
   python3-mujoco-pip rosdep key). Pure-Python core without ROS imports:
 

@@ -117,7 +117,10 @@ In a running demo:
 - the cyan command arrow;
 - the green prediction line, which turns red ahead of a collision;
 - the goal rings and the orange braking zone as the robot approaches the goal;
-- the `field_grid` arrows (toggle them on), which show the whole field around the robot.
+- the `field_grid` arrows (on by default; `field_grid_style: streamlines` draws streamlines),
+  which show the whole field around the robot. The view orbits the robot (RViz's Orbit view
+  on `base_link`, a perspective camera following `base_link` in Foxglove); switch RViz to
+  TopDownOrtho for a map view.
 
 During an obstacle-contour episode, the `contour` namespace shows the red gate samples, the
 highlighted obstacle cells, the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the
