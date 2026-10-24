@@ -32,7 +32,7 @@ ros2 launch vectorfield_mujoco skid_steer.launch.py
 
 The 0.55 m wide robot leaves (0, 0), passes the door with 0.12 m to spare on each side, drives
 to the end of the corridor at (9, 0), turns around in place and drives back. Its wheels realise
-only about a quarter of the commanded yaw rate; without compensation it would run outside
+a little less than half the commanded yaw rate; without compensation it would run outside
 every turn. The robot overlay sets the identified slip (`skid_yaw_rate_efficiency`,
 `skid_icr_offset`), so the controller scales its yaw-rate command to match
 ({ref}`skid-slip`).

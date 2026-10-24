@@ -16,10 +16,10 @@
 # config/controller/skid_steer.yaml and config/mujoco_sim.yaml.
 #
 # Limits: the in-wheel servos reach 70 rad/s (6.1 m/s with the 0.0875 m wheels); the controller
-# keeps the overlay's 0.5 m/s. The base realises only about a quarter of the commanded yaw rate
-# (the wheels skid; wheelbase and track are about equal), and less at higher rates: about 0.17
-# of 2 rad/s in place. max_angular_vel, which clamps the compensated command (below), so caps
-# the real yaw rate at about 0.4 rad/s in place and 0.6 rad/s on arcs.
+# keeps the overlay's 0.5 m/s. The base realises a little less than half the commanded yaw rate
+# (the wheels skid; wheelbase and track are about equal), in place and on arcs, up to 3 rad/s.
+# max_angular_vel, which clamps the compensated command (below), so caps the real yaw rate at
+# about 1.1 rad/s.
 
 controller_server:
   ros__parameters:
@@ -38,11 +38,11 @@ controller_server:
       # --repeats 2 --max-distance 4.0` drives turns in place and arcs (0.2 m/s, 0.6 rad/s)
       # through Nav2's command chain and compares the commanded motion with the pose: here
       # mujoco_sim's odom, the ground truth, which sees the slip (on a robot, an IMU-fused or
-      # localisation pose). Two runs gave eta_psi 0.253 and 0.278 (spread 0.015 and 0.013, in
-      # place and on the arcs alike) and x_ICR 0.003 and 0.001 m (spread 0.003 and 0.004).
+      # localisation pose). Two runs gave eta_psi 0.451 and 0.450 (spread 0.001, in place and on
+      # the arcs alike) and x_ICR 0.003 m (spread 0.004 and 0.003).
       # Rerun it after changing the model's geometry or friction.
-      skid_yaw_rate_efficiency: 0.27
-      skid_icr_offset: 0.002
+      skid_yaw_rate_efficiency: 0.45
+      skid_icr_offset: 0.003
 
 # The wheels' outer edges, 0.627 m x 0.549 m (the manual's overall size; the chassis lies within
 # them). The collision monitor's FootprintApproach polygon follows

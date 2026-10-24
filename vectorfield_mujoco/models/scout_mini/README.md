@@ -101,7 +101,18 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
    upstream) are direction-dependent; MuJoCo's geom friction is isotropic, so the wheels use
    the lateral 0.9, which governs skid-steer slip, and win over the floor's friction through
    `priority`.
-8. **Sensors.** `lidar` site on a 2D lidar puck on top of the chassis, 0.29 m above the ground
+8. **Tyre contact.** The wheel contacts are soft at first touch and stiffen as the tyre deflects:
+   `solimp="0.05 0.95 0.001"`, an impedance rising from 0.05 at first touch to MuJoCo's
+   default 0.95 at 1 mm, so the wheels rest 0.6 mm deep in the floor (0.1 mm with MuJoCo's
+   default). With the default first touch (0.9) a skidding wheel hops: MuJoCo's convex contact
+   model turns part of the friction's slip-velocity correction into a separating normal
+   acceleration, which a stiff contact absorbs only below a few mm/s of slip. Turning in place,
+   the wheels touched the floor about half the time, each landing spun the wheel down and
+   tilted the friction sideways, and the base turned at 0.15 to 0.25 of its no-slip yaw rate
+   instead of the 0.50 of isotropic Coulomb friction (half track² / (half wheelbase² + half
+   track²)). Now the wheels stay on the floor up to 5 rad/s in place and the base turns at
+   0.49 of the no-slip rate, 0.45 of the command on arcs.
+9. **Sensors.** `lidar` site on a 2D lidar puck on top of the chassis, 0.29 m above the ground
    (upstream `laser_link` was 0.4 m above `base_link`, above the 0.5 m walls of the example
    worlds); `imu` site at `base_link` with gyro, accelerometer and orientation sensors;
    `base_footprint` site on the ground below `base_link`.

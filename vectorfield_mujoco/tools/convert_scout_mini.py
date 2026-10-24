@@ -34,8 +34,9 @@ Steps:
 3. Decimate ``scout_mini_base_link.STL`` and ``wheel.dae`` (split by material colour into tyre,
    hub and accent parts) to OBJ.
 4. Write ``scout_mini.xml``: visual meshes in group 2, collision primitives in group 3, four
-   wheel hinges with velocity actuators, isotropic wheel friction, lidar and IMU sites, and the
-   datasheet mass (see ``models/scout_mini/README.md`` for every change).
+   wheel hinges with velocity actuators, isotropic wheel friction, tyres soft at first touch,
+   lidar and IMU sites, and the datasheet mass (see ``models/scout_mini/README.md`` for every
+   change).
 5. Compile it with MuJoCo and print the wheel geometry read back from the model.
 """
 
@@ -92,6 +93,18 @@ BASE_YAW_DEG = -90.0
 #: Face budgets of the decimated meshes (the model directory must stay under 3 MB).
 BASE_FACES = 24000
 WHEEL_FACES = 9000
+
+#: Tyre contact impedance (MuJoCo solimp: dmin at first touch, dmax from width on, width in m;
+#: midpoint and power stay MuJoCo's): a tyre that stiffens as it deflects. With MuJoCo's default
+#: first touch (0.9) a skidding wheel hops: the convex contact model turns part of the friction's
+#: slip-velocity correction into a separating normal acceleration (about mu B v_slip, B = 105/s
+#: for the default solref), which a stiff contact absorbs only below a few mm/s of slip. Turning
+#: in place, the wheels then touched the floor about half the time, each landing spun the light
+#: wheel down and tilted the friction sideways, and the base turned at 0.15 to 0.25 of the
+#: no-slip yaw rate instead of the Coulomb t^2 / (l^2 + t^2) = 0.5 (l, t: half the wheelbase and
+#: half the track). With 0.05 the wheels stay on the floor up to 5 rad/s in place and the base
+#: turns at 0.49 of the no-slip rate; at rest they sink 0.6 mm into the floor (0.1 mm before).
+WHEEL_SOLIMP = (0.05, 0.95, 0.001)
 
 # Wheel naming, side (+1 left), longitudinal sign (+1 front); upstream labels the left wheels
 # 1 and 2 and the right wheels 3 and 4.
@@ -314,11 +327,14 @@ rerun it. README.md lists the sources and every change made to them.
       </default>
       <!-- In-wheel motors: velocity servos on the wheel hinges (axle = body y, + = forward).
            Wheel friction is isotropic ({friction:g}, the Gazebo mu2) and wins over the floor's
-           through priority. ctrlrange covers the 20 km/h top speed. -->
+           through priority, as does the tyre's contact impedance: soft at first touch, so
+           that a skidding wheel stays on the floor (the converter's WHEEL_SOLIMP). ctrlrange
+           covers the 20 km/h top speed. -->
       <default class="scout_wheel">
         <joint axis="0 1 0" damping="0.01" armature="0.002"/>
         <geom type="cylinder" size="{_f(r, tyre / 2.0)}" zaxis="0 1 0" group="3"
-          mass="0" friction="{_f(friction)} 0.005 0.0001" priority="1" material="scout_collision"/>
+          mass="0" friction="{_f(friction)} 0.005 0.0001" solimp="{_f(*WHEEL_SOLIMP)}"
+          priority="1" material="scout_collision"/>
         <velocity kv="20" ctrlrange="-70 70" forcerange="-20 20"/>
       </default>
     </default>

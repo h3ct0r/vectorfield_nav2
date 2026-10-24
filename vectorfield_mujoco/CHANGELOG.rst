@@ -22,7 +22,11 @@ Forthcoming
 * models/scout_mini: the AgileX Scout Mini converted from agilexrobotics/ugv_gazebo_sim by
   tools/convert_scout_mini.py (BSD per its package.xml; changes in its README.md), with the
   wheel geometry and mass of the AgileX user manual (wheelbase 452 mm, track 450 mm, 175 mm
-  wheels, 20 kg) and the chassis mesh turned to lie along x (front fence at +x).
+  wheels, 20 kg) and the chassis mesh turned to lie along x (front fence at +x). Its tyre
+  contacts are soft at first touch (solimp 0.05 0.95 0.001), so the skidding wheels stay on the
+  floor instead of hopping: the base turns in place at 0.49 of its no-slip yaw rate (isotropic
+  Coulomb friction: 0.50; 0.15 to 0.25 before), and skid_steer and curve_following use the
+  re-identified slip (skid_yaw_rate_efficiency 0.45).
 * models/ackermann_car: a front-steered, rear-driven car built from primitives, sized for the
   Ackermann controller overlay.
 * mujoco_sim (sim_node, simulation): the MuJoCo simulator node with vectorfield_sim's interface

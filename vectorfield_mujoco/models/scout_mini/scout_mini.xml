@@ -18,11 +18,14 @@ rerun it. README.md lists the sources and every change made to them.
       </default>
       <!-- In-wheel motors: velocity servos on the wheel hinges (axle = body y, + = forward).
            Wheel friction is isotropic (0.9, the Gazebo mu2) and wins over the floor's
-           through priority. ctrlrange covers the 20 km/h top speed. -->
+           through priority, as does the tyre's contact impedance: soft at first touch, so
+           that a skidding wheel stays on the floor (the converter's WHEEL_SOLIMP). ctrlrange
+           covers the 20 km/h top speed. -->
       <default class="scout_wheel">
         <joint axis="0 1 0" damping="0.01" armature="0.002"/>
         <geom type="cylinder" size="0.0875 0.0495" zaxis="0 1 0" group="3"
-          mass="0" friction="0.9 0.005 0.0001" priority="1" material="scout_collision"/>
+          mass="0" friction="0.9 0.005 0.0001" solimp="0.05 0.95 0.001"
+          priority="1" material="scout_collision"/>
         <velocity kv="20" ctrlrange="-70 70" forcerange="-20 20"/>
       </default>
     </default>
