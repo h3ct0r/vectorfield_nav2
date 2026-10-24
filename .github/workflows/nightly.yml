@@ -61,7 +61,8 @@ jobs:
         run: |
           set -eo pipefail
           apt-get update
-          apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri
+          # python3-pip: rosdep installs vectorfield_mujoco's pip key (the base image has no pip).
+          apt-get install -y --no-install-recommends xvfb libgl1-mesa-dri python3-pip
           rosdep update --rosdistro jazzy
           rosdep install --from-paths ws/src --ignore-src -y -r --rosdistro jazzy
 

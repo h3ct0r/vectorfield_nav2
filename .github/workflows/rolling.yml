@@ -75,6 +75,8 @@ jobs:
           source /root/nav2_ws/install/setup.bash
           export DEBIAN_FRONTEND=noninteractive
           apt-get update
+          # rosdep installs vectorfield_mujoco's pip key; make sure pip itself is there.
+          apt-get install -y --no-install-recommends python3-pip
           rosdep update --rosdistro rolling
           rosdep install -y -r --ignore-src --rosdistro rolling \
             --from-paths /opt/ros/rolling/share /root/nav2_ws/install/*/share \
