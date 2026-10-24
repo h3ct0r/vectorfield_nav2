@@ -174,10 +174,13 @@ class Recorder:
         self.renderer = mujoco.Renderer(model, height=height, width=width, max_geom=10000)
         self.frames = 0
         self._next = None
+        # Its own session: a Ctrl-C reaches the whole foreground process group, and an ffmpeg
+        # stopped by it never writes the MP4's index; close() ends it through stdin instead.
         self._proc = subprocess.Popen(
             ffmpeg_command(path, width, height, fps, crf, ffmpeg),
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,
         )
 
     def render(self, data):

@@ -23,7 +23,8 @@ send_curve.py approaches a curve with NavigateToPose, and the follower's ``cmd_v
 through Nav2's velocity smoother and collision_monitor (on Humble, bringup's collision_monitor).
 
 The follower's parameters are the merged ``FollowPath`` block (motion model, speeds, limits,
-obstacle mode), then the merged ``curve_follower`` section.
+obstacle mode), then the merged ``curve_follower`` section
+(``vectorfield_bringup.demo.curve_follower_actions()``, shared with the MuJoCo examples).
 
 Examples::
 
@@ -36,15 +37,10 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import LoadComposableNodes, Node
-from launch_ros.descriptions import ComposableNode
 
 from vectorfield_bringup import demo, params
 
 SCENARIO = 'curve_follower'
-
-# With use_composition, the follower and its lifecycle manager share this container.
-CONTAINER = 'curve_follower_container'
 
 # The kinematic demo's arguments, passed through unchanged (scenarios gets SCENARIO first).
 FORWARDED = (
@@ -70,52 +66,8 @@ def _launch_setup(context):
 
     # As kinematic_sim_demo: skid_steer compensates the simulator's slip.
     merged = demo.kinematic_sim_params(motion_model, ['kinematic_sim'] + scenarios)
-    follower_file = params.write_params(
-        {demo.FOLLOWER: {'ros__parameters': demo.follower_parameters(merged)}}
-    )
-    follower_parameters = [follower_file, {'use_sim_time': True}]
-    # Wall time, as kinematic_sim_demo's managers: a bond timeout started on simulated time
-    # before /clock is discovered would expire on the first /clock message.
-    manager_parameters = [
-        {'autostart': True, 'node_names': [demo.FOLLOWER], 'use_sim_time': False}
-    ]
-    if IfCondition(LaunchConfiguration('use_composition')).evaluate(context):
-        # One process: a manager in another process can lose a change_state response to
-        # discovery under load, and the manager then waits for it forever.
-        nodes = [
-            ComposableNode(
-                package='vectorfield_curve_follower',
-                plugin='vectorfield_curve_follower::CurveFollower',
-                name=demo.FOLLOWER,
-                parameters=follower_parameters,
-            ),
-            ComposableNode(
-                package='nav2_lifecycle_manager',
-                plugin='nav2_lifecycle_manager::LifecycleManager',
-                name='lifecycle_manager_curve_follower',
-                parameters=manager_parameters,
-            ),
-        ]
-        return [
-            simulation,
-            demo.component_container(CONTAINER, [], params.ros_distro()),
-            LoadComposableNodes(target_container=CONTAINER, composable_node_descriptions=nodes),
-        ]
-    follower = Node(
-        package='vectorfield_curve_follower',
-        executable='curve_follower',
-        name=demo.FOLLOWER,
-        parameters=follower_parameters,
-        output='screen',
-    )
-    manager = Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_curve_follower',
-        parameters=manager_parameters,
-        output='screen',
-    )
-    return [simulation, follower, manager]
+    composed = IfCondition(LaunchConfiguration('use_composition')).evaluate(context)
+    return [simulation] + demo.curve_follower_actions(merged, params.ros_distro(), composed)
 
 
 def generate_launch_description():

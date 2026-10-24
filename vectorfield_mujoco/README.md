@@ -43,8 +43,9 @@ or an existing Menagerie checkout offline.
 - `sensors`: 2D lidar (`mj_multiRay`, world geoms only) and the obstacle point cloud.
 - `overlay`: RViz-style markers drawn into a MuJoCo scene.
 - `recorder`, `gl`: offscreen chase, top or fixed camera to MP4 through ffmpeg, in simulated
-  time. Headless rendering uses `MUJOCO_GL=osmesa` (package `libosmesa6`) unless `MUJOCO_GL` is
-  set.
+  time. Unless `MUJOCO_GL` is set, headless rendering uses OSMesa (package `libosmesa6`, a
+  dependency) when it is installed, else EGL; with neither, the physics runs and rendering is
+  off.
 
 ```python
 import mujoco

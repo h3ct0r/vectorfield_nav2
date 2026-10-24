@@ -14,8 +14,10 @@
 
 """Tests of vectorfield_mujoco.gl and vectorfield_mujoco.recorder.
 
-The MP4 test needs ffmpeg and a working OpenGL backend (OSMesa when headless) and skips
-without them.
+The camera and MP4 tests need MuJoCo; the MP4 test also needs ffmpeg and a working OpenGL
+backend (OSMesa when headless). Whether MuJoCo imports and renders is probed in a separate
+process first (vectorfield_mujoco.gl.probe), so a host without a backend skips them instead of
+failing inside ``import mujoco``.
 """
 
 import json
@@ -27,29 +29,44 @@ import types
 import numpy as np
 import pytest
 
-from vectorfield_mujoco import gl
+from vectorfield_mujoco import gl, recorder
 
 # MuJoCo reads MUJOCO_GL when it is first imported.
 BACKEND = gl.configure()
 
-mujoco = pytest.importorskip('mujoco')
 
-from vectorfield_mujoco import overlay, recorder, scene  # noqa: E402
+@pytest.fixture(scope='module')
+def mujoco():
+    """Return the mujoco module, or skip if it cannot be imported with this backend."""
+    problem = gl.probe(render=False)
+    if problem:
+        pytest.skip(f'mujoco does not import: {problem}')
+    return pytest.importorskip('mujoco')
 
 
 @pytest.mark.parametrize(
-    'environ,platform,expected',
+    'environ,platform,libraries,expected',
     [
-        ({'MUJOCO_GL': 'egl', 'DISPLAY': ':0'}, 'linux', 'egl'),
-        ({'DISPLAY': ':1'}, 'linux', 'glfw'),
-        ({'WAYLAND_DISPLAY': 'wayland-0'}, 'linux', 'glfw'),
-        ({}, 'linux', 'osmesa'),
-        ({}, 'darwin', 'cgl'),
+        ({'MUJOCO_GL': 'egl', 'DISPLAY': ':0'}, 'linux', (), 'egl'),
+        ({'MUJOCO_GL': 'osmesa'}, 'linux', (), 'osmesa'),
+        ({'DISPLAY': ':1'}, 'linux', ('OSMesa',), 'glfw'),
+        ({'WAYLAND_DISPLAY': 'wayland-0'}, 'linux', (), 'glfw'),
+        ({}, 'linux', ('OSMesa', 'EGL'), 'osmesa'),
+        ({}, 'linux', ('EGL',), 'egl'),
+        ({}, 'linux', (), None),
+        ({}, 'darwin', (), 'cgl'),
     ],
 )
-def test_choose_backend(environ, platform, expected):
-    """MUJOCO_GL is kept if set, else picked from the display and the platform."""
-    assert gl.choose_backend(environ, platform) == expected
+def test_choose_backend(environ, platform, libraries, expected):
+    """MUJOCO_GL is kept; else the display, then a headless backend whose library exists."""
+    found = {name: f'lib{name}.so.1' for name in libraries}
+    assert gl.choose_backend(environ, platform, found.get) == expected
+
+
+def test_no_backend_is_reported():
+    """Without a backend, rendering is off with a reason that says what to install."""
+    assert gl.unavailable_reason('osmesa') is None
+    assert 'libosmesa6' in gl.unavailable_reason(None)
 
 
 def test_ffmpeg_command():
@@ -60,7 +77,7 @@ def test_ffmpeg_command():
     assert '-c:v libx264' in joined and '+faststart' in joined and cmd[-1] == 'out.mp4'
 
 
-def test_chase_camera_follows_with_smoothing():
+def test_chase_camera_follows_with_smoothing(mujoco):
     """The chase camera follows position and heading with a first-order lag."""
     rig = recorder.CameraRig('chase', body=1, distance=2.0, smoothing=0.5, height=0.0)
     data = types.SimpleNamespace(time=0.0, xpos=np.zeros((2, 3)), xmat=np.zeros((2, 9)))
@@ -80,18 +97,18 @@ def test_chase_camera_follows_with_smoothing():
         recorder.CameraRig('orbit')
 
 
-def test_record_mp4(tmp_path):
+def test_record_mp4(tmp_path, mujoco):
     """A one-second drive records ten frames of H.264 video."""
+    from vectorfield_mujoco import overlay, scene
+
     if shutil.which('ffmpeg') is None:
         pytest.skip('ffmpeg not installed')
+    problem = gl.unavailable_reason(BACKEND) or gl.probe()
+    if problem:
+        pytest.skip(f'no OpenGL rendering: {problem}')
     world = scene.make_world(
         'scout_mini', obstacles=[{'type': 'box', 'pos': [1.5, 0.0], 'size': [0.2, 0.2, 0.2]}]
     )
-    try:
-        probe = mujoco.Renderer(world.model, 64, 64)
-        probe.close()
-    except Exception as e:  # any GL failure means "no backend here"
-        pytest.skip(f'no OpenGL backend ({BACKEND}): {e}')
     path = tmp_path / 'clip.mp4'
     markers = [
         {

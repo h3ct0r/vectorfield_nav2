@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile of the launch tests on Fast DDS 3 (Lyrical; CMakeLists.txt sets
+  FASTDDS_DEFAULT_PROFILES_FILE), a copy of vectorfield_system_tests' profile. A launch test
+  process holds two participants, launch_ros's node and the test client. Delivered within the
+  process, their TypeLookup requests and replies can deadlock both (vectorfield_system_tests'
+  README, Known issues); over the transports they cannot. User data is still delivered within the
+  process, and a process with one participant (every launched node) is not affected.
+-->
+<dds xmlns="http://www.eprosima.com">
+  <library_settings>
+    <intraprocess_delivery>USER_DATA_ONLY</intraprocess_delivery>
+  </library_settings>
+</dds>

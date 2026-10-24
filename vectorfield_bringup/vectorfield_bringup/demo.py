@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared pieces of the demo launch files: distro checks, overlay and map lookup, RViz."""
+"""Shared pieces of the demo launch files: distro checks, overlay and map lookup, RViz.
+
+:func:`nav2_demo_actions` is the Nav2 side of a simulator demo (map_server, Nav2's servers and
+their lifecycle managers, Humble's collision_monitor, the initial pose and RViz), around the
+simulator's own actions; :func:`curve_follower_actions` adds the curve follower. The kinematic
+demos and the MuJoCo examples of vectorfield_mujoco share them.
+"""
 
 import copy
 import os
@@ -250,6 +256,212 @@ def initial_pose_node(x, y, yaw):
         parameters=[{'x': x, 'y': y, 'yaw': yaw, 'use_sim_time': True}],
         output='screen',
     )
+
+
+#: With use_composition, map_server, Nav2's servers and the lifecycle managers share this
+#: component container (nav2_bringup's name), so they need no DDS discovery between them.
+NAV2_CONTAINER = 'nav2_container'
+
+#: With use_composition, the curve follower and its lifecycle manager share this container.
+FOLLOWER_CONTAINER = 'curve_follower_container'
+
+#: The lifecycle managers the demos start keep wall time: on simulated time a bond timeout that
+#: starts before /clock has been discovered starts at time 0, and the first /clock message then
+#: expires it at once.
+MANAGER_CLOCK = {'use_sim_time': False}
+
+
+def sim_cmd_vel_topic(distro):
+    """Return the command topic a simulator listens on: ``cmd_vel_safe`` on Humble.
+
+    Humble's navigation_launch.py has no collision_monitor; :func:`nav2_demo_actions` adds one
+    that turns ``cmd_vel`` into ``cmd_vel_safe``.
+    """
+    return 'cmd_vel_safe' if distro == 'humble' else 'cmd_vel'
+
+
+def lifecycle_node(package, plugin, executable, name, parameters, composed):
+    """Return a node as a ComposableNode (``composed``) or as its own process."""
+    from launch_ros.actions import Node
+    from launch_ros.descriptions import ComposableNode
+
+    if composed:
+        return ComposableNode(package=package, plugin=plugin, name=name, parameters=parameters)
+    return Node(
+        package=package, executable=executable, name=name, parameters=parameters, output='screen'
+    )
+
+
+def lifecycle_manager(name, node_names, composed):
+    """Return a lifecycle manager with autostart for ``node_names``, on wall time."""
+    parameters = [{'autostart': True, 'node_names': list(node_names), **MANAGER_CLOCK}]
+    return lifecycle_node(
+        'nav2_lifecycle_manager',
+        'nav2_lifecycle_manager::LifecycleManager',
+        'lifecycle_manager',
+        name,
+        parameters,
+        composed,
+    )
+
+
+def nav2_demo_actions(
+    context, distro, params_file, map_yaml, sim_actions, initial_pose, use_rviz, composed=True
+):
+    """Return the Nav2 side of a simulator demo, around the simulator's own actions.
+
+    In order: map_server under lifecycle_manager_map_server; lifecycle_manager_navigation on
+    Lyrical and later, whose navigation_launch.py has none; on Humble, collision_monitor
+    (``cmd_vel`` to ``cmd_vel_safe``, :func:`sim_cmd_vel_topic`) under
+    lifecycle_manager_collision_monitor; with ``composed`` all of them in one component container
+    (:data:`NAV2_CONTAINER`) that also loads the Nav2 servers; then ``sim_actions``, nav2_bringup's
+    navigation_launch.py with ``params_file``, initial_pose_publisher and RViz.
+
+    Args:
+        context: The launch context (navigation_launch.py's node list on Lyrical needs it).
+        distro: The running ROS distro.
+        params_file: The merged Nav2 parameter file.
+        map_yaml: The map YAML for map_server.
+        sim_actions: The simulator's actions (the time source and its TFs).
+        initial_pose: The initial map pose (x, y, yaw): launch substitutions or values.
+        use_rviz: Start RViz (a substitution or a string).
+        composed: Run map_server, the Nav2 servers and the managers in one container.
+
+    """
+    from ament_index_python.packages import get_package_share_directory
+    from launch.actions import IncludeLaunchDescription
+    from launch.launch_description_sources import PythonLaunchDescriptionSource
+    from launch_ros.actions import LoadComposableNodes
+    from launch_ros.descriptions import ParameterFile
+
+    managed = [
+        lifecycle_node(
+            'nav2_map_server',
+            'nav2_map_server::MapServer',
+            'map_server',
+            'map_server',
+            [{'yaml_filename': map_yaml, 'use_sim_time': True}],
+            composed,
+        ),
+        lifecycle_manager('lifecycle_manager_map_server', ['map_server'], composed),
+    ]
+    # Lyrical's navigation_launch.py no longer starts a lifecycle manager (bringup_launch.py does).
+    navigation_nodes = navigation_lifecycle_nodes(context)
+    if navigation_nodes:
+        managed.append(
+            lifecycle_manager('lifecycle_manager_navigation', navigation_nodes, composed)
+        )
+    if distro == 'humble':
+        # Humble's navigation_launch.py has no collision_monitor; this one turns cmd_vel into
+        # cmd_vel_safe. Composed, it shares the container with its manager: a manager in another
+        # process can lose a change_state response to discovery under load ("failed to send
+        # response ... client will not receive response"), and Humble's manager then waits for
+        # it forever.
+        managed += [
+            lifecycle_node(
+                'nav2_collision_monitor',
+                'nav2_collision_monitor::CollisionMonitor',
+                'collision_monitor',
+                'collision_monitor',
+                [share('config', 'humble', 'collision_monitor.yaml'), {'use_sim_time': True}],
+                composed,
+            ),
+            lifecycle_manager(
+                'lifecycle_manager_collision_monitor', ['collision_monitor'], composed
+            ),
+        ]
+    if composed:
+        managed = [
+            # As in nav2_bringup: the container's parameter file is the only one that reaches
+            # the costmaps' own nodes (local_costmap/local_costmap and so on).
+            component_container(
+                NAV2_CONTAINER,
+                [
+                    ParameterFile(params_file, allow_substs=True),
+                    {'autostart': True, 'use_sim_time': True},
+                ],
+                distro,
+            ),
+            LoadComposableNodes(
+                target_container=NAV2_CONTAINER, composable_node_descriptions=managed
+            ),
+        ]
+
+    nav2_launch = os.path.join(
+        get_package_share_directory('nav2_bringup'), 'launch', 'navigation_launch.py'
+    )
+    navigation = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(nav2_launch),
+        launch_arguments={
+            'namespace': '',
+            'use_sim_time': 'True',
+            'params_file': params_file,
+            'autostart': 'True',
+            'use_composition': 'True' if composed else 'False',
+            'container_name': NAV2_CONTAINER,
+        }.items(),
+    )
+    return (
+        managed
+        + list(sim_actions)
+        + [navigation, initial_pose_node(*initial_pose), rviz_node(use_rviz)]
+    )
+
+
+def curve_follower_actions(merged, distro, composed=True):
+    """Return the curve follower and lifecycle_manager_curve_follower for merged parameters.
+
+    The follower's parameters are :func:`follower_parameters` of ``merged``. With ``composed``
+    both run in :data:`FOLLOWER_CONTAINER`.
+    """
+    from launch_ros.actions import LoadComposableNodes, Node
+    from launch_ros.descriptions import ComposableNode
+
+    follower_file = params.write_params(
+        {FOLLOWER: {'ros__parameters': follower_parameters(merged)}}
+    )
+    follower_params = [follower_file, {'use_sim_time': True}]
+    # Wall time, as the Nav2 managers: a bond timeout started on simulated time before /clock
+    # is discovered would expire on the first /clock message.
+    manager_parameters = [{'autostart': True, 'node_names': [FOLLOWER], **MANAGER_CLOCK}]
+    if composed:
+        # One process: a manager in another process can lose a change_state response to
+        # discovery under load, and the manager then waits for it forever.
+        nodes = [
+            ComposableNode(
+                package='vectorfield_curve_follower',
+                plugin='vectorfield_curve_follower::CurveFollower',
+                name=FOLLOWER,
+                parameters=follower_params,
+            ),
+            ComposableNode(
+                package='nav2_lifecycle_manager',
+                plugin='nav2_lifecycle_manager::LifecycleManager',
+                name='lifecycle_manager_curve_follower',
+                parameters=manager_parameters,
+            ),
+        ]
+        return [
+            component_container(FOLLOWER_CONTAINER, [], distro),
+            LoadComposableNodes(
+                target_container=FOLLOWER_CONTAINER, composable_node_descriptions=nodes
+            ),
+        ]
+    follower = Node(
+        package='vectorfield_curve_follower',
+        executable='curve_follower',
+        name=FOLLOWER,
+        parameters=follower_params,
+        output='screen',
+    )
+    manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_curve_follower',
+        parameters=manager_parameters,
+        output='screen',
+    )
+    return [follower, manager]
 
 
 def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):

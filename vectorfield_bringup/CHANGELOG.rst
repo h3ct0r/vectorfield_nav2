@@ -2,6 +2,14 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* vectorfield_bringup.demo: nav2_demo_actions() (map_server and its manager, navigation_launch.py,
+  Humble's collision_monitor, the initial pose and RViz around a simulator's own actions),
+  curve_follower_actions() (the follower and its manager), sim_cmd_vel_topic() and the
+  lifecycle helpers, moved out of kinematic_sim_demo and curve_follower_demo, which call them
+  unchanged; vectorfield_mujoco's examples share them.
+
 0.3.0 (2026-10-23)
 ------------------
 * follower3d_demo.launch.py (experimental): point_sim_3d, the 3D follower with its lifecycle

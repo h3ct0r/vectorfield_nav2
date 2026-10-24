@@ -405,6 +405,12 @@ def test_with_slip_compensation_sets_follow_path():
     assert follow == {'motion_model': 'skid_steer', 'skid_icr_offset': 0.0}, 'not modified'
 
 
+def test_sim_cmd_vel_topic():
+    """Simulators listen after Humble's added collision_monitor, else on Nav2's cmd_vel."""
+    assert demo.sim_cmd_vel_topic('humble') == 'cmd_vel_safe'
+    assert demo.sim_cmd_vel_topic('jazzy') == demo.sim_cmd_vel_topic('lyrical') == 'cmd_vel'
+
+
 def test_split_list():
     """Launch list arguments accept commas and spaces."""
     assert demo.split_list('') == []
