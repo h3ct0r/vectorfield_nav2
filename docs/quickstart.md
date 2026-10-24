@@ -14,15 +14,39 @@ The packages build from source in a colcon workspace on Humble, Jazzy and Lyrica
 mkdir -p ~/vf_ws/src && cd ~/vf_ws/src
 git clone https://github.com/h3ct0r/vectorfield_nav2.git
 cd ~/vf_ws
-rosdep install --from-paths src --ignore-src -y
+PIP_BREAK_SYSTEM_PACKAGES=1 rosdep install --from-paths src --ignore-src -y
 colcon build --symlink-install
 source install/setup.bash
+```
+
+`vectorfield_mujoco`, the package of the MuJoCo examples, needs MuJoCo from pip (rosdep key
+`python3-mujoco-pip`). Ubuntu Noble and later (Jazzy, Lyrical) mark the system Python as
+externally managed, so rosdep's pip install fails there without
+`PIP_BREAK_SYSTEM_PACKAGES=1`, as the CI and the devcontainers set it. To leave the examples
+out instead, skip the key and the package:
+
+```bash
+rosdep install --from-paths src --ignore-src -y --skip-keys python3-mujoco-pip
+colcon build --symlink-install --packages-skip vectorfield_mujoco
 ```
 
 The repository also has one devcontainer per distro under `.devcontainer/` (`humble`, `jazzy`,
 `lyrical` and `rolling`). In one of them, run `colcon build --symlink-install`, then
 `colcon test && colcon test-result --verbose`, from `/ws`. The Rolling container is for
 compiling and unit tests only; run the demos in the Lyrical container.
+
+## MuJoCo examples
+
+One command per mode runs the controller on a physics model of a robot, with a scenario that
+drives it by itself:
+
+```bash
+ros2 launch vectorfield_mujoco differential.launch.py
+```
+
+The other examples are `skid_steer`, `omnidirectional`, `ackermann`, `drone` and
+`curve_following`. {doc}`examples/index` shows each one with its clip and configuration, and
+lists what they need; the first run downloads three robots from the MuJoCo Menagerie.
 
 ## Controller demo
 

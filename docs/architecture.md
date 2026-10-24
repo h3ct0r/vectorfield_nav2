@@ -11,6 +11,8 @@ tests, on a package above it; tests that need several packages live in
 `vectorfield_system_tests`. `vectorfield_behavior_tree` depends on `vectorfield_msgs` and Nav2's
 `nav2_behavior_tree`, and on `vectorfield_ros` at build time only, for its CMake helpers (dotted);
 it reaches the follower through the `follow_curve` action, not as a package.
+`vectorfield_mujoco`, the MuJoCo examples ({doc}`examples/index`), sits on top of
+`vectorfield_bringup` and is source-only: it depends on MuJoCo from pip.
 
 ```{graphviz}
 :caption: Package dependencies. Dashed edges belong to the vectorfield_nav2 metapackage.
@@ -25,17 +27,20 @@ digraph packages {
   ros [label="vectorfield_ros"];
   controller [label="vectorfield_nav2_controller"];
   follower [label="vectorfield_curve_follower"];
+  follower3d [label="vectorfield_follower_3d"];
   bt [label="vectorfield_behavior_tree"];
   sim [label="vectorfield_sim"];
   py [label="vectorfield_py"];
   bringup [label="vectorfield_bringup"];
   system_tests [label="vectorfield_system_tests\n(not released)"];
+  mujoco [label="vectorfield_mujoco\n(source only)"];
   meta [label="vectorfield_nav2\n(metapackage)", fillcolor="#e8eef7"];
 
   ros -> core;
   ros -> msgs;
   controller -> ros;
   follower -> ros;
+  follower3d -> follower;
   bt -> msgs;
   bt -> ros [style=dotted];
   sim -> ros;
@@ -43,13 +48,15 @@ digraph packages {
   py -> core;
   bringup -> controller;
   bringup -> follower;
+  bringup -> follower3d;
   bringup -> bt;
   bringup -> sim;
   bringup -> py;
   system_tests -> bringup;
+  mujoco -> bringup;
 
   edge [style=dashed, color="#8899bb"];
-  meta -> {msgs core ros controller follower bt py sim};
+  meta -> {msgs core ros controller follower follower3d bt py sim};
 }
 ```
 

@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Nightly, non-gating test layer 5: Gazebo TB3 (label `gazebo`) and
-# noise/latency/slip injection (label `nightly`). These tests are registered only
+# Nightly, non-gating test layer 5: Gazebo TB3 (label `gazebo`),
+# noise/latency/slip injection (label `nightly`) and every MuJoCo example's
+# scenario (vectorfield_mujoco, label `mujoco`). These tests are registered only
 # with -DVF_NIGHTLY_TESTS=ON, so per-PR jobs, devcontainer `colcon test` and
-# buildfarm devel jobs never see them. Plain bash steps, because action-ros-ci
-# cannot run its tests under xvfb-run; the TB3 world loads the ogre2 sensors
-# system, which needs a display even in headless mode.
+# buildfarm devel jobs never see them (per PR, only the MuJoCo smoke test runs).
+# Plain bash steps, because action-ros-ci cannot run its tests under xvfb-run;
+# the TB3 world loads the ogre2 sensors system, which needs a display even in
+# headless mode. The MuJoCo tests run headless and render nothing.
 
-name: Nightly (Gazebo + injection)
+name: Nightly (Gazebo, injection, MuJoCo)
 
 on:
   schedule:
@@ -39,7 +41,7 @@ jobs:
     runs-on: ubuntu-24.04
     container:
       image: ros:jazzy-ros-base-noble
-    timeout-minutes: 180
+    timeout-minutes: 240
     permissions:
       contents: read
       checks: write # mikepenz/action-junit-report check run
@@ -69,8 +71,45 @@ jobs:
           set -eo pipefail
           source /opt/ros/jazzy/setup.bash
           colcon build --event-handlers console_cohesion+ \
-            --packages-up-to vectorfield_system_tests \
+            --packages-up-to vectorfield_system_tests vectorfield_mujoco \
             --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DVF_NIGHTLY_TESTS=ON --no-warn-unused-cli
+
+      # The MuJoCo Menagerie robots (TIAGo, TidyBot, X2) are fetched at the commit pinned in
+      # menagerie.py and cached under that commit. VF_MENAGERIE_DIR points the examples at the
+      # checkout; GITHUB_WORKSPACE is the container's path (github.workspace is the host's).
+      - name: Pinned MuJoCo Menagerie commit
+        id: menagerie
+        run: |
+          set -eo pipefail
+          sha="$(sed -n "s/^MENAGERIE_COMMIT = '\([0-9a-f]\{40\}\)'\$/\1/p" \
+            ws/src/vectorfield_nav2/vectorfield_mujoco/vectorfield_mujoco/menagerie.py)"
+          test -n "${sha}"
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+          echo "VF_MENAGERIE_DIR=${GITHUB_WORKSPACE}/menagerie" >> "${GITHUB_ENV}"
+
+      - name: Restore the MuJoCo Menagerie checkout
+        id: menagerie-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: menagerie
+          key: mujoco-menagerie-${{ steps.menagerie.outputs.sha }}
+
+      - name: Fetch the MuJoCo Menagerie robots
+        if: steps.menagerie-cache.outputs.cache-hit != 'true'
+        working-directory: ws
+        run: |
+          set -eo pipefail
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          ros2 run vectorfield_mujoco fetch_menagerie
+
+      # Saved right after the fetch, so a failing test does not lose the download.
+      - name: Save the MuJoCo Menagerie checkout
+        if: steps.menagerie-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: menagerie
+          key: ${{ steps.menagerie-cache.outputs.cache-primary-key }}
 
       - name: Test (gazebo|nightly) under Xvfb
         working-directory: ws
@@ -83,6 +122,15 @@ jobs:
             colcon test --event-handlers console_direct+ \
               --packages-select vectorfield_system_tests --ctest-args -L 'gazebo|nightly'
 
+      # Without a display, so the MuJoCo examples pick the headless backend as per PR.
+      - name: Test (mujoco)
+        working-directory: ws
+        run: |
+          set -eo pipefail
+          source /opt/ros/jazzy/setup.bash
+          colcon test --event-handlers console_direct+ \
+            --packages-select vectorfield_mujoco --ctest-args -L mujoco
+
       # colcon test exits 0 when tests fail; test-result sets the job status.
       - name: Test results
         working-directory: ws
@@ -94,7 +142,9 @@ jobs:
         if: ${{ !cancelled() }}
         uses: mikepenz/action-junit-report@v6
         with:
-          report_paths: ws/build/vectorfield_system_tests/test_results/**/*.xml
+          report_paths: |
+            ws/build/vectorfield_system_tests/test_results/**/*.xml
+            ws/build/vectorfield_mujoco/test_results/**/*.xml
           check_name: nightly tests (jazzy-amd64)
 
       - name: Upload colcon logs

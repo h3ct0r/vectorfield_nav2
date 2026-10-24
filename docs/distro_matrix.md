@@ -47,14 +47,15 @@ collision_monitor between the smoother and the base, so the Humble demos add one
 | `curve_follower_demo.launch.py` | yes | yes | yes |
 | `loopback_demo.launch.py` | no (no `nav2_loopback_sim`) | yes | yes |
 | `tb3_gazebo_demo.launch.py`, `tb4_gazebo_demo.launch.py` | no | yes (Gazebo Harmonic) | yes (Gazebo Jetty) |
+| `vectorfield_mujoco` examples ({doc}`examples/index`) | yes | yes | yes |
 
 Each demo exits with an error that names the supported distros when it cannot run on the current
 one.
 
 ## Binary packages
 
-Release 0.1.0 is planned through bloom for Humble, Jazzy and Lyrical, on the platforms the ROS
-build farm builds each distro for:
+Releases go through bloom for Humble, Jazzy and Lyrical, on the platforms the ROS build farm
+builds each distro for:
 
 | Distro | Ubuntu (amd64, arm64) | Other platforms of the distro | vectorfield_nav2 binaries |
 |---|---|---|---|
@@ -68,4 +69,9 @@ failures are expected. `vectorfield_bringup` is not part of the `vectorfield_nav
 so installing the stack on a robot does not pull in the simulators. `vectorfield_system_tests` is
 never released.
 
-Until the binaries are available, build from source ({doc}`quickstart`).
+`vectorfield_mujoco` is not released either: it depends on MuJoCo through the pip rosdep key
+`python3-mujoco-pip`, which the build farm does not accept. It is source-only; build it in a
+workspace with rosdep run as `PIP_BREAK_SYSTEM_PACKAGES=1` on Noble and later
+({doc}`examples/index`).
+
+0.3.0 is released; until its binaries are available, build from source ({doc}`quickstart`).

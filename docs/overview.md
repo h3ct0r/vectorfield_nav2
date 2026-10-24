@@ -49,9 +49,11 @@ upstream defects that motivated this decision is in the design documents
 - **Python:** the `vectorfield` bindings and the `vf-plot`, `vf-sim`, `vf-tune` and `vf-curve`
   command-line tools, installable with pip from a checkout, without ROS.
 - **Distros:** Humble, Jazzy and Lyrical, with Rolling built nightly ({doc}`distro_matrix`).
+- **Examples:** one MuJoCo launch per mode, on robot models from the MuJoCo Menagerie and
+  others: differential, skid-steer, omnidirectional, Ackermann and a drone ({doc}`examples/index`).
 
-Milestones M0 to M5 are complete; M6 (documentation and the 0.1.0 release) is in progress. The
-{doc}`roadmap` lists what each milestone delivers, and {doc}`quickstart` runs the demos.
+0.3.0 is released; the binary packages wait on the ROS build farm. The {doc}`roadmap` lists what
+each milestone delivered, and {doc}`quickstart` runs the demos.
 
 ## Packages
 
@@ -62,10 +64,12 @@ Milestones M0 to M5 are complete; M6 (documentation and the 0.1.0 release) is in
 | `vectorfield_ros` | Distro compatibility layer, conversions, shared parameters and validation, and the marker builder and visualizer. |
 | `vectorfield_nav2_controller` | The `nav2_core::Controller` plugin and the legacy path handler for Humble–Kilted. |
 | `vectorfield_curve_follower` | Lifecycle component serving the `follow_curve` action. |
+| `vectorfield_follower_3d` | Lifecycle component serving the experimental `follow_curve_3d` action (the 3D core, for drones), and the `point_sim_3d` simulator ({doc}`follower_3d`). |
 | `vectorfield_behavior_tree` | The Nav2 behaviour-tree node `FollowCurve` and the `bt_runner` executor ({doc}`behavior_tree`). |
 | `vectorfield_py` | pybind11 bindings (`vectorfield`) and the `vectorfield_tools` command-line tools. |
 | `vectorfield_sim` | Lightweight kinematic simulator built on the core integrator. |
 | `vectorfield_bringup` | Launch files, parameter overlays, maps and RViz/Foxglove/PlotJuggler layouts. |
+| `vectorfield_mujoco` | The MuJoCo examples: the `mujoco_sim` simulator node, robot models and configs, and one launch per mode ({doc}`examples/index`). Source-only: it depends on MuJoCo from pip. |
 | `vectorfield_system_tests` | Cross-package and launch tests (never released). |
 | `vectorfield_nav2` | Metapackage for the released runtime packages. |
 

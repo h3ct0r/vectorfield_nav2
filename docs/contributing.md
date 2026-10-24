@@ -38,3 +38,12 @@ The RViz screenshots and the demo GIF in `docs/_static/screenshots/` are capture
 server (Xvfb) with software rendering. Retake them when the markers, their colours or the RViz
 configuration change; {doc}`visualization` lists the scenario of each. Keep each PNG under
 300 KB and the GIF under 3 MB. The pre-commit hooks skip both image directories.
+
+The gallery clips in `docs/_static/media/` (the README's GIFs and the {doc}`examples/index`
+videos) are recordings of the MuJoCo examples. Record them again with
+`vectorfield_mujoco/scripts/record_gallery.sh` in the Jazzy devcontainer, with the workspace
+built and sourced, after a change to an example, its scenario or the markers; it records each
+example headless to the end of its scenario. Each MP4 stays under 3 MiB, each GIF under 2 MiB
+and each poster JPEG under 150 KiB: the script fails over budget, and the pre-commit hooks
+reject files over 3 MB. The `clip` directive (`docs/vf_clips.py`) embeds them; a clip whose
+files are missing fails the docs build.

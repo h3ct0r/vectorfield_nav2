@@ -18,7 +18,8 @@ default: true
 # Line length: prose is not hard-wrapped.
 MD013: false
 
-# Inline HTML: allowed only for badges, line breaks and collapsible blocks.
+# Inline HTML: allowed only for badges, line breaks, collapsible blocks and the README's gallery
+# table.
 MD033:
   allowed_elements:
     - a
@@ -31,6 +32,9 @@ MD033:
     - summary
     - sub
     - sup
+    - table
+    - td
+    - tr
 
 # Repeated headings are fine in different sections (changelogs, guides).
 MD024:

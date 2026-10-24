@@ -1,0 +1,246 @@
+/*
+ * Copyright 2026 Héctor Azpúrua
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* Furo additions: the landing page (index.md), the gallery clips (docs/vf_clips.py) and the
+ * example cards. Colours come from Furo's variables, so light and dark mode both work. */
+
+/* -- Clips --------------------------------------------------------------------------------- */
+
+/* The recordings are 960x540: reserve a 16:9 box so the page does not jump while they load. */
+video.vf-clip {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: var(--color-background-secondary);
+}
+
+/* A clip on its own (example pages): a frame and some air around it. */
+article > section > video.vf-clip,
+article video.vf-clip[controls] {
+  margin: 1rem 0 1.25rem;
+  border: 1px solid var(--color-background-border);
+}
+
+/* -- Example pages ------------------------------------------------------------------------- */
+
+/* The fact sheet under each example's launch line: a key column and its values, no header. */
+table.vf-facts {
+  width: 100%;
+}
+
+table.vf-facts td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+/* Legend keys, `[Blue line]{.vf-key .vf-blue}`: a swatch of the overlay's colour before the
+ * name (vectorfield_ros's marker colours, mujoco_sim's path, trail and world colours). */
+.vf-key {
+  font-weight: 600;
+}
+
+.vf-key::before {
+  content: '';
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin-right: 0.4em;
+  vertical-align: -0.05em;
+  border-radius: 0.2em;
+  /* Grey, so that the dark trail's swatch shows on the dark background too. */
+  border: 1px solid rgba(128, 128, 128, 0.7);
+  background: var(--vf-key-colour, transparent);
+}
+
+.vf-blue { --vf-key-colour: #1a73ff; } /* mujoco_sim's first Path overlay (/plan) */
+.vf-blue3d { --vf-key-colour: #1a99ff; } /* follower_3d's curve */
+.vf-teal { --vf-key-colour: #009999; }
+.vf-green { --vf-key-colour: #33cc33; }
+.vf-green3d { --vf-key-colour: #33e633; }
+.vf-body { --vf-key-colour: rgba(51, 230, 51, 0.35); }
+.vf-red { --vf-key-colour: #e61a1a; }
+.vf-purple { --vf-key-colour: #994de6; }
+.vf-magenta { --vf-key-colour: #e61ae6; }
+.vf-amber { --vf-key-colour: #ff9900; }
+.vf-slate { --vf-key-colour: #738099; }
+.vf-trail { --vf-key-colour: #1f1f29; }
+.vf-obstacle { --vf-key-colour: #d97326; }
+.vf-wall { --vf-key-colour: #8c949e; }
+
+/* -- Landing page -------------------------------------------------------------------------- */
+
+/* The title of the page holding the hero is larger (no :has() support: Furo's default). */
+article:has(.vf-hero) > section > h1 {
+  font-size: 2.6em;
+  margin-bottom: 0.25rem;
+}
+
+/* Clear Furo's floated view/edit icons: the grid's flex row would otherwise shrink beside them. */
+.vf-hero {
+  clear: both;
+  margin: 0.5rem 0 1.5rem;
+  /* Flush with the text: the columns' own gutter is enough. */
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.vf-hero .vf-hero-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.vf-hero .vf-hero-text > p:first-child {
+  font-size: 1.3em;
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 0;
+}
+
+.vf-hero .vf-hero-text > p {
+  color: var(--color-foreground-secondary);
+}
+
+.vf-hero .vf-hero-text > p:first-child {
+  color: var(--color-foreground-primary);
+}
+
+.vf-hero video.vf-clip {
+  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+}
+
+.vf-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.vf-buttons > p {
+  margin: 0;
+}
+
+.vf-buttons .sd-btn {
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.95em;
+}
+
+/* -- Example cards ------------------------------------------------------------------------- */
+
+.vf-example {
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vf-example:hover {
+  transform: translateY(-2px);
+}
+
+/* The clip spans the card's top edge, above its title. */
+.vf-example > .sd-card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.9rem 0.6rem;
+}
+
+.vf-example > .sd-card-body > video.vf-clip {
+  order: -1;
+  width: calc(100% + 1.8rem);
+  max-width: none;
+  margin: 0 -0.9rem 0.6rem;
+  border-radius: 0;
+  border-bottom: 1px solid var(--color-background-border);
+}
+
+.vf-example .sd-card-title {
+  margin-bottom: 0.2rem;
+  font-size: 1.1em;
+}
+
+.vf-example .sd-card-body > p {
+  margin: 0 0 0.5rem;
+  font-size: 0.9em;
+  color: var(--color-foreground-secondary);
+}
+
+.vf-example .sd-card-body > p strong {
+  color: var(--color-foreground-primary);
+}
+
+/* The launch line wraps instead of scrolling, and stays selectable and copyable above the
+ * card's stretched link. The copy button copies it as one line. */
+.vf-example div[class^='highlight-'] {
+  position: relative;
+  z-index: 2;
+  margin: auto 0 0;
+}
+
+.vf-example div[class^='highlight-'] pre {
+  font-size: 0.75em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 2.2rem 0.5rem 0.6rem;
+}
+
+/* Compact cards (the Examples index): clip and caption only. */
+.vf-compact .sd-card-title {
+  font-size: 1em;
+}
+
+.vf-compact .sd-card-body > p:last-child {
+  margin-bottom: 0;
+}
+
+/* -- Feature cards ------------------------------------------------------------------------- */
+
+.vf-feature .sd-card-title {
+  font-size: 1em;
+  color: var(--color-brand-primary);
+}
+
+.vf-feature .sd-card-text,
+.vf-feature .sd-card-body > p {
+  font-size: 0.9em;
+  color: var(--color-foreground-secondary);
+}
+
+/* -- Phones -------------------------------------------------------------------------------- */
+
+@media (max-width: 40em) {
+  article:has(.vf-hero) > section > h1 {
+    font-size: 2em;
+  }
+
+  .vf-hero .vf-hero-text > p:first-child {
+    font-size: 1.15em;
+  }
+}
+
+/* Clips and transitions stay still for readers who prefer reduced motion (clips.js). */
+@media (prefers-reduced-motion: reduce) {
+  .vf-example {
+    transition: none;
+  }
+
+  .vf-example:hover {
+    transform: none;
+  }
+}

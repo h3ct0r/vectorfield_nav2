@@ -8,8 +8,9 @@ steps.
 :::{admonition} Build from source
 :class: note
 
-Binary packages (`ros-<distro>-vectorfield-nav2`) are not released yet; they follow with 0.1.0
-({doc}`../distro_matrix`). Until then, build the packages from source as below.
+0.3.0 is released, but its binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS
+build farm ({doc}`../distro_matrix`). Until they are out, build the packages from source as
+below.
 :::
 
 ## 1. Prerequisites
@@ -64,12 +65,16 @@ mkdir -p ~/vf_ws/src
 cd ~/vf_ws/src && git clone https://github.com/h3ct0r/vectorfield_nav2.git
 ```
 
-Install the dependencies (Nav2, the simulators, RViz, pybind11 and the Python tools'
-dependencies):
+Install the dependencies (Nav2, the simulators, RViz, pybind11, the Python tools' dependencies
+and MuJoCo for the {doc}`MuJoCo examples <../examples/index>`):
 
 ```bash
-cd ~/vf_ws && rosdep install --from-paths src --ignore-src -y
+cd ~/vf_ws && PIP_BREAK_SYSTEM_PACKAGES=1 rosdep install --from-paths src --ignore-src -y
 ```
+
+MuJoCo comes from pip. `PIP_BREAK_SYSTEM_PACKAGES=1` lets rosdep's pip install it on Ubuntu
+Noble and later, whose system Python refuses pip installs otherwise; Humble's Jammy does not
+need it. The {doc}`../quickstart` shows how to leave the MuJoCo examples out instead.
 
 Build. The first build compiles the C++ core, the controller plugin, the curve follower and the
 Python bindings, and takes several minutes:
@@ -223,6 +228,8 @@ cd ~/vf_ws && rm -rf build install log
 
 ## Next steps
 
+- {doc}`../examples/index`: the controller on physics models of real robots, one command per
+  mode.
 - {doc}`scenarios`: the other demos (corridors, obstacles, other motion models, speed limits,
   run-time tuning).
 - {doc}`curve_following`: the `follow_curve` action, from the demo to your own client.

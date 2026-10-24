@@ -4,7 +4,7 @@ Metapackage for the vectorfield_nav2 stack: artificial vector-field navigation f
 Rezende, Gonçalves and Pimenta, *Constructive Time-Varying Vector Fields for Robot Navigation*
 (IEEE T-RO 38(2), 2022).
 
-**Status:** all the packages it depends on are complete (M0 to M5); 0.1.0 is in preparation.
+**Status:** 0.3.0 is released; the binary packages wait on the ROS build farm.
 
 ## Contents
 

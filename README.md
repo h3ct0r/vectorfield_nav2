@@ -5,10 +5,93 @@
 [![codecov](https://codecov.io/gh/h3ct0r/vectorfield_nav2/branch/main/graph/badge.svg)](https://codecov.io/gh/h3ct0r/vectorfield_nav2)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
+<p align="center">
+  <a href="https://h3ct0r.github.io/vectorfield_nav2/examples/differential.html"><img src="docs/_static/media/differential.gif" width="480" alt="PAL TIAGo in MuJoCo follows its Nav2 plan with the vector-field controller, contours around an unmapped box and rejoins the path"></a>
+</p>
+
 Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implements the constructive time-varying vector fields of Rezende, Gonçalves and Pimenta ([IEEE T-RO 2022](https://doi.org/10.1109/TRO.2021.3093674)) as a Nav2 controller plugin and as a standalone curve-following action server, both built on a ROS-free C++ core. The field makes the robot converge to a path or curve and then circulate along it at a set speed; its time-varying feedforward term lets the robot follow curves that move. The implementation is a clean-room C++ rewrite from the equations in the paper and in Rezende's PhD thesis.
 
 > [!NOTE]
-> **Status: milestones M0 to M5 are complete; M6 (documentation and the 0.1.0 release) is in progress.** The controller plugin, the curve follower, the simulator and demos, and the Python tools are implemented and tested on Humble, Jazzy and Lyrical. Binary packages follow with 0.1.0; until then, build from source. The [documentation](https://h3ct0r.github.io/vectorfield_nav2/) has a quickstart, the theory, a tuning guide and the parameter reference.
+> **Status: 0.3.0 is released.** The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build farm; until they are out, build from source. The [documentation](https://h3ct0r.github.io/vectorfield_nav2/) has a quickstart, the examples, the theory, a tuning guide and the parameter reference.
+
+## Examples
+
+One command per mode starts MuJoCo physics, the controller, RViz and a scenario that drives the robot by itself. The clips are recordings of these launches; each links to its page in the documentation, with the configuration and how to adapt it to your robot. The examples need a source build ([requirements](https://h3ct0r.github.io/vectorfield_nav2/examples/index.html)).
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+[![PAL TIAGo contours around an unmapped box and rejoins its Nav2 path](docs/_static/media/differential.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/differential.html)
+
+**Differential** · PAL TIAGo · Nav2 + obstacle contour
+
+`ros2 launch vectorfield_mujoco differential.launch.py`
+
+[launch](vectorfield_mujoco/launch/differential.launch.py) · [config](vectorfield_mujoco/config/robots/tiago.yaml) · [scenario](vectorfield_mujoco/config/scenarios/differential.yaml)
+
+</td>
+<td width="50%" valign="top">
+
+[![AgileX Scout Mini drives through a 0.8 m door and back](docs/_static/media/skid_steer.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/skid_steer.html)
+
+**Skid-steer** · AgileX Scout Mini · Nav2 through a door
+
+`ros2 launch vectorfield_mujoco skid_steer.launch.py`
+
+[launch](vectorfield_mujoco/launch/skid_steer.launch.py) · [config](vectorfield_mujoco/config/robots/scout_mini.yaml) · [scenario](vectorfield_mujoco/config/scenarios/skid_steer.yaml)
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+[![Stanford TidyBot base strafes around a rounded rectangle at a fixed heading](docs/_static/media/omnidirectional.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/omnidirectional.html)
+
+**Omnidirectional** · TidyBot base · curve follower, fixed heading
+
+`ros2 launch vectorfield_mujoco omnidirectional.launch.py`
+
+[launch](vectorfield_mujoco/launch/omnidirectional.launch.py) · [config](vectorfield_mujoco/config/robots/tidybot.yaml) · [scenario](vectorfield_mujoco/config/scenarios/omnidirectional.yaml)
+
+</td>
+<td width="50%" valign="top">
+
+[![A front-steered car swerves around a box next to its path](docs/_static/media/ackermann.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/ackermann.html)
+
+**Ackermann** · car model · Nav2 Smac Hybrid + CBF
+
+`ros2 launch vectorfield_mujoco ackermann.launch.py`
+
+[launch](vectorfield_mujoco/launch/ackermann.launch.py) · [config](vectorfield_mujoco/config/robots/ackermann_car.yaml) · [scenario](vectorfield_mujoco/config/scenarios/ackermann.yaml)
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+[![Skydio X2 flies a helix around a pillar and a sphere](docs/_static/media/drone.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/drone.html)
+
+**Drone** · Skydio X2 · 3D follower helix + CBF
+
+`ros2 launch vectorfield_mujoco drone.launch.py`
+
+[launch](vectorfield_mujoco/launch/drone.launch.py) · [config](vectorfield_mujoco/config/robots/x2.yaml) · [scenario](vectorfield_mujoco/config/scenarios/drone.yaml)
+
+</td>
+<td width="50%" valign="top">
+
+[![AgileX Scout Mini laps a lemniscate with the curve follower](docs/_static/media/curve_following.gif)](https://h3ct0r.github.io/vectorfield_nav2/examples/curve_following.html)
+
+**Curve following** · AgileX Scout Mini · lemniscate laps
+
+`ros2 launch vectorfield_mujoco curve_following.launch.py`
+
+[launch](vectorfield_mujoco/launch/curve_following.launch.py) · [config](vectorfield_mujoco/config/robots/scout_mini.yaml) · [scenario](vectorfield_mujoco/config/scenarios/curve_following.yaml)
+
+</td>
+</tr>
+</table>
 
 ## Features
 
@@ -30,8 +113,9 @@ Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implemen
 | M3 | `vectorfield_sim`, controller bringup and demos, system tests | Done |
 | M4 | `vectorfield_py` bindings and CLIs, theory pages with generated figures | Done |
 | M5 | `vectorfield_curve_follower` (`follow_curve` action), curve demos and example clients | Done |
-| M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | In progress |
+| M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | Done |
 | M7 | Optional extensions; done: an experimental 3D core (`vectorfield_core::d3`, `vectorfield.d3`, `vf-sim3d`), the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`), reversing (plans with cusps) with Nav2 path constraints, obstacle contouring for Ackermann bases, and the control-barrier-function obstacle mode (`obstacle_mode: cbf`) | Optional |
+| Examples | `vectorfield_mujoco`: MuJoCo examples for every mode, the gallery clips, the documentation revamp | Done, for the next release |
 
 ## Packages
 
@@ -47,6 +131,7 @@ Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implemen
 | `vectorfield_py` | pybind11 bindings (`vectorfield`) and command-line tools (`vectorfield_tools`). |
 | `vectorfield_sim` | Kinematic simulator for headless tests and demos on every distro, including Humble. |
 | `vectorfield_bringup` | Launch files, parameter overlays, maps, RViz/Foxglove/PlotJuggler configs, example clients. |
+| `vectorfield_mujoco` | The MuJoCo examples: the `mujoco_sim` simulator node, robot models and configs, one launch per mode. Source-only (MuJoCo from pip). |
 | `vectorfield_system_tests` | Cross-package tests, launch tests and config validation (never released). |
 | `vectorfield_nav2` | Metapackage: msgs, core, ros, controller, curve follower, 3D follower, behaviour-tree node, py and sim. |
 
@@ -67,6 +152,7 @@ flowchart BT
   py["vectorfield_py"]
   bringup["vectorfield_bringup"]
   tests["vectorfield_system_tests"]
+  mujoco["vectorfield_mujoco<br/>source only"]
 
   ros --> core
   ros --> msgs
@@ -84,9 +170,10 @@ flowchart BT
   bringup --> sim
   bringup --> py
   tests --> bringup
+  mujoco --> bringup
 ```
 
-All controller logic lives in `vectorfield_core`, so the Nav2 plugin and the curve follower run the same tracker. No package depends on a package above it; tests that need several packages live in `vectorfield_system_tests`. The `vectorfield_nav2` metapackage groups the released runtime packages and leaves out bringup and system tests.
+All controller logic lives in `vectorfield_core`, so the Nav2 plugin and the curve follower run the same tracker. No package depends on a package above it; tests that need several packages live in `vectorfield_system_tests`. The `vectorfield_nav2` metapackage groups the released runtime packages and leaves out bringup, the MuJoCo examples and system tests.
 
 ## Supported ROS 2 distributions
 
@@ -98,7 +185,7 @@ All controller logic lives in `vectorfield_core`, so the Nav2 plugin and the cur
 | Rolling | 26.04 resolute | as Lyrical | nightly, non-gating | Best effort |
 | Kilted | 24.04 noble | as Jazzy | none | Unsupported: may build, but has no CI, config or release |
 
-Releases will be made with bloom for Humble, Jazzy and Lyrical, starting with 0.1.0. Nav2 is not released into Rolling, so Rolling is tested against the Nav2 nightly image.
+Releases are made with bloom for Humble, Jazzy and Lyrical; `vectorfield_mujoco` is not released, because the build farm does not take its pip dependency (MuJoCo). Nav2 is not released into Rolling, so Rolling is tested against the Nav2 nightly image.
 
 ## Quickstart
 
