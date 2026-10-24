@@ -34,3 +34,11 @@ obstacles:
 
 # Open: it ends SUCCEEDED at its end (laps apply to closed curves only).
 curve3d: helix
+
+# How record_path films it (record_gallery.sh's clip): a fixed view of the helix from the side;
+# the clip leaves out the lattice of field arrows and draws the drone's path.
+recording:
+  camera: fixed
+  view: {lookat: [-0.2, 0.1, 0.9], distance: 3.8, azimuth: 90.0, elevation: -20.0}
+  hide: [field]
+  trail: 60.0

@@ -5,8 +5,8 @@ MuJoCo physics for the vectorfield_nav2 examples: robots from the
 Scout Mini and an own Ackermann car, in worlds built from the same Nav2 maps that map_server
 serves.
 
-**Status:** the simulator node and the example launch files, ground robots and the drone. The
-gallery clips come next.
+**Status:** the simulator node, the example launch files (ground robots and the drone) and
+their gallery clips.
 
 The package is source-only: it depends on MuJoCo from pip (rosdep key `python3-mujoco-pip`; on
 Ubuntu Noble and later run rosdep with `PIP_BREAK_SYSTEM_PACKAGES=1`).
@@ -45,16 +45,17 @@ ros2 launch vectorfield_mujoco drone.launch.py
 | `differential.launch.py` | `tiago` | Nav2 + vector-field controller | contours around an unmapped box |
 | `skid_steer.launch.py` | `scout_mini` | Nav2 + vector-field controller | through `corridor_door` and back |
 | `omnidirectional.launch.py` | `tidybot` | curve follower | rounded rectangle at a fixed heading |
-| `ackermann.launch.py` | `ackermann_car` | Nav2 (Smac Hybrid) + controller, CBF | box beside the path, U-turn |
+| `ackermann.launch.py` | `ackermann_car` | Nav2 (Smac Hybrid) + controller, CBF | swerves around a box next to the path |
 | `curve_following.launch.py` | `scout_mini` | curve follower | lemniscate laps |
 | `drone.launch.py` | `x2` | 3D follower, CBF | helix around a pillar and a sphere |
 
 `scenario:=false` keeps only the world, `exit_on_done:=true` ends the launch with the scenario,
 `use_rviz:=false camera_topic:=camera` publishes an offscreen camera image instead,
-`viewer:=true` opens MuJoCo's viewer and `record_path:=clip.mp4` records in simulated time
-(`record_camera:=chase`, `top` or `fixed`). The generic launches `mujoco_nav2.launch.py`,
-`mujoco_curve_follower.launch.py` and `mujoco_drone.launch.py` take any robot, world, obstacles
-and scenario.
+`viewer:=true` opens MuJoCo's viewer and `record_path:=clip.mp4` records in simulated time, as
+the scenario's `recording` says (camera, view, markers left out, the robot's trail), or with
+`record_camera:=chase`, `follow`, `top` or `fixed` and that camera's default view. The generic launches
+`mujoco_nav2.launch.py`, `mujoco_curve_follower.launch.py` and `mujoco_drone.launch.py` take any
+robot, world, obstacles and scenario.
 
 For the drone, `mujoco_sim` stands in for `point_sim_3d` of vectorfield_follower_3d: it takes
 the 3D follower's `cmd_vel` (TwistStamped, heading frame when its `frame_id` is `base_link`,
@@ -64,6 +65,26 @@ flight controller (`flight`) tracks the command at the physics rate, standing in
 ArduPilot's velocity mode: the drone's attitude and velocity lag are simulated, its autopilot is
 not. point_sim_3d's `obstacle_spheres` parameter has no counterpart; the cloud holds the
 `obstacles` built into the world.
+
+### Gallery clips
+
+The clips of the README and the docs' Examples pages (`docs/_static/media/<example>.mp4`, `.gif`
+and `.jpg`) are recordings of these launches, made headless by `scripts/record_gallery.sh` (run
+from the source tree; it is not installed) in the dev container, with the workspace built and
+sourced:
+
+```bash
+apt-get install ffmpeg fonts-dejavu-core libosmesa6  # if missing
+vectorfield_mujoco/scripts/record_gallery.sh          # all six examples
+vectorfield_mujoco/scripts/record_gallery.sh drone    # one
+```
+
+Each example runs to the end of its scenario (`exit_on_done:=true`), filmed as its scenario's
+`recording` says. ffmpeg then writes a 960×540 H.264 MP4 of the run from the first motion (the
+long runs sped up, as the caption says), a 480 px GIF of its highlight and a JPEG poster, and the
+script fails if a scenario does not succeed or a file exceeds its budget (3 MiB, 2 MiB, 150 KiB).
+`--work DIR` keeps the raw recordings and logs; `--encode-only --work DIR` encodes them again
+without running the examples. Each example takes a few minutes with OSMesa.
 
 ## Modules
 
@@ -76,10 +97,10 @@ not. point_sim_3d's `obstacle_spheres` parameter has no counterpart; the cloud h
   PD, priority mixer), standing in for an autopilot's velocity mode.
 - `sensors`: 2D lidar (`mj_multiRay`, world geoms only) and the obstacle point cloud.
 - `overlay`: RViz-style markers drawn into a MuJoCo scene.
-- `recorder`, `gl`: offscreen chase, top or fixed camera to MP4 through ffmpeg, in simulated
-  time. Unless `MUJOCO_GL` is set, headless rendering uses OSMesa (package `libosmesa6`, a
-  dependency) when it is installed, else EGL; with neither, the physics runs and rendering is
-  off.
+- `recorder`, `gl`: offscreen chase, follow, top or fixed camera to MP4 through ffmpeg, in
+  simulated time. Unless `MUJOCO_GL` is set, headless rendering uses OSMesa (package
+  `libosmesa6`, a dependency) when it is installed, else EGL; with neither, the physics runs and
+  rendering is off.
 
 ```python
 import mujoco

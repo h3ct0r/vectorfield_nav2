@@ -34,8 +34,8 @@ Forthcoming
   recording, initial pose) and the examples differential (TIAGo, contour around an unmapped
   box), skid_steer (Scout Mini through corridor_door, identified slip compensation),
   omnidirectional (TidyBot, curve follower, rounded rectangle at a fixed heading), ackermann
-  (own car, Smac Hybrid DUBIN, CBF beside a box, U-turn) and curve_following (Scout Mini,
-  lemniscate laps), on vectorfield_bringup's demo helpers.
+  (own car, Smac Hybrid DUBIN, CBF swerve around a box next to the path) and curve_following
+  (Scout Mini, lemniscate laps), on vectorfield_bringup's demo helpers.
 * config/mujoco_sim.yaml, config/robots/<robot>.yaml (footprints, limits within the actuators,
   full velocity smoother lists, lidar) and config/scenarios/<example>.yaml (obstacles, initial
   pose, waypoints or curve and laps, Nav2 behaviour overlays); examples.merged_params() merges
@@ -74,3 +74,10 @@ Forthcoming
 * Tests: the heading-frame command, the moving frame's motion, the drone's command path and the
   aerial interface on an X2-like quadrotor in test/models (per PR, no download); the drone
   config and scenario checks; with -DVF_NIGHTLY_TESTS=ON, the drone example's launch test.
+* Gallery: scripts/record_gallery.sh records every example headless and writes the README and
+  docs clips (docs/_static/media/<example>.mp4, .gif and .jpg, captioned, within size budgets).
+  A scenario's ``recording`` sets its clip's camera, view, hidden markers and the robot's trail;
+  mujoco_sim's ``record_view``, ``record_hide`` and ``record_trail`` parameters take them, and
+  ``record_camera`` defaults to the scenario's. A ``follow`` camera follows the robot from a fixed
+  azimuth and elevation. The scene's headlight is dimmer, so the floor's checker no longer
+  saturates, and a Path overlay keeps its colour whichever topic appears first.

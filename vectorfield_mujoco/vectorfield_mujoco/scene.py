@@ -238,8 +238,9 @@ def build(
     spec.visual.global_.offwidth = 1920
     spec.visual.global_.offheight = 1080
     spec.visual.quality.shadowsize = 4096
-    spec.visual.headlight.ambient = [0.35, 0.35, 0.35]
-    spec.visual.headlight.diffuse = [0.5, 0.5, 0.5]
+    # Dim enough that the sun's light and shadows keep the floor's checker from saturating.
+    spec.visual.headlight.ambient = [0.25, 0.25, 0.25]
+    spec.visual.headlight.diffuse = [0.25, 0.25, 0.25]
     spec.visual.headlight.specular = [0.0, 0.0, 0.0]
     spec.visual.map.znear = 0.01
 
@@ -282,7 +283,7 @@ def build(
         name='sun',
         pos=[0.0, 0.0, 6.0],
         dir=[0.3, 0.2, -1.0],
-        diffuse=[0.6, 0.6, 0.6],
+        diffuse=[0.7, 0.7, 0.7],
         specular=[0.1, 0.1, 0.1],
         castshadow=True,
     )

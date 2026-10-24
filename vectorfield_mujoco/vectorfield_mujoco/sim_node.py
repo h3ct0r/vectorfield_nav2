@@ -63,7 +63,10 @@ the 3D follower runs unchanged:
 - ``camera_topic``: an offscreen ``sensor_msgs/Image`` (rgb8, ``camera_size``) at ``camera_rate``
   Hz of simulated time, for Foxglove or RViz on a host without a display;
 - ``record_path``: an H.264 MP4 at ``record_fps`` frames per simulated second
-  (:class:`vectorfield_mujoco.recorder.Recorder`), finished when the node shuts down;
+  (:class:`vectorfield_mujoco.recorder.Recorder`), finished when the node shuts down; its
+  camera is ``record_camera`` with ``record_view``'s settings, ``record_hide`` leaves marker
+  namespaces (``ns`` or ``ns/id``) and Path topics out of it, to keep a clip legible, and
+  ``record_trail`` draws the robot's path of its last seconds;
 - ``overlay_topics``: ``visualization_msgs/MarkerArray`` and ``nav_msgs/Path`` topics (the type
   is looked up once the topic appears) drawn into those scenes
   (:mod:`vectorfield_mujoco.overlay`), so the clips show the plan and the controller's markers
@@ -75,6 +78,7 @@ EGL) the node refuses the viewer, the camera and the recording with an error and
 else; a backend that fails while rendering stops only that feature.
 """
 
+import collections
 import contextlib
 import math
 import os
@@ -96,6 +100,10 @@ from vectorfield_mujoco import gl, menagerie, overlay, registry, simulation
 
 #: Overlay geoms are lifted this much (m) so that lines on the floor stay visible.
 OVERLAY_LIFT = 0.02
+
+#: Colour and width (m) of the robot's path drawn in a recording (``record_trail``).
+TRAIL_COLOUR = (0.12, 0.12, 0.16, 0.9)
+TRAIL_WIDTH = 0.025
 
 #: Colours of the Path overlays, in the order of ``overlay_topics``.
 PATH_COLOURS = ((0.1, 0.45, 1.0, 0.9), (0.1, 0.8, 0.3, 0.9), (0.9, 0.2, 0.7, 0.9))
@@ -239,6 +247,8 @@ def marker_dict(marker, frame):
     p = marker.pose.position
     position = (fx + c * p.x - s * p.y, fy + s * p.x + c * p.y, fz + p.z)
     return {
+        'ns': marker.ns,
+        'id': int(marker.id),
         'type': int(marker.type),
         'points': [(q.x, q.y, q.z) for q in marker.points],
         'pose': (position, frame_quat(fyaw, marker.pose.orientation)),
@@ -274,6 +284,7 @@ class Overlays:
         self._node = node
         self._frame_pose = frame_pose
         self._pending = [node.resolve_topic_name(t) for t in topics if t]
+        self._order = list(self._pending)
         self._markers = {}
         self._snapshot = []
         self._dirty = False
@@ -295,7 +306,8 @@ class Overlays:
                     self._node.create_subscription(MarkerArray, topic, callback, self._qos)
                 )
             elif 'nav_msgs/msg/Path' in names:
-                index = len(self._subscriptions) % len(PATH_COLOURS)
+                # By the topic's place in the list: the same colour whichever appears first.
+                index = self._order.index(topic) % len(PATH_COLOURS)
                 callback = self._path_callback(topic, PATH_COLOURS[index])
                 self._subscriptions.append(
                     self._node.create_subscription(Path, topic, callback, self._qos)
@@ -342,7 +354,9 @@ class Overlays:
         def callback(message):
             frame = self._frame(message.header.frame_id)
             if frame is not None:
-                self._markers[topic] = {('', 0): path_dict(message, frame, rgba)}
+                # Its namespace is the topic, which a view can hide.
+                path = dict(path_dict(message, frame, rgba), ns=topic)
+                self._markers[topic] = {('', 0): path}
                 self._dirty = True
 
         return callback
@@ -354,9 +368,13 @@ class Overlays:
             self._dirty = False
         return self._snapshot
 
-    def draw(self, scene, cap=overlay.DEFAULT_CAP):
-        """Append the current markers to an ``mjvScene``."""
-        return overlay.add_markers(scene, self.markers(), cap)
+    def draw(self, scene, cap=overlay.DEFAULT_CAP, hide=()):
+        """Append the current markers to an ``mjvScene``, but those ``hide`` names.
+
+        ``hide`` holds marker namespaces, single ``ns/id`` markers and Path topics
+        (:func:`vectorfield_mujoco.overlay.visible`).
+        """
+        return overlay.add_markers(scene, overlay.visible(self.markers(), hide), cap)
 
 
 class GroundInterface:
@@ -858,11 +876,32 @@ class MujocoSim(Node):
         )
         camera_rate = self.read_only('camera_rate', 10.0, 'Camera images per simulated s')
         camera_size = simulation.parse_size(self.read_only('camera_size', '640x360', 'WxH'))
-        camera_mode = self.read_only('camera_mode', 'chase', 'chase, top or fixed')
+        camera_mode = self.read_only('camera_mode', 'chase', 'chase, follow, top or fixed')
         record_path = self.read_only('record_path', '', 'MP4 to record; empty: off')
         record_fps = self.read_only('record_fps', 30.0, 'Recorded frames per simulated s')
         record_size = simulation.parse_size(self.read_only('record_size', '960x540', 'WxH'))
-        record_camera = self.read_only('record_camera', 'chase', 'chase, top or fixed')
+        record_camera = self.read_only('record_camera', 'chase', 'chase, follow, top or fixed')
+        record_view = recorder.parse_view(
+            self.read_only(
+                'record_view',
+                '',
+                'YAML mapping overriding the recording camera (lookat, distance, azimuth, '
+                'elevation, height, smoothing); empty: the camera defaults',
+            )
+        )
+        record_hide = [
+            name
+            for name in self.read_only(
+                'record_hide',
+                [''],
+                'Marker namespaces, ns/id markers and Path topics not recorded',
+            )
+            if name
+        ]
+        self._trail_span = self.read_only(
+            'record_trail', 0.0, "Seconds of the robot's path drawn in the recording; 0: none"
+        )
+        self._trail = collections.deque()
         viewer = self.read_only('viewer', False, 'Open the MuJoCo passive viewer')
 
         self._camera = None
@@ -911,8 +950,8 @@ class MujocoSim(Node):
                     width,
                     height,
                     record_fps,
-                    camera=self._camera_rig(world, record_camera),
-                    overlay=self.overlays.draw,
+                    camera=self._camera_rig(world, record_camera, record_view),
+                    overlay=lambda scn: self._draw_recording(scn, record_hide),
                 )
             except Exception as e:  # no ffmpeg, or a GL failure
                 self.get_logger().error(f'record_path off: {e}')
@@ -923,25 +962,57 @@ class MujocoSim(Node):
         if viewer:
             self._open_viewer(world)
 
-    def _camera_rig(self, world, mode):
+    def _draw_recording(self, scn, hide):
+        """Draw the overlays but ``hide`` and the robot's path of the last ``record_trail`` s."""
+        added = self.overlays.draw(scn, hide=hide)
+        if not self._trail_span > 0.0:
+            return added
+        world = self.sim.world
+        position = world.data.xpos[world.base_id].copy()
+        if world.robot.adapter != 'quadrotor':
+            position[2] = OVERLAY_LIFT  # a ground robot's path, on the floor
+        trail = self._trail
+        if not trail or np.linalg.norm(position - trail[-1][1]) > 0.01:
+            trail.append((world.data.time, position))
+        while len(trail) > 2 and world.data.time - trail[0][0] > self._trail_span:
+            trail.popleft()
+        if len(trail) < 2:
+            return added
+        path = {
+            'ns': 'trail',
+            'type': 'LINE_STRIP',
+            'points': [p for _, p in trail],
+            'scale': (TRAIL_WIDTH, TRAIL_WIDTH, TRAIL_WIDTH),
+            'rgba': TRAIL_COLOUR,
+        }
+        return added + overlay.add_markers(scn, [path])
+
+    def _camera_rig(self, world, mode, view=None):
+        """Return the ``mode`` camera, its defaults overridden by ``view`` (parse_view)."""
         from vectorfield_mujoco import recorder
 
         if world.robot.adapter == 'quadrotor':
             # A drone flies around its curve, a few metres across and up to 2 m high.
-            if mode == 'fixed':
-                return recorder.CameraRig(
-                    'fixed', distance=4.8, elevation=-20.0, azimuth=-60.0, lookat=(0.0, 0.0, 0.9)
-                )
-            if mode == 'top':
-                return recorder.CameraRig('top', world.base_id, distance=5.0, height=0.0)
-            return recorder.CameraRig(
-                'chase', world.base_id, distance=3.5, elevation=-18.0, height=0.0
-            )
-        if mode == 'fixed':
-            return recorder.CameraRig('fixed', distance=9.0, elevation=-50.0, azimuth=90.0)
-        if mode == 'top':
-            return recorder.CameraRig('top', world.base_id, distance=6.0)
-        return recorder.CameraRig('chase', world.base_id, distance=2.8, elevation=-28.0)
+            defaults = {
+                'fixed': {
+                    'distance': 4.8,
+                    'elevation': -20.0,
+                    'azimuth': -60.0,
+                    'lookat': (0.0, 0.0, 0.9),
+                },
+                'top': {'distance': 5.0, 'height': 0.0},
+                'chase': {'distance': 3.5, 'elevation': -18.0, 'height': 0.0},
+                'follow': {'distance': 3.5, 'elevation': -18.0, 'azimuth': 90.0, 'height': 0.0},
+            }
+        else:
+            defaults = {
+                'fixed': {'distance': 9.0, 'elevation': -50.0, 'azimuth': 90.0},
+                'top': {'distance': 6.0},
+                'chase': {'distance': 2.8, 'elevation': -28.0},
+                'follow': {'distance': 3.0, 'elevation': -35.0, 'azimuth': 90.0},
+            }
+        settings = dict(defaults.get(mode, {}), **(view or {}))
+        return recorder.CameraRig(mode, world.base_id, **settings)
 
     def _open_viewer(self, world):
         import mujoco

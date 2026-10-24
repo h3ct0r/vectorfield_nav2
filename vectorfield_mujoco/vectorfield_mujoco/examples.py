@@ -32,6 +32,11 @@ A scenario (``config/scenarios/<name>.yaml``, :func:`load_scenario`) holds the u
 drives: ``waypoints`` (Nav2, one NavigateToPose goal each), a ``curve`` (a
 ``vectorfield_bringup.curves.EXAMPLES`` shape) with ``laps`` (the curve follower) or a
 ``curve3d`` (a ``vectorfield_bringup.curves3d.EXAMPLES`` shape) with ``laps`` (the 3D follower).
+Its optional ``recording`` sets how ``record_path`` films it (:data:`RECORDING_KEYS`): the
+``camera`` (chase, follow, top or fixed), the camera's ``view``
+(:func:`vectorfield_mujoco.recorder.parse_view`), the markers to ``hide`` (namespaces,
+``ns/id`` markers, Path topics) and the seconds of the robot's path drawn (``trail``), so that
+the clip shows the scenario's point legibly.
 
 :func:`launch_description` builds the generic launches (``mujoco_nav2.launch.py``,
 ``mujoco_curve_follower.launch.py``, ``mujoco_drone.launch.py``) and the example launches, which
@@ -73,7 +78,14 @@ SCENARIO_KEYS = (
     'initial_z',
     'speed',
     'params',
+    'recording',
 )
+
+#: The keys of a scenario's ``recording``.
+RECORDING_KEYS = ('camera', 'view', 'hide', 'trail')
+
+#: The recording cameras (:class:`vectorfield_mujoco.recorder.CameraRig`).
+RECORD_CAMERAS = ('chase', 'follow', 'top', 'fixed')
 
 #: Overlay topics drawn into the MuJoCo views, per driver.
 OVERLAY_TOPICS = {
@@ -183,7 +195,38 @@ def validate_scenario(data, name='scenario'):
     if set(smoother) & set(SMOOTHER_LIMITS):
         raise ValueError(f'{name}: params must not set the velocity smoother limits')
     result['params'] = params
+    result['recording'] = _recording(data.get('recording'), name)
     return result
+
+
+def _recording(value, name):
+    from vectorfield_mujoco import recorder
+
+    recording = {} if value is None else value
+    if not isinstance(recording, dict):
+        raise ValueError(f'{name}: recording must be a mapping of {list(RECORDING_KEYS)}')
+    unknown = set(recording) - set(RECORDING_KEYS)
+    if unknown:
+        raise ValueError(
+            f'{name}: recording: unknown keys {sorted(unknown)}; known: {list(RECORDING_KEYS)}'
+        )
+    camera = recording.get('camera', 'chase')
+    if camera not in RECORD_CAMERAS:
+        raise ValueError(f'{name}: recording camera must be one of {list(RECORD_CAMERAS)}')
+    try:
+        view = recorder.parse_view(recording.get('view'))
+    except ValueError as e:
+        raise ValueError(f'{name}: recording: {e}') from None
+    hide = recording.get('hide') or []
+    if not isinstance(hide, list) or not all(isinstance(h, str) and h for h in hide):
+        raise ValueError(f'{name}: recording hide must be a list of marker namespaces')
+    try:
+        trail = float(recording.get('trail', 0.0))
+    except (TypeError, ValueError):
+        trail = math.nan
+    if not math.isfinite(trail) or trail < 0.0:
+        raise ValueError(f'{name}: recording trail must be a duration >= 0 (s)')
+    return {'camera': camera, 'view': view, 'hide': hide, 'trail': trail}
 
 
 def load_scenario(path):
@@ -308,6 +351,10 @@ def _launch_setup(context, driver, example):
 
     merged = merged_params(robot, driver, scenario['params'])
     params_file = params.write_params(merged)
+    # An explicit record_camera takes that camera's defaults; else the scenario's camera and view.
+    recording = scenario['recording']
+    view = {} if arg('record_camera') else recording['view']
+    view = {k: list(v) if isinstance(v, tuple) else v for k, v in view.items()}
     sim_parameters = {
         'robot': robot,
         'world_map': map_yaml,
@@ -318,7 +365,10 @@ def _launch_setup(context, driver, example):
         'viewer': IfCondition(arg('viewer')).evaluate(context),
         'camera_topic': arg('camera_topic'),
         'record_path': arg('record_path'),
-        'record_camera': arg('record_camera'),
+        'record_camera': arg('record_camera') or recording['camera'],
+        'record_view': yaml.safe_dump(view, default_flow_style=True).strip() if view else '',
+        'record_hide': recording['hide'] or [''],
+        'record_trail': recording['trail'],
         'real_time_factor': float(arg('real_time_factor')),
         'overlay_topics': OVERLAY_TOPICS[driver],
     }
@@ -437,7 +487,12 @@ def launch_description(driver, example=None, **defaults):
         ('viewer', 'false', 'Open the MuJoCo viewer (needs a display).'),
         ('camera_topic', '', 'Publish an offscreen camera Image on this topic (empty: off).'),
         ('record_path', '', 'Record an MP4 here, in simulated time (empty: off).'),
-        ('record_camera', 'chase', 'Recording camera: chase, top or fixed.'),
+        (
+            'record_camera',
+            '',
+            "Recording camera: chase, follow, top or fixed; empty: the scenario's recording "
+            'camera and view (else chase).',
+        ),
         ('real_time_factor', '1.0', 'Simulated seconds per wall second.'),
         ('initial_pose_x', '', "Initial map x (m); empty: the scenario's (else 0)."),
         ('initial_pose_y', '', "Initial map y (m); empty: the scenario's (else 0)."),

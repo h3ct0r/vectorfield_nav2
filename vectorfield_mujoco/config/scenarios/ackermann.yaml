@@ -13,23 +13,21 @@
 # limitations under the License.
 
 # Scenario of ackermann.launch.py: the own car on open_10x10 (vectorfield_mujoco.examples). Smac
-# Hybrid-A* (DUBIN, the Ackermann overlay) plans forward-only paths; an unmapped box stands just
-# beside the first leg, which the global costmap does not see (no obstacle layer), and the
-# controller's CBF safety filter (obstacle_mode cbf) keeps the car's turning margin from it. The
-# car then makes a U-turn at its 0.5 m turning radius and drives back.
-description: "Car keeps its CBF turning margin from a box beside the path, then U-turns"
+# Hybrid-A* (DUBIN, the Ackermann overlay) plans a straight, forward-only path; an unmapped box
+# stands right next to it, which the global costmap does not see (no obstacle layer). The box's
+# face is 0.1 m from the path, so the car's body (0.125 m half width) would scrape it: the
+# controller's CBF safety filter (obstacle_mode cbf) keeps the barrier disc about the rear axle
+# and its turning margin clear of the box, so the car swerves around it and returns to the path.
+description: "Car swerves around a box next to its path with the CBF filter"
 
-initial_pose: [-3.5, -1.0, 0.0]
+initial_pose: [-2.5, 0.0, 0.0]
 
-# 0.5 m tall: the lidar plane is at 0.195 m.
+# 0.5 m tall: the lidar plane is at 0.195 m. Its near face is at y = 0.1 m.
 obstacles:
-  - {type: box, pos: [-0.5, -0.55], size: [0.15, 0.15, 0.25]}
+  - {type: box, pos: [0.0, 0.25], size: [0.15, 0.15, 0.25]}
 
-# The U-turn (2 m wide, so twice the turning radius) stays 1.5 m clear of the east wall.
 waypoints:
-  - [2.0, -1.0, 0.0]
-  - [2.0, 1.0, 3.14]
-  - [-3.5, 1.0, 3.14]
+  - [2.5, 0.0, 0.0]
 
 params:
   controller_server:
@@ -40,3 +38,12 @@ params:
     global_costmap:
       ros__parameters:
         plugins: ["static_layer", "inflation_layer"]
+
+# How record_path films it (record_gallery.sh's clip): a camera following the car from the side
+# of the swerve; the clip leaves out the curve's rays, the evaluation point, the field's terms
+# (their sum F stays), the command's arc and the braking zone, and draws the robot's path.
+recording:
+  camera: follow
+  view: {distance: 2.8, azimuth: 90.0, elevation: -45.0, height: 0.0}
+  hide: [curve/1, control_point, field/0, field/1, field/2, command/1, goal/5]
+  trail: 60.0

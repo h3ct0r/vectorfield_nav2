@@ -77,6 +77,34 @@ def test_ffmpeg_command():
     assert '-c:v libx264' in joined and '+faststart' in joined and cmd[-1] == 'out.mp4'
 
 
+def test_parse_view():
+    """A view is a YAML mapping of CameraRig settings, checked; empty is none."""
+    assert recorder.parse_view('') == {} and recorder.parse_view(None) == {}
+    view = recorder.parse_view('{lookat: [0.5, 0, 0.3], distance: 7, azimuth: 90, elevation: -50}')
+    assert view == {
+        'lookat': (0.5, 0.0, 0.3),
+        'distance': 7.0,
+        'azimuth': 90.0,
+        'elevation': -50.0,
+    }
+    assert recorder.parse_view({'smoothing': 0, 'height': -0.1}) == {
+        'smoothing': 0.0,
+        'height': -0.1,
+    }
+    for bad in (
+        '[1, 2]',
+        '{zoom: 2}',
+        '{lookat: [0, 0]}',
+        '{lookat: 1}',
+        '{distance: 0}',
+        '{distance: far}',
+        '{smoothing: -1}',
+        '{azimuth: .nan}',
+    ):
+        with pytest.raises(ValueError):
+            recorder.parse_view(bad)
+
+
 def test_chase_camera_follows_with_smoothing(mujoco):
     """The chase camera follows position and heading with a first-order lag."""
     rig = recorder.CameraRig('chase', body=1, distance=2.0, smoothing=0.5, height=0.0)
@@ -93,6 +121,11 @@ def test_chase_camera_follows_with_smoothing(mujoco):
     assert cam.lookat[0] == pytest.approx(alpha) and cam.azimuth == pytest.approx(90 * alpha)
     top = recorder.CameraRig('top', body=1)
     assert top.update(data).elevation < -89
+    # The follow camera keeps its own azimuth and elevation while it follows the body.
+    follow = recorder.CameraRig('follow', body=1, azimuth=30.0, elevation=-40.0)
+    cam = follow.update(data)
+    assert cam.lookat == pytest.approx([1.0, 0.0, 0.2])
+    assert (cam.azimuth, cam.elevation) == pytest.approx((30.0, -40.0))
     with pytest.raises(ValueError):
         recorder.CameraRig('orbit')
 

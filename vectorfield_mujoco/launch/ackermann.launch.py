@@ -17,8 +17,9 @@
 Everything is preset: robot ``ackermann_car``, world ``open_10x10``,
 config/robots/ackermann_car.yaml and config/scenarios/ackermann.yaml, whose route run_scenario
 drives once Nav2 is up (``scenario:=false`` keeps only its world; ``exit_on_done:=true`` ends the
-launch with it). An unmapped box stands beside the path: the CBF safety filter
-(``obstacle_mode: cbf``) keeps the car's turning margin, then the car U-turns.
+launch with it). An unmapped box stands right next to the straight path: the CBF safety filter
+(``obstacle_mode: cbf``) keeps the car's turning margin from it, so the car swerves around the box
+and returns to the path.
 
 Examples::
 

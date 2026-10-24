@@ -82,6 +82,7 @@ def test_marker_dict_is_in_the_map_frame():
     assert (x, y, z) == pytest.approx((1.0, 3.0, 0.1))
     assert quat == pytest.approx((0.0, 0.0, math.sin(0.25 * math.pi), math.cos(0.25 * math.pi)))
     assert d['type'] == Marker.LINE_STRIP and d['rgba'] == (1.0, 0.0, 0.0, 0.5)
+    assert (d['ns'], d['id']) == ('', 0)
     from vectorfield_mujoco import overlay
 
     # The overlay applies the pose: the second point lands 1 m further along map +y.
@@ -209,6 +210,42 @@ def test_rendering_is_refused_without_a_backend(monkeypatch, tmp_path):
             sim._on_tick()
         assert sim.sim.time == pytest.approx(0.1)
         assert not (tmp_path / 'clip.mp4').exists()
+    finally:
+        next(started, None)
+
+
+def test_recording_overlay_hides_markers_and_draws_the_trail():
+    """The recording leaves out record_hide and draws the robot's path on the floor."""
+    import mujoco
+
+    started = _node(['-p', 'record_trail:=1.0'])
+    sim, _ = next(started)
+    try:
+        world = sim.sim.world
+        sim.overlays._markers = {
+            '/markers': {
+                ('field', 0): {'ns': 'field', 'id': 0, 'type': 'SPHERE'},
+                ('command', 0): {'ns': 'command', 'id': 0, 'type': 'SPHERE'},
+            }
+        }
+        sim.overlays._dirty = True
+        scn = mujoco.MjvScene(world.model, maxgeom=1000)
+        assert sim._draw_recording(scn, ['field']) == 1  # one trail point: no line yet
+        simulation.teleport(world, 2.0, -1.0, 0.5)
+        sim._on_tick()
+        scn.ngeom = 0
+        assert sim._draw_recording(scn, ['field']) == 2  # the command and one trail segment
+        segment = scn.geoms[1]
+        assert segment.pos[2] == pytest.approx(sim_node.OVERLAY_LIFT, abs=1e-6)
+        assert segment.rgba == pytest.approx(sim_node.TRAIL_COLOUR)
+        # Points older than record_trail go, but the last two.
+        for x in (2.5, 3.0):
+            for _ in range(120):
+                sim._on_tick()
+            simulation.teleport(world, x, -1.0, 0.5)
+            mujoco.mj_forward(world.model, world.data)
+            sim._draw_recording(mujoco.MjvScene(world.model, maxgeom=1000), [])
+        assert [round(p[0], 3) for _, p in sim._trail] == [2.5, 3.0]
     finally:
         next(started, None)
 

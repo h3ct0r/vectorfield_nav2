@@ -15,12 +15,14 @@
 """Offscreen camera frames and MP4 recording in simulated time.
 
 :class:`CameraRig` places a free ``mjvCamera``: ``chase`` (behind the base, following its
-position and heading with first-order smoothing in sim time), ``top`` (above the base, looking
-down, +x to the right) or ``fixed`` (``lookat``, ``distance``, ``azimuth``, ``elevation``).
-:class:`Recorder` renders with ``mujoco.Renderer`` at ``fps`` frames per *simulated* second, lets
-an overlay callback add geoms (:func:`vectorfield_mujoco.overlay.add_markers`) and pipes the
-frames to the system ``ffmpeg`` (H.264, yuv420p, ``+faststart``). Slow software rendering then
-only slows the run; the clip keeps its timing.
+position and heading with first-order smoothing in sim time), ``follow`` (following its position
+only, from a fixed ``azimuth`` and ``elevation``), ``top`` (above the base, looking down, +x to the
+right) or ``fixed`` (``lookat``, ``distance``, ``azimuth``, ``elevation``);
+:func:`parse_view` reads such settings from a YAML mapping. :class:`Recorder` renders with
+``mujoco.Renderer`` at ``fps`` frames per *simulated* second, lets an overlay callback add geoms
+(:func:`vectorfield_mujoco.overlay.add_markers`) and pipes the frames to the system ``ffmpeg``
+(H.264, yuv420p, ``+faststart``). Slow software rendering then only slows the run; the clip
+keeps its timing.
 
 Call :func:`vectorfield_mujoco.gl.configure` before importing ``mujoco`` when rendering headless.
 """
@@ -30,20 +32,69 @@ import shutil
 import subprocess
 
 import numpy as np
+import yaml
+
+#: The :class:`CameraRig` modes.
+MODES = ('chase', 'follow', 'top', 'fixed')
+
+#: The :class:`CameraRig` settings a view may hold (:func:`parse_view`).
+VIEW_KEYS = ('lookat', 'distance', 'azimuth', 'elevation', 'height', 'smoothing')
+
+
+def parse_view(value):
+    """Return the :class:`CameraRig` keyword arguments of a view.
+
+    Args:
+        value: A YAML mapping (a string) or a dict of :data:`VIEW_KEYS`, such as
+            ``{lookat: [0.5, 0, 0], distance: 7, azimuth: 90, elevation: -50}``; ``''`` or None
+            for none.
+
+    Raises:
+        ValueError: An unknown key or a malformed value.
+
+    """
+    view = yaml.safe_load(value) if isinstance(value, str) else value
+    if view is None:
+        return {}
+    if not isinstance(view, dict):
+        raise ValueError(f'a camera view must be a mapping, not {value!r}')
+    unknown = set(view) - set(VIEW_KEYS)
+    if unknown:
+        raise ValueError(f'camera view: unknown keys {sorted(unknown)}; known: {list(VIEW_KEYS)}')
+    # The least value of each setting (lookat, azimuth, elevation, height: any).
+    least = {'distance': 1e-3, 'smoothing': 0.0}
+    result = {}
+    for key, item in view.items():
+        try:
+            parsed = tuple(float(v) for v in item) if key == 'lookat' else float(item)
+        except (TypeError, ValueError):
+            parsed = None
+        ok = parsed is not None and bool(np.all(np.isfinite(parsed)))
+        if key == 'lookat':
+            ok = ok and len(parsed) == 3
+        elif ok and key in least:
+            ok = parsed >= least[key]
+        if not ok:
+            what = '[x, y, z]' if key == 'lookat' else 'a finite number'
+            if key in least:
+                what += ' > 0' if key == 'distance' else ' >= 0'
+            raise ValueError(f'camera view: {key} must be {what}, not {item!r}')
+        result[key] = parsed
+    return result
 
 
 class CameraRig:
     """A free camera following a body.
 
     Args:
-        mode: ``'chase'``, ``'top'`` or ``'fixed'``.
-        body: Body id to follow (chase, top).
+        mode: ``'chase'``, ``'follow'``, ``'top'`` or ``'fixed'``.
+        body: Body id to follow (chase, follow, top).
         distance: Camera distance (m).
-        elevation: Elevation (deg, negative looks down) for chase and fixed.
-        azimuth: Azimuth (deg) for fixed.
+        elevation: Elevation (deg, negative looks down) for chase, follow and fixed.
+        azimuth: Azimuth (deg) for follow and fixed.
         lookat: Look-at point for fixed (and the initial point of the others).
-        smoothing: Time constant (s, sim time) of the chase position and heading filters.
-        height: Height above the body origin that the chase and top cameras look at (m).
+        smoothing: Time constant (s, sim time) of the position and heading filters.
+        height: Height above the body origin that the moving cameras look at (m).
     """
 
     def __init__(
@@ -57,8 +108,8 @@ class CameraRig:
         smoothing=0.6,
         height=0.2,
     ):
-        if mode not in ('chase', 'top', 'fixed'):
-            raise ValueError(f'camera mode must be chase, top or fixed, not {mode!r}')
+        if mode not in MODES:
+            raise ValueError(f'camera mode must be one of {", ".join(MODES)}, not {mode!r}')
         import mujoco
 
         self.mode = mode

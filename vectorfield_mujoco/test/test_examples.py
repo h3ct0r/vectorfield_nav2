@@ -265,6 +265,14 @@ def test_scenario_validation_rejects_mistakes():
         {'initial_z': -0.5},
         {'initial_z': 'high'},
         {'params': {'velocity_smoother': {'ros__parameters': {'max_velocity': [1, 0, 1]}}}},
+        {'recording': 'fixed'},
+        {'recording': {'camera': 'orbit'}},
+        {'recording': {'zoom': 2}},
+        {'recording': {'view': {'distance': -1}}},
+        {'recording': {'hide': 'field'}},
+        {'recording': {'hide': ['']}},
+        {'recording': {'trail': -1}},
+        {'recording': {'trail': 'long'}},
     ):
         with pytest.raises(ValueError):
             examples.validate_scenario(bad)
@@ -275,6 +283,23 @@ def test_scenario_validation_rejects_mistakes():
     flight = examples.validate_scenario({'curve3d': 'helix', 'initial_z': 1})
     assert examples.driver_of(flight) == 'follower_3d'
     assert flight['laps'] == 1 and flight['initial_z'] == 1.0
+    assert plain['recording'] == {'camera': 'chase', 'view': {}, 'hide': [], 'trail': 0.0}
+    filmed = examples.validate_scenario(
+        {
+            'recording': {
+                'camera': 'fixed',
+                'view': {'distance': 6},
+                'hide': ['field/0'],
+                'trail': 9,
+            }
+        }
+    )
+    assert filmed['recording'] == {
+        'camera': 'fixed',
+        'view': {'distance': 6.0},
+        'hide': ['field/0'],
+        'trail': 9.0,
+    }
 
 
 def test_obstacles_argument():

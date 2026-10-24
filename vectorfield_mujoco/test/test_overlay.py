@@ -97,3 +97,18 @@ def test_add_markers_to_a_scene():
     # Zero-length segments are skipped.
     scn.ngeom = 0
     assert overlay.add_markers(scn, [{'type': 'LINE_LIST', 'points': [(1, 1, 1)] * 4}]) == 0
+
+
+def test_visible_hides_namespaces_and_single_markers():
+    """A view hides whole namespaces, single ns/id markers or Path topics; '' is ignored."""
+    markers = [
+        {'ns': 'field', 'id': 0},
+        {'ns': 'field', 'id': 3},
+        {'ns': 'command', 'id': 0},
+        {'ns': '/plan', 'id': 0},
+        {'type': 'SPHERE'},
+    ]
+    assert overlay.visible(markers) == markers
+    assert overlay.visible(markers, ['']) == markers
+    assert overlay.visible(markers, ['field']) == markers[2:]
+    assert overlay.visible(markers, ['field/0', '/plan']) == [markers[1], markers[2], markers[4]]

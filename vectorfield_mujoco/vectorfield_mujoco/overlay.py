@@ -25,6 +25,10 @@ This module has no ROS dependency: the simulator node turns each marker into a p
 width in metres, so they read the same at any resolution. Supported types: LINE_STRIP,
 LINE_LIST, ARROW (pose or two points), SPHERE, CUBE, SPHERE_LIST, POINTS; others (TEXT, mesh
 markers) are skipped. At most ``cap`` geoms are added; long strips are thinned first.
+
+A dict may also carry the marker's ``ns`` and ``id``: :func:`visible` then leaves out the
+namespaces (or single ``ns/id`` markers) that a view hides, so a recording can show less than
+RViz does without changing what the controllers publish.
 """
 
 import math
@@ -119,6 +123,25 @@ def primitives(marker):
         for i, p in enumerate(world):
             out.append(('solid', 'sphere', 0.5 * scale, p, np.eye(3), color(i)))
     return out
+
+
+def visible(markers, hide=()):
+    """Return the markers that ``hide`` does not name.
+
+    Args:
+        markers: Marker dicts.
+        hide: Namespaces (every marker of the ``ns``) and single markers (``ns/id``); empty
+            entries are ignored.
+
+    """
+    hide = {h for h in hide if h}
+    if not hide:
+        return list(markers)
+    return [
+        m
+        for m in markers
+        if m.get('ns', '') not in hide and f'{m.get("ns", "")}/{m.get("id", 0)}' not in hide
+    ]
 
 
 def add_markers(scene, markers, cap=DEFAULT_CAP):
