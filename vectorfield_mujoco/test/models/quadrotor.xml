@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!--
+  Copyright 2026 Héctor Azpúrua
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<!--
+  A quadrotor with the Skydio X2's masses, rotor sites, thrust and yaw gears (0.0201 N m per N)
+  and thrust range (0-13 N), without its mesh: the tests' stand-in for the Menagerie X2
+  (test_simulation, test_sim_node), so they need no download. The air (density, viscosity) is
+  the registry's option, as for the X2.
+-->
+<mujoco model="quadrotor">
+  <worldbody>
+    <body name="x2" pos="0 0 0.005">
+      <freejoint/>
+      <geom type="box" size=".06 .027 .02" pos=".04 0 .02" mass=".325" group="3"/>
+      <geom name="rotor1" type="ellipsoid" size=".13 .13 .01" pos="-.14 -.18 .05" mass=".25" group="3"/>
+      <geom name="rotor2" type="ellipsoid" size=".13 .13 .01" pos="-.14 .18 .05" mass=".25" group="3"/>
+      <geom name="rotor3" type="ellipsoid" size=".13 .13 .01" pos=".14 .18 .08" mass=".25" group="3"/>
+      <geom name="rotor4" type="ellipsoid" size=".13 .13 .01" pos=".14 -.18 .08" mass=".25" group="3"/>
+      <site name="thrust1" pos="-.14 -.18 .05"/>
+      <site name="thrust2" pos="-.14 .18 .05"/>
+      <site name="thrust3" pos=".14 .18 .08"/>
+      <site name="thrust4" pos=".14 -.18 .08"/>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor name="thrust1" site="thrust1" gear="0 0 1 0 0 -.0201" ctrlrange="0 13"/>
+    <motor name="thrust2" site="thrust2" gear="0 0 1 0 0 .0201" ctrlrange="0 13"/>
+    <motor name="thrust3" site="thrust3" gear="0 0 1 0 0 -.0201" ctrlrange="0 13"/>
+    <motor name="thrust4" site="thrust4" gear="0 0 1 0 0 .0201" ctrlrange="0 13"/>
+  </actuator>
+</mujoco>

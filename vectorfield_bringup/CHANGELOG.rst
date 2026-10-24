@@ -9,6 +9,9 @@ Forthcoming
   curve_follower_actions() (the follower and its manager), sim_cmd_vel_topic() and the
   lifecycle helpers, moved out of kinematic_sim_demo and curve_follower_demo, which call them
   unchanged; vectorfield_mujoco's examples share them.
+* vectorfield_bringup.demo.follower3d_actions(): the 3D follower, its lifecycle manager and RViz
+  with follower_3d.rviz, moved out of follower3d_demo (unchanged) and shared with
+  vectorfield_mujoco's drone; rviz_node() takes the RViz config.
 
 0.3.0 (2026-10-23)
 ------------------

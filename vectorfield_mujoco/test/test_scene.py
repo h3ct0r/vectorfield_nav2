@@ -173,3 +173,13 @@ def test_build_world_spec():
     assert data.geom_xpos[sphere] == pytest.approx([0.0, 2.0, 1.0])
     opt = scene.visual_option()
     assert [int(g) for g in opt.geomgroup] == [1, 1, 1, 0, 1, 0]
+
+
+def test_small_worlds_get_the_least_extent():
+    """A small world gets MIN_EXTENT (the shadow map's size); a larger one keeps its own."""
+    pytest.importorskip('mujoco')
+    small = scene.make_world('scout_mini')
+    assert small.model.stat.extent == pytest.approx(scene.MIN_EXTENT)
+    far = {'type': 'box', 'pos': [40.0, 0.0], 'size': [0.2, 0.2, 0.2]}
+    large = scene.make_world('scout_mini', obstacles=[far])
+    assert large.model.stat.extent > scene.MIN_EXTENT

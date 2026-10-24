@@ -37,8 +37,25 @@ tick publishes ``/clock``; every stamp is simulated time. The world is built by
   (as vectorfield_sim does, for Humble's tf2 message filter); Ackermann:
   ``~/infeasible_command_count``.
 
-An aerial robot (the X2) needs point_sim_3d's interface instead; it is not implemented yet, and
-the node refuses it. :class:`GroundInterface` holds everything specific to ground robots.
+**Aerial robots** (the X2) get point_sim_3d's interface instead (:class:`AerialInterface`), so
+the 3D follower runs unchanged:
+
+- input: ``cmd_vel_topic`` (``cmd_vel``), a ``TwistStamped`` whose velocity is in the heading
+  frame (``base_frame`` turned by its yaw only) when its ``frame_id`` is ``base_frame``, else in
+  ``global_frame``, plus the yaw rate; a command older than ``cmd_vel_timeout`` is zero (hover).
+  The flight controller (:mod:`vectorfield_mujoco.flight`) tracks it at the physics rate: it
+  stands in for an autopilot's velocity mode (PX4 offboard, ArduPilot guided), so the clip shows
+  real attitude dynamics, not a kinematic point;
+- output: ``odom_topic`` (``odom``: the pose in ``global_frame`` with the full attitude, the
+  twist in ``base_frame``) and the TF ``global_frame → base_frame`` at ``odom_rate``; on
+  ``cloud_topic`` (``obstacle_cloud``, at ``cloud_rate``) a PointCloud2 of the world's obstacle
+  and wall surfaces, ``cloud_spacing`` apart; with ``moving_frame``, point_sim_3d's frame moving
+  with the constant twist ``moving_frame_linear``, ``moving_frame_angular`` from
+  ``moving_frame_origin`` (TF and Odometry on ``moving_frame_topic``). ``initial_pose_z`` sets
+  the start height (0 rests on the floor). point_sim_3d's ``obstacle_spheres`` has no
+  counterpart: the cloud holds the obstacles built into the world (``obstacles``).
+
+:class:`GroundInterface` and :class:`AerialInterface` hold everything specific to each kind.
 
 **Viewing and recording** (all optional, all with the same overlays):
 
@@ -71,7 +88,7 @@ from rclpy.clock import Clock, ClockType
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from rosgraph_msgs.msg import Clock as ClockMsg
-from sensor_msgs.msg import Image, LaserScan
+from sensor_msgs.msg import Image, LaserScan, PointCloud2, PointField
 from std_msgs.msg import UInt64
 from visualization_msgs.msg import Marker, MarkerArray
 
@@ -138,6 +155,64 @@ def odometry(parent, child, stamp, pose, twist):
     msg.twist.twist.linear.y = float(twist[1])
     msg.twist.twist.angular.z = float(twist[2])
     return msg
+
+
+def transform3(parent, child, stamp, position, quat):
+    """Return a ``TransformStamped`` of a position and an (x, y, z, w) quaternion."""
+    t = TransformStamped()
+    t.header.stamp = stamp
+    t.header.frame_id = parent
+    t.child_frame_id = child
+    t.transform.translation.x, t.transform.translation.y, t.transform.translation.z = (
+        float(v) for v in position
+    )
+    r = t.transform.rotation
+    r.x, r.y, r.z, r.w = (float(v) for v in quat)
+    return t
+
+
+def odometry3(parent, child, stamp, position, quat, linear, angular):
+    """Return an ``Odometry`` of a 3D pose ((x, y, z, w) quaternion) and a twist in ``child``."""
+    msg = Odometry()
+    msg.header.stamp = stamp
+    msg.header.frame_id = parent
+    msg.child_frame_id = child
+    pose, twist = msg.pose.pose, msg.twist.twist
+    pose.position.x, pose.position.y, pose.position.z = (float(v) for v in position)
+    o = pose.orientation
+    o.x, o.y, o.z, o.w = (float(v) for v in quat)
+    twist.linear.x, twist.linear.y, twist.linear.z = (float(v) for v in linear)
+    twist.angular.x, twist.angular.y, twist.angular.z = (float(v) for v in angular)
+    return msg
+
+
+def point_cloud(points, frame_id, stamp):
+    """Return a ``sensor_msgs/PointCloud2`` of (N, 3) points: FLOAT32 x, y, z, as point_sim_3d."""
+    xyz = np.ascontiguousarray(np.asarray(points, dtype='<f4').reshape(-1, 3))
+    msg = PointCloud2()
+    msg.header.stamp = stamp
+    msg.header.frame_id = frame_id
+    msg.height = 1
+    msg.width = int(len(xyz))
+    msg.fields = [
+        PointField(name=name, offset=4 * i, datatype=PointField.FLOAT32, count=1)
+        for i, name in enumerate('xyz')
+    ]
+    msg.is_bigendian = False
+    msg.point_step = 12
+    msg.row_step = 12 * msg.width
+    msg.is_dense = True
+    msg.data = xyz.tobytes()
+    return msg
+
+
+def matrix_quat(rotation):
+    """Return the (x, y, z, w) quaternion of a rotation matrix."""
+    import mujoco
+
+    quat = np.zeros(4)
+    mujoco.mju_mat2Quat(quat, np.asarray(rotation, dtype=float).ravel())
+    return quat[1], quat[2], quat[3], quat[0]
 
 
 def frame_quat(yaw, q):
@@ -517,6 +592,167 @@ class GroundInterface:
         return msg
 
 
+def _vec3(values):
+    """Return three values as an array, or zeros for any other length (point_sim_3d's rule)."""
+    return np.asarray(values, dtype=float) if len(values) == 3 else np.zeros(3)
+
+
+class AerialInterface:
+    """point_sim_3d's topics and frames for an aerial robot (see the module docstring).
+
+    Args:
+        node: The :class:`MujocoSim` node (parameters are declared there).
+        sim: The :class:`vectorfield_mujoco.simulation.Simulation` of a quadrotor.
+
+    """
+
+    #: No lidar: every obstacle reaches the follower through the cloud.
+    scan_height = None
+
+    def __init__(self, node, sim):
+        import mujoco
+        import tf2_ros
+
+        from vectorfield_mujoco import sensors
+
+        self.node = node
+        self.sim = sim
+        world = sim.world
+        p = node.read_only
+        self.global_frame = p('global_frame', 'map', 'World frame (ENU) of odom, TF and the cloud')
+        self.base_frame = p(
+            'base_frame', 'base_link', 'Robot frame; a cmd_vel in it is in the heading frame'
+        )
+        self.cmd_vel_topic = p('cmd_vel_topic', 'cmd_vel', 'TwistStamped command topic')
+        odom_topic = p('odom_topic', 'odom', 'Odometry topic')
+        odom_rate = p('odom_rate', 50.0, 'odom and its TF (Hz, simulated)')
+        cloud_topic = p('cloud_topic', 'obstacle_cloud', 'PointCloud2 of the world obstacles')
+        cloud_rate = p('cloud_rate', 2.0, 'Obstacle cloud rate (Hz, simulated)')
+        spacing = p('cloud_spacing', 0.05, 'Spacing of the cloud points on the surfaces (m)')
+        self.moving_frame = p(
+            'moving_frame', '', 'A frame moving with a constant twist; empty: none'
+        )
+        frame_topic = p('moving_frame_topic', 'moving_frame/odom', 'Odometry of moving_frame')
+        self.frame_origin = _vec3(
+            p('moving_frame_origin', [0.0, 0.0, 0.0], 'Start of moving_frame in global_frame (m)')
+        )
+        self.frame_linear = _vec3(
+            p('moving_frame_linear', [0.0, 0.0, 0.0], 'Linear velocity of moving_frame (own axes)')
+        )
+        self.frame_angular = _vec3(
+            p('moving_frame_angular', [0.0, 0.0, 0.0], 'Angular velocity of moving_frame (own)')
+        )
+        if not (odom_rate > 0.0 and cloud_rate > 0.0 and spacing > 0.0):
+            raise ValueError('odom_rate, cloud_rate and cloud_spacing must be positive')
+
+        tick = sim.tick_period
+        self.odom_every = simulation.steps_per_period(1.0 / odom_rate, tick)
+        self.cloud_every = simulation.steps_per_period(1.0 / cloud_rate, tick)
+        # The world's obstacles and walls do not move: their surface points are sampled once.
+        mujoco.mj_forward(world.model, world.data)
+        self.cloud = sensors.world_cloud(world.model, world.data, spacing)
+
+        self.tf = tf2_ros.TransformBroadcaster(node)
+        reliable = QoSProfile(depth=10, reliability=ReliabilityPolicy.RELIABLE)
+        self.odom_pub = node.create_publisher(Odometry, odom_topic, reliable)
+        self.cloud_pub = node.create_publisher(
+            PointCloud2, cloud_topic, QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE)
+        )
+        self.frame_pub = (
+            node.create_publisher(Odometry, frame_topic, reliable) if self.moving_frame else None
+        )
+        self.cmd_sub = node.create_subscription(
+            TwistStamped, self.cmd_vel_topic, self.on_command, reliable
+        )
+
+    def describe(self):
+        """Return one line about the interface, for the start-up log."""
+        moving = f', moving frame {self.moving_frame!r}' if self.moving_frame else ''
+        return (
+            f'TwistStamped on {self.cmd_vel_topic!r} (heading frame when its frame_id is '
+            f'{self.base_frame!r}, else {self.global_frame!r}), obstacle cloud of '
+            f'{len(self.cloud)} points{moving}'
+        )
+
+    def moving_pose(self):
+        """Return (rotation, translation) of the moving frame in the global frame now."""
+        rotation, translation = simulation.exp_se3(
+            self.frame_linear, self.frame_angular, self.sim.time
+        )
+        return rotation, self.frame_origin + translation
+
+    def frame_pose(self, frame_id):
+        """Return (x, y, z, yaw) of a known frame in the global frame, or None.
+
+        Overlays are drawn turned by the yaw only (marker_dict), which suits markers in the
+        global frame, as the 3D follower's are.
+        """
+        frame = frame_id.lstrip('/')
+        if frame in ('', self.global_frame):
+            return 0.0, 0.0, 0.0, 0.0
+        if frame == self.base_frame:
+            return self.sim.world.base_pose()
+        if self.moving_frame and frame == self.moving_frame:
+            rotation, (x, y, z) = self.moving_pose()
+            return float(x), float(y), float(z), math.atan2(rotation[1, 0], rotation[0, 0])
+        return None
+
+    def on_command(self, message):
+        """Take a command: heading frame when its frame_id is the base frame, else global."""
+        linear = message.twist.linear
+        try:
+            self.sim.set_velocity(
+                (linear.x, linear.y, linear.z),
+                message.twist.angular.z,
+                heading=message.header.frame_id == self.base_frame,
+            )
+        except ValueError:
+            self.node.get_logger().warning(
+                'Ignoring a non-finite command', throttle_duration_sec=1.0
+            )
+
+    def on_tick(self, stamp):
+        """Publish what is due after a tick."""
+        ticks = self.sim.ticks
+        if ticks % self.odom_every == 0:
+            self.publish_state(stamp)
+        if ticks % self.cloud_every == 0:
+            self.cloud_pub.publish(point_cloud(self.cloud, self.global_frame, stamp))
+
+    def publish_state(self, stamp):
+        """Publish odom, the TF of the base and, if any, the moving frame."""
+        world = self.sim.world
+        position = world.data.xpos[world.base_id]
+        w, x, y, z = world.data.xquat[world.base_id]
+        linear, angular = world.base_twist()
+        transforms = [
+            transform3(self.global_frame, self.base_frame, stamp, position, (x, y, z, w))
+        ]
+        self.odom_pub.publish(
+            odometry3(
+                self.global_frame, self.base_frame, stamp, position, (x, y, z, w), linear, angular
+            )
+        )
+        if self.frame_pub is not None:
+            rotation, translation = self.moving_pose()
+            quat = matrix_quat(rotation)
+            transforms.append(
+                transform3(self.global_frame, self.moving_frame, stamp, translation, quat)
+            )
+            self.frame_pub.publish(
+                odometry3(
+                    self.global_frame,
+                    self.moving_frame,
+                    stamp,
+                    translation,
+                    quat,
+                    self.frame_linear,
+                    self.frame_angular,
+                )
+            )
+        self.tf.sendTransform(transforms)
+
+
 class MujocoSim(Node):
     """The ``mujoco_sim`` node (see the module docstring)."""
 
@@ -544,10 +780,15 @@ class MujocoSim(Node):
         )
         if not all(math.isfinite(v) for v in pose):
             raise ValueError('initial_pose_x, initial_pose_y and initial_pose_yaw must be finite')
-        if robot.adapter == 'quadrotor':
-            raise ValueError(
-                f'robot {robot.key!r} is aerial; mujoco_sim implements the ground robots only'
-            )
+        aerial = robot.adapter == 'quadrotor'
+        altitude = 0.0
+        if aerial:
+            # point_sim_3d's initial_z: the height of base_link (the MJCF's own clearance under
+            # it, spawn_height, is part of it; 0 rests on the floor).
+            height = self.read_only('initial_pose_z', 1.0, 'Initial base height (m), aerial')
+            if not math.isfinite(height):
+                raise ValueError('initial_pose_z must be finite')
+            altitude = max(0.0, height - (robot.spawn_height or 0.0))
 
         menagerie_dir = None
         if robot.source == 'menagerie':
@@ -562,11 +803,12 @@ class MujocoSim(Node):
             map_yaml=world_map or None,
             obstacles=obstacles,
             pose=pose,
+            altitude=altitude,
             wall_height=wall_height,
             menagerie_dir=menagerie_dir,
         )
         self.sim = simulation.Simulation(world, physics_rate, clock_rate, cmd_timeout)
-        self.interface = GroundInterface(self, self.sim)
+        self.interface = (AerialInterface if aerial else GroundInterface)(self, self.sim)
         if self.interface.scan_height is not None:
             for i in simulation.unseen_obstacles(obstacles, self.interface.scan_height):
                 self.get_logger().warning(
@@ -585,6 +827,8 @@ class MujocoSim(Node):
 
         walls = sum(1 for g in range(world.model.ngeom) if world.model.geom(g).name[:5] == 'wall_')
         geometry = ', '.join(f'{k} {v:.4f}' for k, v in world.geometry.items())
+        if aerial:
+            geometry = f'{world.model.body_subtreemass[world.base_id]:.3f} kg'
         self.get_logger().info(
             f'{robot.description}; {geometry or "planar base"}; '
             f'{os.path.basename(world_map) or "no map"} ({walls} wall boxes), '
@@ -682,6 +926,17 @@ class MujocoSim(Node):
     def _camera_rig(self, world, mode):
         from vectorfield_mujoco import recorder
 
+        if world.robot.adapter == 'quadrotor':
+            # A drone flies around its curve, a few metres across and up to 2 m high.
+            if mode == 'fixed':
+                return recorder.CameraRig(
+                    'fixed', distance=4.8, elevation=-20.0, azimuth=-60.0, lookat=(0.0, 0.0, 0.9)
+                )
+            if mode == 'top':
+                return recorder.CameraRig('top', world.base_id, distance=5.0, height=0.0)
+            return recorder.CameraRig(
+                'chase', world.base_id, distance=3.5, elevation=-18.0, height=0.0
+            )
         if mode == 'fixed':
             return recorder.CameraRig('fixed', distance=9.0, elevation=-50.0, azimuth=90.0)
         if mode == 'top':
@@ -815,6 +1070,11 @@ def main(args=None):
         rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
+    except RuntimeError:
+        # A SIGINT can shut rclpy down while its executor takes a message, and take_message
+        # then raises ("Unable to convert call argument"); only an error while running is one.
+        if node is None or rclpy.ok():
+            raise
     finally:
         if node is not None:
             node.close()

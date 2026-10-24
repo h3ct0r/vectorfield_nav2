@@ -46,6 +46,11 @@ WALL_HEIGHT = 0.5
 
 TIMESTEP = 0.002
 
+#: Least statistic extent (m) of a compiled world, that of the open_10x10 world. MuJoCo sizes
+#: the directional light's shadow map by the extent, and a small world (a drone among a few
+#: obstacles, without walls) gets a speckled floor around it.
+MIN_EXTENT = 20.0
+
 
 @dataclasses.dataclass
 class OccupancyMap:
@@ -398,6 +403,10 @@ class World:
             return self.controller.apply(self.model, self.data, [vx, vy, 0.0], omega)
         return self.controller.apply(self.data, vx, vy, omega, self.base_pose()[3])
 
+    def fly(self, velocity, yaw_rate):
+        """Write the drone's thrusts for a world-frame velocity (m/s) and a yaw rate (rad/s)."""
+        return self.controller.apply(self.model, self.data, velocity, yaw_rate)
+
 
 def make_world(
     robot_key,
@@ -443,6 +452,7 @@ def make_world(
         option=robot.option,
     )
     model = spec.compile()
+    model.stat.extent = max(float(model.stat.extent), MIN_EXTENT)
     data = mujoco.MjData(model)
     initial = {}
     for joint, value in zip(robot.planar_joints, (x, y, yaw)):

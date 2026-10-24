@@ -18,7 +18,7 @@ project(vectorfield_mujoco)
 find_package(ament_cmake REQUIRED)
 find_package(ament_cmake_python REQUIRED)
 
-# Launch tests of every ground example (label `mujoco`), registered only when this is ON, as in
+# Launch tests of every example (label `mujoco`), registered only when this is ON, as in
 # vectorfield_system_tests; the per-PR smoke test is always registered.
 option(VF_NIGHTLY_TESTS "MuJoCo example launch tests" OFF)
 
@@ -110,9 +110,10 @@ if(BUILD_TESTING)
   vf_mujoco_launch_test(test_mujoco_smoke skid_steer
     SCENARIO "${CMAKE_CURRENT_SOURCE_DIR}/test/config/smoke.yaml" TIMEOUT 300)
   if(VF_NIGHTLY_TESTS)
-    # Every ground example's own scenario; the Menagerie robots need the checkout (fetched on
-    # first use, or VF_MENAGERIE_DIR).
-    foreach(_vf_example differential skid_steer omnidirectional ackermann curve_following)
+    # Every example's own scenario; the Menagerie robots need the checkout (fetched on first
+    # use, or VF_MENAGERIE_DIR).
+    foreach(_vf_example
+        differential skid_steer omnidirectional ackermann curve_following drone)
       vf_mujoco_launch_test(test_mujoco_${_vf_example} ${_vf_example} TIMEOUT 900)
     endforeach()
   endif()

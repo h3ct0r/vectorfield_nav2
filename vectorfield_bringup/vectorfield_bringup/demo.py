@@ -16,8 +16,9 @@
 
 :func:`nav2_demo_actions` is the Nav2 side of a simulator demo (map_server, Nav2's servers and
 their lifecycle managers, Humble's collision_monitor, the initial pose and RViz), around the
-simulator's own actions; :func:`curve_follower_actions` adds the curve follower. The kinematic
-demos and the MuJoCo examples of vectorfield_mujoco share them.
+simulator's own actions; :func:`curve_follower_actions` adds the curve follower and
+:func:`follower3d_actions` the 3D follower. The kinematic demos and the MuJoCo examples of
+vectorfield_mujoco share them.
 """
 
 import copy
@@ -229,8 +230,8 @@ def component_container(name, parameters, distro):
     )
 
 
-def rviz_node(use_rviz):
-    """Return the RViz node with ``rviz/vectorfield.rviz``, started when ``use_rviz`` is true."""
+def rviz_node(use_rviz, config='vectorfield.rviz'):
+    """Return the RViz node with ``rviz/<config>``, started when ``use_rviz`` is true."""
     from launch.conditions import IfCondition
     from launch_ros.actions import Node
 
@@ -238,7 +239,7 @@ def rviz_node(use_rviz):
         package='rviz2',
         executable='rviz2',
         name='rviz2',
-        arguments=['-d', share('rviz', 'vectorfield.rviz')],
+        arguments=['-d', share('rviz', config)],
         parameters=[{'use_sim_time': True}],
         output='log',
         condition=IfCondition(use_rviz),
@@ -462,6 +463,41 @@ def curve_follower_actions(merged, distro, composed=True):
         output='screen',
     )
     return [follower, manager]
+
+
+#: The 3D follower's node name (follower3d_demo and vectorfield_mujoco's drone).
+FOLLOWER_3D = 'follower_3d'
+
+
+def follower3d_actions(parameters, use_rviz):
+    """Return the 3D follower, lifecycle_manager_follower_3d and RViz with follower_3d.rviz.
+
+    The simulator (point_sim_3d, or vectorfield_mujoco's mujoco_sim for a drone) is the caller's.
+
+    Args:
+        parameters: The follower's parameters: dictionaries and YAML paths, in order.
+        use_rviz: Start RViz (a substitution or a string).
+
+    """
+    from launch_ros.actions import Node
+
+    follower = Node(
+        package='vectorfield_follower_3d',
+        executable='follower_3d',
+        name=FOLLOWER_3D,
+        output='screen',
+        parameters=list(parameters),
+    )
+    # Wall time, as the other demos' managers: a bond timeout started on simulated time before
+    # /clock is discovered would expire on the first /clock message.
+    manager = Node(
+        package='nav2_lifecycle_manager',
+        executable='lifecycle_manager',
+        name='lifecycle_manager_follower_3d',
+        output='screen',
+        parameters=[{'autostart': True, 'node_names': [FOLLOWER_3D], **MANAGER_CLOCK}],
+    )
+    return [follower, manager, rviz_node(use_rviz, 'follower_3d.rviz')]
 
 
 def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):

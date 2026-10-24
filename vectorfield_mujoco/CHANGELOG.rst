@@ -52,3 +52,25 @@ Forthcoming
 * Tests: unit tests of the node, the frames and the configs (shipped-config rules, actuator
   limits, validate_config); the per-PR launch test test_mujoco_smoke (label mujoco, the vendored
   Scout Mini) and, with -DVF_NIGHTLY_TESTS=ON, a launch test per ground example.
+* Drone: mujoco_sim takes the aerial robot (x2) with point_sim_3d's interface
+  (sim_node.AerialInterface): TwistStamped cmd_vel in the heading frame when its frame_id is the
+  base frame, else in the global frame; odom (pose in map with the full attitude, twist in
+  base_link), TF map -> base_link, /clock, obstacle_cloud (the world's obstacle and wall
+  surfaces), point_sim_3d's optional moving frame (TF and Odometry) and initial_pose_z (0 rests
+  on the floor). The flight controller tracks the command at the physics rate, standing in for
+  an autopilot's velocity mode. Simulation.set_velocity() is the 3D command path; the ground
+  path is unchanged. mujoco_sim also exits cleanly when a SIGINT shuts rclpy down while its
+  executor takes a message (a RuntimeError from take_message, seen on Jazzy).
+* Launch files mujoco_drone (generic: robot, world, obstacles, scenario, cmd_frame, views) and
+  the example drone: the Skydio X2 takes off and flies the helix with the 3D follower, whose CBF
+  filter steers it around a pillar and a sphere seen only through the obstacle cloud
+  (vectorfield_bringup.demo.follower3d_actions()); config/robots/x2.yaml (the follower's limits
+  within the flight controller's, a 0.4 m body radius covering the rotors, cbf_margin 0.1) and
+  config/scenarios/drone.yaml (curve3d, initial_z). run_scenario flies a curve3d with
+  send_curve3d.py once follower_3d is active.
+* registry: the X2's own spotlight is removed (the world's sun casts its shadow). scene: a world
+  smaller than open_10x10 gets its statistic extent (MIN_EXTENT, 20 m), which sizes the shadow
+  map; small worlds had a speckled floor.
+* Tests: the heading-frame command, the moving frame's motion, the drone's command path and the
+  aerial interface on an X2-like quadrotor in test/models (per PR, no download); the drone
+  config and scenario checks; with -DVF_NIGHTLY_TESTS=ON, the drone example's launch test.

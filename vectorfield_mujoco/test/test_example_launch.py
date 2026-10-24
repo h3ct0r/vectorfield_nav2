@@ -17,8 +17,8 @@
 The example launch ``VF_MUJOCO_EXAMPLE`` (set per CTest test) starts with ``scenario:=false``
 (its world, without the runner) and ``use_rviz:=false``; the test then runs ``run_scenario`` on
 ``VF_MUJOCO_SCENARIO`` (a scenario name or path; default the example's own), which exits with 0
-only when every NavigateToPose goal (or the FollowCurve goal) SUCCEEDED. ``VF_MUJOCO_TIMEOUT``
-(s) bounds the scenario.
+only when every NavigateToPose goal (or the FollowCurve or FollowCurve3 goal) SUCCEEDED.
+``VF_MUJOCO_TIMEOUT`` (s) bounds the scenario.
 """
 
 import os

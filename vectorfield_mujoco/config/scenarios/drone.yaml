@@ -1,0 +1,36 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Scenario of drone.launch.py: the Skydio X2 in an open world without walls
+# (vectorfield_mujoco.examples). It takes off from the floor and the 3D follower flies the
+# helix example of vectorfield_bringup.curves3d: radius 1 m about the origin, two turns climbing
+# from z = 0.5 m to 1.5 m, counter-clockwise from (1, 0, 0.5) (send_curve3d.py --shape helix).
+# Two obstacles stand within the body radius of the curve, seen only through the simulator's
+# obstacle cloud: the CBF filter (obstacle_mode cbf, body_radius 0.4 m) bends the flight around
+# them, then the field brings the drone back to the curve.
+description: "Skydio X2 flies a helix and the CBF steers it around a pillar and a sphere"
+
+# On the floor below the helix start, facing along it; initial_z 0 rests on the floor.
+initial_pose: [1.0, -0.5, 1.57]
+initial_z: 0.0
+
+# Map frame; MuJoCo sizes (cylinder radius and half-height, sphere radius).
+obstacles:
+  # Inside the helix at 90 degrees, 0.2 m from the curve: both turns pass outside it.
+  - {type: cylinder, pos: [0.0, 0.7], size: [0.1, 1.1]}
+  # Outside the first turn at 180 degrees (z 0.75 m), 0.15 m from the curve.
+  - {type: sphere, pos: [-1.4, 0.0, 0.75], size: [0.25]}
+
+# Open: it ends SUCCEEDED at its end (laps apply to closed curves only).
+curve3d: helix

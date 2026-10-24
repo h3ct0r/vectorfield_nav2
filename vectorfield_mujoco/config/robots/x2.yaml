@@ -1,0 +1,57 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Robot overlay: the Skydio X2 quadrotor (MuJoCo Menagerie skydio_x2/x2.xml), merged after
+# config/mujoco_sim.yaml for the 3D follower (vectorfield_mujoco.examples; no Nav2). The flight
+# controller (vectorfield_mujoco.flight) tracks the follower's velocity and yaw rate, as an
+# autopilot's velocity mode would.
+#
+# Limits: the X2's four 13 N rotors lift 4 times its 1.325 kg, and the flight controller accepts
+# 5 m/s^2 horizontally (35 degrees of tilt), 6 m/s^2 up and 5 m/s^2 down; the follower stays far
+# inside that (1 m/s, 0.5 m/s vertical, 1.5 m/s^2), so its velocity loop (a 0.33 s time constant)
+# keeps up and the CBF's single-integrator model holds.
+follower_3d:
+  ros__parameters:
+    desired_speed: 0.5
+    max_speed: 1.0
+    max_axis_speed_x: 1.0
+    max_axis_speed_y: 1.0
+    max_axis_speed_z: 0.5
+    max_accel: 1.5
+    max_decel: 1.5
+    cancel_decel: 1.5
+    max_yaw_rate: 1.5
+    max_yaw_accel: 3.2
+    # The CBF filter against the obstacle cloud (the launch sets voxel_cloud_topic). The body
+    # sphere about base_link covers the rotors: their 0.13 m discs sit at (+-0.14, +-0.18) m and
+    # up to 0.09 m above base_link, 0.37 m away at most. The margin is twice the default: the
+    # filter assumes the velocity is reached at once, but the drone's lags by its loop's time
+    # constant, and the 0.1 m voxels blur the surfaces. cbf_gain * desired_speed (1.0) is at
+    # most max_decel.
+    obstacle_mode: "cbf"
+    body_radius: 0.4
+    cbf_margin: 0.1
+    cbf_gain: 2.0
+    voxel_resolution: 0.1
+    voxel_grid_size: 48
+    # As follower3d_demo: moving curves without frame_odom_topic sample their frame in map.
+    moving_frame_reference: "map"
+
+# point_sim_3d's interface (sim_node.AerialInterface): odom and its TF at 50 Hz, the obstacle
+# cloud at 2 Hz (the follower's voxel_timeout is 1 s) with points 0.05 m apart, half a voxel.
+mujoco_sim:
+  ros__parameters:
+    odom_rate: 50.0
+    cloud_rate: 2.0
+    cloud_spacing: 0.05

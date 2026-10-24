@@ -20,6 +20,10 @@ for the omnidirectional base, the costmaps' footprint; and on top of them the co
 stay within the actuators' (read from the compiled models; the Menagerie robots need their
 checkout) and every example's merged parameters pass vectorfield's validate_config. Scenarios
 load, name a route their launch can drive, and their obstacles cross the robot's lidar plane.
+
+The drone (an aerial robot, no Nav2) has its own checks: the 3D follower's keys exist and keep
+its CBF rule, its limits are within the flight controller's and the X2's thrust, the body radius
+covers the rotors, and the scenario's obstacles are close enough to the curve to need the CBF.
 """
 
 import ast
@@ -27,6 +31,7 @@ import importlib.util
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 import yaml
 
@@ -196,13 +201,18 @@ def test_scenario_loads_and_matches_its_launch(scenario):
     presets = _launch_presets(launch)
     assert presets['example'] == scenario.stem
     assert examples.driver_of(loaded) == presets['driver']
-    assert presets['robot'] in examples.ROBOT_MODELS
+    if presets['driver'] == 'follower_3d':
+        assert presets['robot'] in examples.AERIAL_ROBOTS
+    else:
+        assert presets['robot'] in examples.ROBOT_MODELS
 
 
 @pytest.mark.parametrize('launch', EXAMPLE_LAUNCHES, ids=lambda p: p.name)
 def test_example_validates(launch):
     """The merged parameters of every example pass validate_config, without warnings."""
     presets = _launch_presets(launch)
+    if presets['driver'] == 'follower_3d':
+        pytest.skip('no Nav2 controller: see the drone tests')
     scenario = examples.load_scenario(
         PACKAGE / 'config' / 'scenarios' / f'{launch.name[:-10]}.yaml'
     )
@@ -227,8 +237,8 @@ def test_obstacles_cross_the_lidar_plane(launch):
     scenario = examples.load_scenario(
         PACKAGE / 'config' / 'scenarios' / f'{launch.name[:-10]}.yaml'
     )
-    if not scenario['obstacles']:
-        return
+    if not scenario['obstacles'] or presets['driver'] == 'follower_3d':
+        return  # a drone has no lidar: it sees every obstacle through its cloud
     if registry.get(presets['robot']).source == 'menagerie' and not menagerie.is_available():
         pytest.skip('MuJoCo Menagerie not fetched (fetch_menagerie)')
     pytest.importorskip('mujoco')
@@ -248,13 +258,23 @@ def test_scenario_validation_rejects_mistakes():
         {'curve': 'ellipse', 'laps': 0},
         {'laps': 2},
         {'initial_pose': [0, 0]},
+        {'curve3d': 'moving'},
+        {'curve3d': 'ellipse'},
+        {'curve': 'ellipse', 'curve3d': 'helix'},
+        {'curve3d': 'viviani', 'laps': 0},
+        {'initial_z': -0.5},
+        {'initial_z': 'high'},
         {'params': {'velocity_smoother': {'ros__parameters': {'max_velocity': [1, 0, 1]}}}},
     ):
         with pytest.raises(ValueError):
             examples.validate_scenario(bad)
     plain = examples.validate_scenario({})
     assert plain['obstacles'] == [] and plain['initial_pose'] == [0.0, 0.0, 0.0]
+    assert plain['initial_z'] == 0.0
     assert examples.driver_of(plain) is None
+    flight = examples.validate_scenario({'curve3d': 'helix', 'initial_z': 1})
+    assert examples.driver_of(flight) == 'follower_3d'
+    assert flight['laps'] == 1 and flight['initial_z'] == 1.0
 
 
 def test_obstacles_argument():
@@ -291,5 +311,144 @@ def test_runner_commands():
     )
     assert Path(curve[0]).name == 'send_curve.py'
     assert curve[1:] == ['--shape', 'superellipse', '--laps', '2', '--speed', '0.3']
+    flight = runner.client_command(examples.validate_scenario({'curve3d': 'viviani', 'laps': 2}))
+    assert Path(flight[0]).name == 'send_curve3d.py'
+    assert flight[1:] == ['--shape', 'viviani', '--laps', '2']
     with pytest.raises(ValueError):
         runner.client_command(examples.validate_scenario({}))
+
+
+# ------------------------------------------------------------------------------------- drone
+
+DRONE = 'x2'
+FOLLOWER_3D_PARAMETERS = 'vectorfield_follower_3d_params.yaml'
+
+
+def _follower3d(scenario_params=None):
+    merged = examples.merged_params(DRONE, 'follower_3d', scenario_params, share_dir=SHARE)
+    return _node(merged, 'follower_3d')
+
+
+def _follower3d_defaults():
+    from ament_index_python.packages import get_package_share_directory
+
+    path = (
+        Path(get_package_share_directory('vectorfield_follower_3d'))
+        / 'params'
+        / FOLLOWER_3D_PARAMETERS
+    )
+    (group,) = yaml.safe_load(path.read_text(encoding='utf-8')).values()
+    return {k: v['default_value'] for k, v in group.items() if isinstance(v, dict)}
+
+
+def test_drone_config_has_no_nav2():
+    """The drone merges config/mujoco_sim.yaml and its robot config only: no Nav2 server."""
+    paths = examples.overlay_paths(DRONE, 'follower_3d', share_dir=SHARE)
+    assert [Path(p).name for p in paths] == ['mujoco_sim.yaml', f'{DRONE}.yaml']
+    merged = examples.merged_params(DRONE, 'follower_3d', share_dir=SHARE)
+    assert 'controller_server' not in merged and 'bt_navigator' not in merged
+    assert _node(merged, 'mujoco_sim')['cloud_rate'] > 0.0
+    with pytest.raises(ValueError):
+        examples.robot_config('quadcopter', SHARE)
+
+
+def test_drone_follower_parameters():
+    """Known keys only; the CBF is on, within its rule, and the speeds within the limits."""
+    follower = _follower3d()
+    unknown = set(follower) - set(_follower3d_defaults())
+    assert not unknown, sorted(unknown)
+    limits = {**_follower3d_defaults(), **follower}
+    assert limits['obstacle_mode'] == 'cbf'
+    # The parameter description's rule: cbf_gain * desired_speed <= max_decel.
+    assert limits['cbf_gain'] * limits['desired_speed'] <= limits['max_decel']
+    assert limits['desired_speed'] <= limits['max_speed']
+    # The cloud's points are closer together than a voxel, so no voxel is missed.
+    cloud = _node(examples.merged_params(DRONE, 'follower_3d', share_dir=SHARE), 'mujoco_sim')
+    assert cloud['cloud_spacing'] <= 0.5 * limits['voxel_resolution']
+    # A cloud older than voxel_timeout is a stale input: the cloud comes faster.
+    assert 1.0 / cloud['cloud_rate'] < limits['voxel_timeout']
+
+
+def _drone_world():
+    from vectorfield_mujoco import menagerie, scene
+
+    if not menagerie.is_available():
+        pytest.skip('MuJoCo Menagerie not fetched (fetch_menagerie)')
+    pytest.importorskip('mujoco')
+    return scene.make_world(DRONE)
+
+
+def test_drone_limits_are_within_the_flight_controller():
+    """The follower asks for less than the flight controller and the X2's rotors give."""
+    world = _drone_world()
+    controller = world.controller.controller
+    quad, gains = controller.quad, controller.gains
+    limits = {**_follower3d_defaults(), **_follower3d()}
+    climb = quad.ctrl_max.sum() / quad.mass - quad.gravity  # full thrust, level
+    assert limits['max_accel'] <= min(gains.max_accel_xy, gains.max_accel_up, climb)
+    assert limits['max_decel'] <= min(gains.max_accel_xy, gains.max_accel_down)
+    assert limits['max_accel'] <= quad.gravity * math.tan(gains.max_tilt)
+    # The velocity loop's lag at the follower's largest acceleration stays small.
+    assert max(limits['max_accel'], limits['max_decel']) / gains.vel_p <= 0.5
+
+
+def test_drone_body_radius_covers_the_rotors():
+    """Every collision geom of the X2 lies inside the follower's body sphere about base_link."""
+    import mujoco
+
+    world = _drone_world()
+    model, data = world.model, world.data
+    mujoco.mj_forward(model, data)
+    reach = 0.0
+    for g in range(model.ngeom):
+        body = model.geom_bodyid[g]
+        if model.body_rootid[body] != model.body_rootid[world.base_id]:
+            continue
+        if not (model.geom_contype[g] or model.geom_conaffinity[g]):
+            continue
+        centre = np.linalg.norm(data.geom_xpos[g] - data.xpos[world.base_id])
+        reach = max(reach, centre + model.geom_rbound[g])
+    assert 0.3 < reach <= _follower3d()['body_radius']
+
+
+def _helix(description, samples=4000):
+    """Points of a curves3d helix: (r cos s, r sin s, lead s / 2 pi) placed at its position."""
+    parameters = dict(description.parameters)
+    s = np.linspace(0.0, 2.0 * math.pi * parameters['turns'], samples)
+    radius, lead = parameters['radius'], parameters['lead']
+    local = np.column_stack((radius * np.cos(s), radius * np.sin(s), lead * s / (2.0 * math.pi)))
+    return local + np.asarray(description.position)
+
+
+def _surface_distance(obstacle, points):
+    """Return the signed distances (m) of points to a sphere's or vertical cylinder's surface."""
+    from vectorfield_mujoco import scene
+
+    kind, size, pos, _ = scene.obstacle_geom(obstacle)
+    offset = points - np.asarray(pos)
+    if kind == 'sphere':
+        return np.linalg.norm(offset, axis=1) - size[0]
+    assert kind == 'cylinder', kind
+    radial = np.linalg.norm(offset[:, :2], axis=1) - size[0]
+    vertical = np.abs(offset[:, 2]) - size[1]
+    outside = np.hypot(np.maximum(radial, 0.0), np.maximum(vertical, 0.0))
+    return np.where((radial < 0) & (vertical < 0), np.maximum(radial, vertical), outside)
+
+
+def test_drone_scenario_needs_the_cbf():
+    """Each obstacle is clear of the curve but within the CBF's reach of it."""
+    from vectorfield_bringup import curves3d
+
+    scenario = examples.load_scenario(PACKAGE / 'config' / 'scenarios' / 'drone.yaml')
+    assert examples.driver_of(scenario) == 'follower_3d'
+    assert scenario['curve3d'] == 'helix' and scenario['obstacles']
+    limits = {**_follower3d_defaults(), **_follower3d(scenario['params'])}
+    reach = limits['body_radius'] + limits['cbf_margin']
+    curve = _helix(curves3d.EXAMPLES[scenario['curve3d']])
+    for obstacle in scenario['obstacles']:
+        gap = float(_surface_distance(obstacle, curve).min())
+        assert 0.1 < gap < reach - 0.1, (obstacle, gap)
+    # The start is clear of the obstacles.
+    start = np.array([[*scenario['initial_pose'][:2], scenario['initial_z']]])
+    for obstacle in scenario['obstacles']:
+        assert _surface_distance(obstacle, start).min() > reach

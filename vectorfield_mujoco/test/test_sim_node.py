@@ -14,12 +14,16 @@
 
 """Tests of the mujoco_sim node: message conversions, and the node stepped by hand.
 
-The node runs with ``real_time_factor`` 0 (no step timer) and the vendored Scout Mini; the test
-calls its tick and reads what it published from a second node.
+The node runs with ``real_time_factor`` 0 (no step timer) and the vendored Scout Mini or, for
+the aerial interface, the X2-like quadrotor of test/models (registered for the test as a package
+robot, so no download); the test calls its tick and reads what it published from a second node.
 """
 
+import dataclasses
 import math
+import pathlib
 
+import numpy as np
 import pytest
 
 from vectorfield_mujoco import gl
@@ -32,13 +36,21 @@ if PROBLEM:
 pytest.importorskip('mujoco')
 rclpy = pytest.importorskip('rclpy')
 
-from geometry_msgs.msg import Point, PoseStamped, PoseWithCovarianceStamped  # noqa: E402
+from geometry_msgs.msg import (  # noqa: E402
+    Point,
+    PoseStamped,
+    PoseWithCovarianceStamped,
+    TwistStamped,
+)
 from nav_msgs.msg import Odometry, Path  # noqa: E402
 from rosgraph_msgs.msg import Clock  # noqa: E402
-from sensor_msgs.msg import LaserScan  # noqa: E402
+from sensor_msgs.msg import LaserScan, PointCloud2  # noqa: E402
+from tf2_msgs.msg import TFMessage  # noqa: E402
 from visualization_msgs.msg import Marker  # noqa: E402
 
-from vectorfield_mujoco import sim_node  # noqa: E402
+from vectorfield_mujoco import sim_node, simulation  # noqa: E402
+
+QUADROTOR = pathlib.Path(__file__).resolve().parent / 'models' / 'quadrotor.xml'
 
 
 def test_stamped_default_follows_the_distro():
@@ -199,3 +211,147 @@ def test_rendering_is_refused_without_a_backend(monkeypatch, tmp_path):
         assert not (tmp_path / 'clip.mp4').exists()
     finally:
         next(started, None)
+
+
+def test_point_cloud():
+    """Points become point_sim_3d's PointCloud2: one row of FLOAT32 x, y, z."""
+    points = np.array([[1.0, 2.0, 3.0], [-0.5, 0.25, 1.5]])
+    cloud = sim_node.point_cloud(points, 'map', sim_node.to_stamp(2.5))
+    assert (cloud.header.frame_id, cloud.height, cloud.width) == ('map', 1, 2)
+    assert [(f.name, f.offset, f.datatype) for f in cloud.fields] == [
+        ('x', 0, 7),
+        ('y', 4, 7),
+        ('z', 8, 7),
+    ]
+    assert (cloud.point_step, cloud.row_step, cloud.is_dense) == (12, 24, True)
+    decoded = np.frombuffer(bytes(cloud.data), dtype='<f4').reshape(-1, 3)
+    assert decoded == pytest.approx(points)
+    assert sim_node.point_cloud(np.zeros((0, 3)), 'map', cloud.header.stamp).width == 0
+
+
+SPHERE = {'type': 'sphere', 'pos': [2.0, 0.0, 1.0], 'size': [0.3]}
+FRAME_ORIGIN, FRAME_LINEAR, FRAME_ANGULAR = (1.5, 0.0, 1.0), (0.1, 0.0, 0.0), (0.0, 0.0, 0.1)
+
+
+@pytest.fixture
+def aerial(monkeypatch):
+    """Start the node with the quadrotor at (1, -1, 1.2), yaw 0.5, a sphere and a moving frame."""
+    from vectorfield_mujoco import registry
+
+    robot = dataclasses.replace(
+        registry.get('x2'), key='quadrotor', source='package', mjcf=str(QUADROTOR)
+    )
+    monkeypatch.setitem(registry.ROBOTS, 'quadrotor', robot)
+    args = [
+        '--ros-args',
+        '-p', 'robot:=quadrotor',
+        '-p', "obstacles:='[{type: sphere, pos: [2, 0, 1], size: [0.3]}]'",
+        '-p', 'initial_pose_x:=1.0',
+        '-p', 'initial_pose_y:=-1.0',
+        '-p', 'initial_pose_z:=1.2',
+        '-p', 'initial_pose_yaw:=0.5',
+        '-p', 'real_time_factor:=0.0',
+        '-p', 'moving_frame:=platform',
+        '-p', 'moving_frame_topic:=platform/odom',
+        '-p', f'moving_frame_origin:={list(FRAME_ORIGIN)}',
+        '-p', f'moving_frame_linear:={list(FRAME_LINEAR)}',
+        '-p', f'moving_frame_angular:={list(FRAME_ANGULAR)}',
+    ]  # fmt: skip
+    rclpy.init(args=args)
+    sim = sim_node.MujocoSim()
+    probe = rclpy.create_node('probe')
+    yield sim, probe
+    sim.close()
+    sim.destroy_node()
+    probe.destroy_node()
+    rclpy.shutdown()
+
+
+def _stamp(message):
+    return message.header.stamp.sec + 1e-9 * message.header.stamp.nanosec
+
+
+def test_aerial_interface_publishes_point_sim_3ds_interface(aerial):
+    """The odom (pose in map, twist in base_link), TF map -> base_link, cloud and moving frame."""
+    sim, probe = aerial
+    assert isinstance(sim.interface, sim_node.AerialInterface)
+    got = {'clock': [], 'odom': [], 'cloud': [], 'tf': [], 'frame': []}
+    probe.create_subscription(Clock, '/clock', got['clock'].append, 10)
+    probe.create_subscription(Odometry, 'odom', got['odom'].append, 10)
+    probe.create_subscription(PointCloud2, 'obstacle_cloud', got['cloud'].append, 10)
+    probe.create_subscription(TFMessage, '/tf', got['tf'].append, 10)
+    probe.create_subscription(Odometry, 'platform/odom', got['frame'].append, 10)
+    assert _spin([sim, probe], lambda: got['cloud'] and len(got['frame']) >= 2, 200, sim)
+    assert got['clock'] and got['odom'] and got['tf']
+    odom = got['odom'][-1]
+    assert (odom.header.frame_id, odom.child_frame_id) == ('map', 'base_link')
+    p = odom.pose.pose.position
+    assert (p.x, p.y, p.z) == pytest.approx((1.0, -1.0, 1.2), abs=0.02)  # hovering
+    assert sim_node.yaw_of(odom.pose.pose.orientation) == pytest.approx(0.5, abs=0.01)
+    children = {t.child_frame_id: t for m in got['tf'] for t in m.transforms}
+    assert children['base_link'].header.frame_id == 'map' and 'platform' in children
+    # The cloud: the sphere's surface in map, nothing else (no map, so no walls).
+    cloud = got['cloud'][-1]
+    assert cloud.header.frame_id == 'map' and cloud.width > 100
+    points = np.frombuffer(bytes(cloud.data), dtype='<f4').reshape(-1, 3)
+    radii = np.linalg.norm(points - np.array(SPHERE['pos']), axis=1)
+    assert radii == pytest.approx(np.full(len(points), 0.3), abs=1e-5)
+    # The moving frame: point_sim_3d's constant twist from its origin.
+    frame = got['frame'][-1]
+    assert (frame.header.frame_id, frame.child_frame_id) == ('map', 'platform')
+    assert frame.twist.twist.linear.x == pytest.approx(0.1)
+    assert frame.twist.twist.angular.z == pytest.approx(0.1)
+    rotation, translation = simulation.exp_se3(FRAME_LINEAR, FRAME_ANGULAR, _stamp(frame))
+    q = frame.pose.pose.position
+    assert (q.x, q.y, q.z) == pytest.approx(np.asarray(FRAME_ORIGIN) + translation)
+    assert sim_node.yaw_of(frame.pose.pose.orientation) == pytest.approx(
+        math.atan2(rotation[1, 0], rotation[0, 0])
+    )
+    assert sim.interface.frame_pose('map') == (0.0, 0.0, 0.0, 0.0)
+    assert sim.interface.frame_pose('base_link')[:3] == pytest.approx((1.0, -1.0, 1.2), abs=0.02)
+    assert sim.interface.frame_pose('platform')[:3] == pytest.approx(
+        sim.interface.moving_pose()[1]
+    )
+    assert sim.interface.frame_pose('odom') is None
+
+
+def _command(frame_id, x, y, z, yaw_rate):
+    message = TwistStamped()
+    message.header.frame_id = frame_id
+    message.twist.linear.x, message.twist.linear.y, message.twist.linear.z = x, y, z
+    message.twist.angular.z = yaw_rate
+    return message
+
+
+def test_aerial_commands_follow_their_frame(aerial):
+    """frame_id base_link: the heading frame; any other frame_id: the world (global) frame."""
+    sim, probe = aerial
+    interface = sim.interface
+    interface.on_command(_command('base_link', 0.4, 0.0, 0.1, 0.0))
+    linear, _ = sim.sim.velocity()
+    assert linear == pytest.approx((0.4 * math.cos(0.5), 0.4 * math.sin(0.5), 0.1), abs=1e-3)
+    interface.on_command(_command('map', 0.4, 0.0, 0.1, 0.2))
+    assert sim.sim.velocity() == ((0.4, 0.0, 0.1), 0.2)
+    interface.on_command(_command('map', math.nan, 0.0, 0.0, 0.0))  # ignored
+    assert sim.sim.velocity() == ((0.4, 0.0, 0.1), 0.2)
+    # Flown for 3 s: odom's base-frame twist, turned by its orientation as the 3D follower turns
+    # it, is the commanded world velocity.
+    got = []
+    probe.create_subscription(Odometry, 'odom', got.append, 10)
+
+    def command():
+        interface.on_command(_command('map', 0.4, 0.0, 0.1, 0.0))
+        return False
+
+    _spin([sim, probe], command, 300, sim)
+    odom = got[-1]
+    q = odom.pose.pose.orientation
+    rotation = np.array(
+        [
+            [1 - 2 * (q.y**2 + q.z**2), 2 * (q.x * q.y - q.w * q.z), 2 * (q.x * q.z + q.w * q.y)],
+            [2 * (q.x * q.y + q.w * q.z), 1 - 2 * (q.x**2 + q.z**2), 2 * (q.y * q.z - q.w * q.x)],
+            [2 * (q.x * q.z - q.w * q.y), 2 * (q.y * q.z + q.w * q.x), 1 - 2 * (q.x**2 + q.y**2)],
+        ]
+    )
+    v = odom.twist.twist.linear
+    assert rotation @ np.array([v.x, v.y, v.z]) == pytest.approx([0.4, 0.0, 0.1], abs=0.03)

@@ -23,15 +23,22 @@ this order (:func:`merged_params`):
 4. ``config/robots/<robot>.yaml``: footprint, limits within the actuators, slip compensation;
 5. the scenario's ``params`` (Nav2 behaviour only, never a limit).
 
-A scenario (``config/scenarios/<name>.yaml``, :func:`load_scenario`) holds the unmapped
-``obstacles``, an ``initial_pose`` and what ``run_scenario`` drives: ``waypoints`` (Nav2, one
-NavigateToPose goal each) or a ``curve`` (a ``vectorfield_bringup.curves.EXAMPLES`` shape) with
-``laps`` (the curve follower).
+An aerial robot (:data:`AERIAL_ROBOTS`) has no Nav2 and no motion-model overlay: its parameters
+are ``config/mujoco_sim.yaml``, ``config/robots/<robot>.yaml`` (the 3D follower's limits, body
+radius and CBF) and the scenario's ``params``, deep-merged without nav2_bringup's file.
 
-:func:`launch_description` builds both generic launches (``mujoco_nav2.launch.py``,
-``mujoco_curve_follower.launch.py``) and the example launches, which only preset its arguments.
+A scenario (``config/scenarios/<name>.yaml``, :func:`load_scenario`) holds the unmapped
+``obstacles``, an ``initial_pose`` (and, for a drone, ``initial_z``) and what ``run_scenario``
+drives: ``waypoints`` (Nav2, one NavigateToPose goal each), a ``curve`` (a
+``vectorfield_bringup.curves.EXAMPLES`` shape) with ``laps`` (the curve follower) or a
+``curve3d`` (a ``vectorfield_bringup.curves3d.EXAMPLES`` shape) with ``laps`` (the 3D follower).
+
+:func:`launch_description` builds the generic launches (``mujoco_nav2.launch.py``,
+``mujoco_curve_follower.launch.py``, ``mujoco_drone.launch.py``) and the example launches, which
+only preset its arguments.
 """
 
+import math
 import os
 
 import yaml
@@ -46,9 +53,13 @@ ROBOT_MODELS = {
     'ackermann_car': 'ackermann',
 }
 
-#: What drives the robot: Nav2 (NavigateToPose with the vector-field controller) or the curve
-#: follower (FollowCurve, with Nav2 up for the approach and the costmap).
-DRIVERS = ('nav2', 'curve_follower')
+#: The aerial robots: the 3D follower drives them, without Nav2.
+AERIAL_ROBOTS = ('x2',)
+
+#: What drives the robot: Nav2 (NavigateToPose with the vector-field controller), the curve
+#: follower (FollowCurve, with Nav2 up for the approach and the costmap) or the 3D follower
+#: (FollowCurve3, an aerial robot).
+DRIVERS = ('nav2', 'curve_follower', 'follower_3d')
 
 #: The keys a scenario file may hold.
 SCENARIO_KEYS = (
@@ -57,7 +68,9 @@ SCENARIO_KEYS = (
     'obstacles',
     'waypoints',
     'curve',
+    'curve3d',
     'laps',
+    'initial_z',
     'speed',
     'params',
 )
@@ -66,6 +79,7 @@ SCENARIO_KEYS = (
 OVERLAY_TOPICS = {
     'nav2': ['/plan', '/FollowPath/markers'],
     'curve_follower': ['/curve_follower/markers'],
+    'follower_3d': ['/follower_3d/markers'],
 }
 
 #: velocity_smoother keys that only the motion-model and robot overlays set.
@@ -83,8 +97,9 @@ def share(*parts, share_dir=None):
 
 def robot_config(robot, share_dir=None):
     """Return ``config/robots/<robot>.yaml``."""
-    if robot not in ROBOT_MODELS:
-        raise ValueError(f'robot {robot!r} is not one of {", ".join(sorted(ROBOT_MODELS))}')
+    if robot not in ROBOT_MODELS and robot not in AERIAL_ROBOTS:
+        known = sorted(ROBOT_MODELS) + list(AERIAL_ROBOTS)
+        raise ValueError(f'robot {robot!r} is not one of {", ".join(known)}')
     return share('config', 'robots', f'{robot}.yaml', share_dir=share_dir)
 
 
@@ -118,11 +133,11 @@ def validate_scenario(data, name='scenario'):
     """Return a scenario mapping with its values checked and normalised.
 
     Raises:
-        ValueError: An unknown key, a malformed value, both or neither of ``waypoints`` and
-            ``curve`` when a route is given, or ``params`` that set velocity smoother limits.
+        ValueError: An unknown key, a malformed value, more than one route (``waypoints``,
+            ``curve``, ``curve3d``), or ``params`` that set velocity smoother limits.
 
     """
-    from vectorfield_bringup import curves
+    from vectorfield_bringup import curves, curves3d
     from vectorfield_mujoco import simulation
 
     if not isinstance(data, dict):
@@ -133,23 +148,33 @@ def validate_scenario(data, name='scenario'):
     result = dict(data)
     result['obstacles'] = simulation.parse_obstacles(data.get('obstacles') or [])
     result['initial_pose'] = _pose(data.get('initial_pose', [0.0, 0.0, 0.0]), 'initial_pose')
-    if 'waypoints' in data and 'curve' in data:
-        raise ValueError(f'{name}: give waypoints or a curve, not both')
+    routes = [key for key in ('waypoints', 'curve', 'curve3d') if key in data]
+    if len(routes) > 1:
+        raise ValueError(f'{name}: give one route (waypoints, curve or curve3d), not {routes}')
+    try:
+        result['initial_z'] = float(data.get('initial_z', 0.0))
+    except (TypeError, ValueError):
+        raise ValueError(f'{name}: initial_z must be a height (m)') from None
+    if not math.isfinite(result['initial_z']) or result['initial_z'] < 0.0:
+        raise ValueError(f'{name}: initial_z must be a height >= 0 (m)')
     if 'waypoints' in data:
         waypoints = data['waypoints']
         if not isinstance(waypoints, list) or not waypoints:
             raise ValueError(f'{name}: waypoints must be a non-empty list of [x, y, yaw]')
         result['waypoints'] = [_pose(w, 'a waypoint') for w in waypoints]
-    if 'curve' in data:
-        if data['curve'] not in curves.EXAMPLES or data['curve'] in curves.MOVING_EXAMPLES:
-            static = sorted(set(curves.EXAMPLES) - set(curves.MOVING_EXAMPLES))
-            raise ValueError(f'{name}: curve must be one of {static}, not {data["curve"]!r}')
+    for key, module in (('curve', curves), ('curve3d', curves3d)):
+        if key in data and (
+            data[key] not in module.EXAMPLES or data[key] in module.MOVING_EXAMPLES
+        ):
+            static = sorted(set(module.EXAMPLES) - set(module.MOVING_EXAMPLES))
+            raise ValueError(f'{name}: {key} must be one of {static}, not {data[key]!r}')
+    if 'curve' in data or 'curve3d' in data:
         laps = data.get('laps', 1)
         if not isinstance(laps, int) or isinstance(laps, bool) or laps < 1:
             raise ValueError(f'{name}: laps must be a whole number >= 1, not {laps!r}')
         result['laps'] = laps
     elif 'laps' in data:
-        raise ValueError(f'{name}: laps needs a curve')
+        raise ValueError(f'{name}: laps needs a curve or a curve3d')
     result['speed'] = float(data.get('speed', 0.0))
     params = data.get('params') or {}
     if not isinstance(params, dict):
@@ -169,7 +194,9 @@ def load_scenario(path):
 
 
 def driver_of(scenario):
-    """Return the driver a scenario's route needs (``'nav2'``, ``'curve_follower'``) or None."""
+    """Return the driver a scenario's route needs (one of :data:`DRIVERS`) or None."""
+    if 'curve3d' in scenario:
+        return 'follower_3d'
     if 'curve' in scenario:
         return 'curve_follower'
     if 'waypoints' in scenario:
@@ -178,11 +205,19 @@ def driver_of(scenario):
 
 
 def overlay_paths(robot, driver, share_dir=None, bringup_share_dir=None):
-    """Return the overlay files of :func:`merged_params`, in merge order (steps 1 to 4)."""
+    """Return the overlay files of :func:`merged_params`, in merge order (steps 1 to 4).
+
+    The 3D follower's (``follower_3d``) are only steps 3 and 4: an aerial robot has no Nav2.
+    """
     from vectorfield_bringup import demo
 
     if driver not in DRIVERS:
         raise ValueError(f'driver {driver!r} is not one of {", ".join(DRIVERS)}')
+    if driver == 'follower_3d':
+        return [
+            share('config', 'mujoco_sim.yaml', share_dir=share_dir),
+            robot_config(robot, share_dir),
+        ]
     scenarios = ['curve_follower'] if driver == 'curve_follower' else []
     return demo.overlay_paths(ROBOT_MODELS.get(robot, robot), scenarios, bringup_share_dir) + [
         share('config', 'mujoco_sim.yaml', share_dir=share_dir),
@@ -191,10 +226,20 @@ def overlay_paths(robot, driver, share_dir=None, bringup_share_dir=None):
 
 
 def merged_params(robot, driver, scenario_params=None, share_dir=None, bringup_share_dir=None):
-    """Return the merged Nav2 parameters of an example (see the module docstring)."""
+    """Return the merged parameters of an example (see the module docstring).
+
+    Nav2's for the ground drivers; for ``follower_3d`` the overlays alone, without nav2_bringup's
+    file.
+    """
     from vectorfield_bringup import params
 
-    merged = params.merge(overlay_paths(robot, driver, share_dir, bringup_share_dir))
+    paths = overlay_paths(robot, driver, share_dir, bringup_share_dir)
+    if driver == 'follower_3d':
+        merged = {}
+        for path in paths:
+            merged = params.deep_merge(merged, params.load_yaml(path))
+    else:
+        merged = params.merge(paths)
     if scenario_params:
         merged = params.deep_merge(merged, scenario_params)
     return merged
@@ -235,10 +280,13 @@ def _launch_setup(context, driver, example):
         return LaunchConfiguration(name).perform(context)
 
     distro = params.ros_distro()
+    aerial = driver == 'follower_3d'
     robot = arg('robot')
-    if robot not in ROBOT_MODELS:
-        raise ValueError(f'robot {robot!r} is not one of {", ".join(sorted(ROBOT_MODELS))}')
-    map_yaml = demo.resolve_config(arg('world'), 'maps')
+    robots = list(AERIAL_ROBOTS) if aerial else sorted(ROBOT_MODELS)
+    if robot not in robots:
+        raise ValueError(f'robot {robot!r} is not one of {", ".join(robots)}')
+    # A drone may fly without a map (no walls); Nav2 needs one.
+    map_yaml = demo.resolve_config(arg('world'), 'maps') if arg('world') or not aerial else ''
     if example is not None:
         scenario_file = resolve_scenario(example)
         run = IfCondition(arg('scenario')).evaluate(context)
@@ -256,40 +304,50 @@ def _launch_setup(context, driver, example):
         float(arg(f'initial_pose_{axis}') or default)
         for axis, default in zip(('x', 'y', 'yaw'), scenario['initial_pose'])
     ]
-    composed = IfCondition(arg('use_composition')).evaluate(context)
+    composed = not aerial and IfCondition(arg('use_composition')).evaluate(context)
 
     merged = merged_params(robot, driver, scenario['params'])
     params_file = params.write_params(merged)
+    sim_parameters = {
+        'robot': robot,
+        'world_map': map_yaml,
+        'obstacles': yaml.safe_dump(obstacles, default_flow_style=True).strip(),
+        'initial_pose_x': pose[0],
+        'initial_pose_y': pose[1],
+        'initial_pose_yaw': pose[2],
+        'viewer': IfCondition(arg('viewer')).evaluate(context),
+        'camera_topic': arg('camera_topic'),
+        'record_path': arg('record_path'),
+        'record_camera': arg('record_camera'),
+        'real_time_factor': float(arg('real_time_factor')),
+        'overlay_topics': OVERLAY_TOPICS[driver],
+    }
+    if aerial:
+        sim_parameters['initial_pose_z'] = float(arg('initial_pose_z') or scenario['initial_z'])
+    else:
+        # Humble has no collision_monitor in its command chain; bringup adds one.
+        sim_parameters['cmd_vel_topic'] = demo.sim_cmd_vel_topic(distro)
     sim = Node(
         package=PACKAGE,
         executable='mujoco_sim',
         name='mujoco_sim',
-        parameters=[
-            params_file,
-            {
-                'robot': robot,
-                'world_map': map_yaml,
-                'obstacles': yaml.safe_dump(obstacles, default_flow_style=True).strip(),
-                'initial_pose_x': pose[0],
-                'initial_pose_y': pose[1],
-                'initial_pose_yaw': pose[2],
-                # Humble has no collision_monitor in its command chain; bringup adds one.
-                'cmd_vel_topic': demo.sim_cmd_vel_topic(distro),
-                'viewer': IfCondition(arg('viewer')).evaluate(context),
-                'camera_topic': arg('camera_topic'),
-                'record_path': arg('record_path'),
-                'record_camera': arg('record_camera'),
-                'real_time_factor': float(arg('real_time_factor')),
-                'overlay_topics': OVERLAY_TOPICS[driver],
-            },
-        ],
+        parameters=[params_file, sim_parameters],
         output='screen',
         # A shutdown finishes the recording: give ffmpeg time before SIGTERM.
         sigterm_timeout='20',
     )
-    actions = demo.nav2_demo_actions(
-        context, distro, params_file, map_yaml, [sim], pose, arg('use_rviz'), composed
-    )
+    if aerial:
+        # As follower3d_demo: the CBF filter runs against the simulator's obstacle cloud.
+        follower = {
+            'use_sim_time': True,
+            'cmd_frame': arg('cmd_frame'),
+            'voxel_cloud_topic': 'obstacle_cloud',
+        }
+        actions = [sim] + demo.follower3d_actions([params_file, follower], arg('use_rviz'))
+    else:
+        actions = demo.nav2_demo_actions(
+            context, distro, params_file, map_yaml, [sim], pose, arg('use_rviz'), composed
+        )
     if driver == 'curve_follower':
         actions += demo.curve_follower_actions(merged, distro, composed)
     if run and driver_of(scenario) is not None:
@@ -325,7 +383,9 @@ def launch_description(driver, example=None, **defaults):
             path (empty: none).
         defaults: Argument defaults: ``robot``, ``world``, ``obstacles``, ``scenario``,
             ``use_rviz``, ``viewer``, ``camera_topic``, ``record_path``, ``record_camera``,
-            ``exit_on_done``, ``real_time_factor``, ``initial_pose_x`` (and ``_y``, ``_yaw``).
+            ``exit_on_done``, ``real_time_factor``, ``initial_pose_x`` (and ``_y``, ``_yaw``);
+            the ground drivers' ``use_composition``; ``follower_3d``'s ``cmd_frame`` and
+            ``initial_pose_z``.
 
     """
     from launch import LaunchDescription
@@ -345,13 +405,16 @@ def launch_description(driver, example=None, **defaults):
         else 'A scenario: a name in config/scenarios or a YAML path; its obstacles are added and '
         'run_scenario drives its route. Empty: none.'
     )
+    aerial = driver == 'follower_3d'
+    robots = list(AERIAL_ROBOTS) if aerial else sorted(ROBOT_MODELS)
     arguments = [
-        ('robot', 'scout_mini', f'Robot: {", ".join(sorted(ROBOT_MODELS))}.'),
+        ('robot', robots[0] if aerial else 'scout_mini', f'Robot: {", ".join(robots)}.'),
         (
             'world',
-            'open_10x10',
+            '' if aerial else 'open_10x10',
             'Map: a name in vectorfield_bringup/maps (open_10x10, corridor_door, '
-            'corridor_corner) or a map YAML path; its walls are built in MuJoCo.',
+            'corridor_corner) or a map YAML path; its walls are built in MuJoCo.'
+            + (' Empty: none.' if aerial else ''),
         ),
         (
             'obstacles',
@@ -365,7 +428,11 @@ def launch_description(driver, example=None, **defaults):
             'false',
             'Shut the launch down when the scenario finishes (true for recordings and tests).',
         ),
-        ('use_rviz', 'true', 'Start RViz with vectorfield.rviz.'),
+        (
+            'use_rviz',
+            'true',
+            f'Start RViz with {"follower_3d" if aerial else "vectorfield"}.rviz.',
+        ),
         ('use_composition', 'true', 'Run the Nav2 servers in component containers.'),
         ('viewer', 'false', 'Open the MuJoCo viewer (needs a display).'),
         ('camera_topic', '', 'Publish an offscreen camera Image on this topic (empty: off).'),
@@ -376,6 +443,20 @@ def launch_description(driver, example=None, **defaults):
         ('initial_pose_y', '', "Initial map y (m); empty: the scenario's (else 0)."),
         ('initial_pose_yaw', '', "Initial map yaw (rad); empty: the scenario's (else 0)."),
     ]
+    if aerial:
+        # No Nav2: no containers.
+        arguments = [a for a in arguments if a[0] != 'use_composition'] + [
+            (
+                'initial_pose_z',
+                '',
+                "Initial height (m); empty: the scenario's initial_z (else 0, on the floor).",
+            ),
+            (
+                'cmd_frame',
+                'global',
+                "Frame of the 3D follower's velocity setpoints: global or body (heading frame).",
+            ),
+        ]
     unknown = set(defaults) - {name for name, _, _ in arguments}
     if unknown:
         raise ValueError(f'unknown launch argument defaults {sorted(unknown)}')

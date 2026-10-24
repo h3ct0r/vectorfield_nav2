@@ -16,11 +16,12 @@
 
 Starts ``point_sim_3d`` (a kinematic point robot that publishes ``/odom``, TF ``map →
 base_link`` and ``/clock``), the 3D follower ``follower_3d`` with
-``lifecycle_manager_follower_3d``, and RViz with ``rviz/follower_3d.rviz``. There is no map and
-no Nav2. The follower runs the CBF filter against the simulator's ``obstacle_cloud``: a point
-cloud of the spheres in its ``obstacle_spheres`` parameter (none at start), voxelised by the
-follower. ``moving_frame:=platform`` makes the simulator also move a frame ``platform`` (TF and
-``platform/odom``) for the ``moving`` example.
+``lifecycle_manager_follower_3d``, and RViz with ``rviz/follower_3d.rviz``
+(``vectorfield_bringup.demo.follower3d_actions()``, shared with vectorfield_mujoco's drone).
+There is no map and no Nav2. The follower runs the CBF filter against the simulator's
+``obstacle_cloud``: a point cloud of the spheres in its ``obstacle_spheres`` parameter (none at
+start), voxelised by the follower. ``moving_frame:=platform`` makes the simulator also move a
+frame ``platform`` (TF and ``platform/odom``) for the ``moving`` example.
 
 Examples::
 
@@ -33,13 +34,10 @@ Examples::
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
-from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 from vectorfield_bringup import demo
-
-FOLLOWER = 'follower_3d'
 
 
 def follower_parameters(context):
@@ -85,32 +83,8 @@ def _launch_setup(context):
             }
         ],
     )
-    follower = Node(
-        package='vectorfield_follower_3d',
-        executable='follower_3d',
-        name=FOLLOWER,
-        output='screen',
-        parameters=follower_parameters(context),
-    )
-    # Wall time, as the other demos' managers: a bond timeout started on simulated time before
-    # /clock is discovered would expire on the first /clock message.
-    manager = Node(
-        package='nav2_lifecycle_manager',
-        executable='lifecycle_manager',
-        name='lifecycle_manager_follower_3d',
-        output='screen',
-        parameters=[{'autostart': True, 'node_names': [FOLLOWER], 'use_sim_time': False}],
-    )
-    rviz = Node(
-        package='rviz2',
-        executable='rviz2',
-        name='rviz2',
-        arguments=['-d', demo.share('rviz', 'follower_3d.rviz')],
-        parameters=[{'use_sim_time': True}],
-        output='log',
-        condition=IfCondition(LaunchConfiguration('use_rviz')),
-    )
-    return [sim, follower, manager, rviz]
+    use_rviz = LaunchConfiguration('use_rviz')
+    return [sim] + demo.follower3d_actions(follower_parameters(context), use_rviz)
 
 
 def generate_launch_description():

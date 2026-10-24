@@ -256,6 +256,12 @@ def _customize_tidybot(spec):
     spec.body('base_link').add_site(name='base_laser', pos=[0.0, 0.0, 0.3], size=[0.01] * 3)
 
 
+def _customize_x2(spec):
+    """Remove the model's own spotlight: the world's sun lights it (a second shadow otherwise)."""
+    for light in list(spec.lights):
+        spec.delete(light)
+
+
 # --------------------------------------------------------------------------------- registry
 
 ROBOTS = {
@@ -337,6 +343,7 @@ ROBOTS = {
             mode='3d',
             spawn_height=0.005,
             option={'density': 1.225, 'viscosity': 1.8e-5},
+            customize=_customize_x2,
         ),
     )
 }

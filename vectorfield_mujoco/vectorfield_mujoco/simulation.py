@@ -27,6 +27,11 @@ vectorfield_sim:
   ``map → odom`` transforms so that the odometry stays continuous.
 
 Poses are 2D (x, y, yaw) tuples; :func:`compose` and :func:`inverse` are their group operations.
+
+An aerial robot (the quadrotor) takes point_sim_3d's command instead
+(:meth:`Simulation.set_velocity`): a velocity in the world frame or in the heading frame (the base
+frame turned by its yaw only, :func:`heading_to_world`) and a yaw rate, which the flight
+controller tracks at every physics step. :func:`exp_se3` moves point_sim_3d's optional frame.
 The module also parses the node's obstacle and size parameters.
 """
 
@@ -60,6 +65,40 @@ def inverse(a):
     x, y, yaw = a
     c, s = math.cos(yaw), math.sin(yaw)
     return -c * x - s * y, s * x - c * y, wrap(-yaw)
+
+
+def heading_to_world(linear, yaw):
+    """Return a heading-frame velocity (vx, vy, vz) in the world frame: turned by ``yaw`` about z.
+
+    The heading frame is the base frame without its roll and pitch, as point_sim_3d and the 3D
+    follower's ``cmd_frame: body`` use it.
+    """
+    vx, vy, vz = (float(v) for v in linear)
+    c, s = math.cos(yaw), math.sin(yaw)
+    return c * vx - s * vy, s * vx + c * vy, vz
+
+
+def _skew(w):
+    return np.array([[0.0, -w[2], w[1]], [w[2], 0.0, -w[0]], [-w[1], w[0], 0.0]])
+
+
+def exp_se3(linear, angular, tau):
+    """Return (rotation, translation) of exp(tau * xi) for the body twist xi = (linear, angular).
+
+    The motion, after ``tau`` seconds, of a frame moving with the constant twist (``linear``,
+    ``angular``) expressed in its own axes, as vectorfield_core's ``d3::expSE3``.
+    """
+    v = np.asarray(linear, dtype=float) * tau
+    w = np.asarray(angular, dtype=float) * tau
+    theta = float(np.linalg.norm(w))
+    k = _skew(w)
+    if theta < 1e-9:
+        return np.eye(3) + k, v + 0.5 * k @ v
+    a = math.sin(theta) / theta
+    b = (1.0 - math.cos(theta)) / theta**2
+    c = (theta - math.sin(theta)) / theta**3
+    rotation = np.eye(3) + a * k + b * k @ k
+    return rotation, (np.eye(3) + b * k + c * k @ k) @ v
 
 
 def steps_per_period(period, step):
@@ -147,6 +186,7 @@ class Simulation:
         self.ticks = 0
         self.infeasible_count = 0
         self._command = (0.0, 0.0, 0.0)
+        self._velocity = ((0.0, 0.0, 0.0), 0.0, False)
         self._command_time = None
         self._true_map_to_odom = self.truth()
         self._map_to_odom = self._true_map_to_odom
@@ -175,12 +215,50 @@ class Simulation:
         """Return the command in effect: zero once it is older than the timeout."""
         if self._command_time is None:
             return 0.0, 0.0, 0.0
-        if self.cmd_timeout > 0.0 and self.time - self._command_time > self.cmd_timeout:
+        if self._timed_out():
             return 0.0, 0.0, 0.0
         return self._command
 
+    def _timed_out(self):
+        return self.cmd_timeout > 0.0 and self.time - self._command_time > self.cmd_timeout
+
+    @property
+    def aerial(self):
+        """Return whether the robot flies (it takes :meth:`set_velocity` commands)."""
+        return self.world.robot.adapter == 'quadrotor'
+
+    def set_velocity(self, linear, yaw_rate, heading=False):
+        """Set an aerial robot's command: a velocity and a yaw rate, as point_sim_3d takes them.
+
+        Args:
+            linear: (vx, vy, vz) (m/s) in the world frame or, with ``heading``, in the heading
+                frame, turned into the world frame by the current yaw at every physics step.
+            yaw_rate: Yaw rate (rad/s).
+            heading: Whether ``linear`` is in the heading frame.
+
+        Non-finite commands raise ``ValueError``.
+        """
+        linear = tuple(float(v) for v in linear)
+        if len(linear) != 3 or not all(math.isfinite(v) for v in (*linear, yaw_rate)):
+            raise ValueError('non-finite command')
+        self._velocity = (linear, float(yaw_rate), bool(heading))
+        self._command_time = self.time
+
+    def velocity(self):
+        """Return the aerial command in effect, (world velocity, yaw rate); zero once too old."""
+        if self._command_time is None or self._timed_out():
+            return (0.0, 0.0, 0.0), 0.0
+        linear, yaw_rate, heading = self._velocity
+        if heading:
+            linear = heading_to_world(linear, self.world.base_pose()[3])
+        return linear, yaw_rate
+
     def step(self, on_substep=None):
         """Advance one tick: the command is applied before every physics step.
+
+        Ground robots get their body twist (:meth:`set_command`); aerial robots the flight
+        controller's set-point (:meth:`set_velocity`), whose heading-frame velocity follows the
+        yaw of every step.
 
         Args:
             on_substep: Optional callable ``on_substep(data)`` after each physics step (the
@@ -190,8 +268,12 @@ class Simulation:
         import mujoco
 
         world = self.world
+        aerial = self.aerial
         for _ in range(self.substeps):
-            world.drive(*self.command())
+            if aerial:
+                world.fly(*self.velocity())
+            else:
+                world.drive(*self.command())
             mujoco.mj_step(world.model, world.data)
             if on_substep is not None:
                 on_substep(world.data)

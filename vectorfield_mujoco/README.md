@@ -5,8 +5,8 @@ MuJoCo physics for the vectorfield_nav2 examples: robots from the
 Scout Mini and an own Ackermann car, in worlds built from the same Nav2 maps that map_server
 serves.
 
-**Status:** the simulation core (milestone D2). The simulator node and the example launch files
-come next.
+**Status:** the simulator node and the example launch files, ground robots and the drone. The
+gallery clips come next.
 
 The package is source-only: it depends on MuJoCo from pip (rosdep key `python3-mujoco-pip`; on
 Ubuntu Noble and later run rosdep with `PIP_BREAK_SYSTEM_PACKAGES=1`).
@@ -30,6 +30,40 @@ ros2 run vectorfield_mujoco fetch_menagerie
 This sparse-clones `pal_tiago`, `stanford_tidybot` and `skydio_x2` at a pinned commit into
 `~/.cache/vectorfield_mujoco/menagerie/<sha>`. Set `VF_MENAGERIE_DIR` to use another directory,
 or an existing Menagerie checkout offline.
+
+## Examples
+
+Each example starts the physics, the controller, RViz and its scenario
+(`config/scenarios/<example>.yaml`), which `run_scenario` drives once the controller is up:
+
+```bash
+ros2 launch vectorfield_mujoco drone.launch.py
+```
+
+| Launch | Robot | Driven by | Scenario |
+|---|---|---|---|
+| `differential.launch.py` | `tiago` | Nav2 + vector-field controller | contours around an unmapped box |
+| `skid_steer.launch.py` | `scout_mini` | Nav2 + vector-field controller | through `corridor_door` and back |
+| `omnidirectional.launch.py` | `tidybot` | curve follower | rounded rectangle at a fixed heading |
+| `ackermann.launch.py` | `ackermann_car` | Nav2 (Smac Hybrid) + controller, CBF | box beside the path, U-turn |
+| `curve_following.launch.py` | `scout_mini` | curve follower | lemniscate laps |
+| `drone.launch.py` | `x2` | 3D follower, CBF | helix around a pillar and a sphere |
+
+`scenario:=false` keeps only the world, `exit_on_done:=true` ends the launch with the scenario,
+`use_rviz:=false camera_topic:=camera` publishes an offscreen camera image instead,
+`viewer:=true` opens MuJoCo's viewer and `record_path:=clip.mp4` records in simulated time
+(`record_camera:=chase`, `top` or `fixed`). The generic launches `mujoco_nav2.launch.py`,
+`mujoco_curve_follower.launch.py` and `mujoco_drone.launch.py` take any robot, world, obstacles
+and scenario.
+
+For the drone, `mujoco_sim` stands in for `point_sim_3d` of vectorfield_follower_3d: it takes
+the 3D follower's `cmd_vel` (TwistStamped, heading frame when its `frame_id` is `base_link`,
+else `map`) and publishes `odom`, the TF `map → base_link`, `/clock` and `obstacle_cloud` (the
+surfaces of the world's obstacles), plus point_sim_3d's optional moving frame. Our cascaded
+flight controller (`flight`) tracks the command at the physics rate, standing in for PX4's or
+ArduPilot's velocity mode: the drone's attitude and velocity lag are simulated, its autopilot is
+not. point_sim_3d's `obstacle_spheres` parameter has no counterpart; the cloud holds the
+`obstacles` built into the world.
 
 ## Modules
 

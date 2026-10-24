@@ -3,7 +3,7 @@
 <package format="3">
   <name>vectorfield_mujoco</name>
   <version>0.3.0</version>
-  <description>MuJoCo physics for the vectorfield_nav2 examples: the mujoco_sim node (vectorfield_sim's interface for ground robots), the example launch files, robot configs and scenarios driving Nav2 and the curve follower, a robot registry (MuJoCo Menagerie robots fetched at a pinned commit, a vendored AgileX Scout Mini and an own Ackermann car), worlds built from Nav2 maps, twist adapters, a quadrotor velocity controller, a 2D lidar, marker overlays and MP4 recording. Source-only: it depends on MuJoCo from pip.</description>
+  <description>MuJoCo physics for the vectorfield_nav2 examples: the mujoco_sim node (vectorfield_sim's interface for ground robots, point_sim_3d's for the drone), the example launch files, robot configs and scenarios driving Nav2, the curve follower and the 3D follower, a robot registry (MuJoCo Menagerie robots fetched at a pinned commit, a vendored AgileX Scout Mini and an own Ackermann car), worlds built from Nav2 maps, twist adapters, a quadrotor velocity controller, a 2D lidar, marker overlays and MP4 recording. Source-only: it depends on MuJoCo from pip.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>
   <url type="website">https://h3ct0r.github.io/vectorfield_nav2/</url>
@@ -22,6 +22,7 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>libosmesa6-dev</exec_depend>
+  <exec_depend>lifecycle_msgs</exec_depend>
   <exec_depend>nav2_bringup</exec_depend>
   <exec_depend>nav2_msgs</exec_depend>
   <exec_depend>nav2_simple_commander</exec_depend>
@@ -37,6 +38,7 @@
   <exec_depend>tf2_ros_py</exec_depend>
   <exec_depend>vectorfield_bringup</exec_depend>
   <exec_depend>vectorfield_curve_follower</exec_depend>
+  <exec_depend>vectorfield_follower_3d</exec_depend>
   <exec_depend>vectorfield_msgs</exec_depend>
   <exec_depend>vectorfield_nav2_controller</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>

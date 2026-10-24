@@ -81,6 +81,7 @@ def test_x2_hover_and_velocity():
     quad = world.controller.controller.quad
     assert quad.mass == pytest.approx(1.325)
     assert quad.hover_thrusts() == pytest.approx([3.2495625] * 4, rel=1e-3)
+    assert world.model.nlight == 1  # the world's sun: the X2's own spotlight is removed
     _run(world, 2.0, 0.0)
     x, y, z, yaw = world.base_pose()
     assert (x, y) == pytest.approx((0.0, 0.0), abs=0.02)
