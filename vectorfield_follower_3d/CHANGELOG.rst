@@ -2,6 +2,11 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* The field arrows in ~/markers have heads (three strokes 120° apart, readable from any
+  viewpoint) and are coloured viridis by the distance to the curve, like the 2D field grid.
+
 0.3.0 (2026-10-23)
 ------------------
 * First version (experimental): the ``follower_3d`` lifecycle component with the

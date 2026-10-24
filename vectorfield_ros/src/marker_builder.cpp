@@ -994,7 +994,25 @@ bool complete(const MarkerContext & c) noexcept
          c.scratch != nullptr;
 }
 
-/// @brief Viridis colour map at \f$u \in [0, 1]\f$ (11 stops, linear in between).
+/// @brief Fills a Path with poses oriented along the local tangent of `points`.
+void fillPath(nav_msgs::msg::Path * path, const std::vector<Vec2> & points, std::size_t n)
+{
+  path->poses.resize(n);
+  for (std::size_t k = 0; k < n; ++k) {
+    const std::size_t a = k > 0 ? k - 1 : 0;
+    const std::size_t b = k + 1 < n ? k + 1 : n - 1;
+    const Vec2 d = points[b] - points[a];
+    const double yaw = d.squaredNorm() > 0.0 ? std::atan2(d.y(), d.x()) : 0.0;
+    geometry_msgs::msg::PoseStamped & pose = path->poses[k];
+    pose.header = path->header;
+    pose.pose.position = toPoint(points[k]);
+    pose.pose.orientation = yawQuaternion(yaw);
+  }
+}
+
+}  // namespace
+
+// 11 stops, linear in between.
 std_msgs::msg::ColorRGBA viridis(double u) noexcept
 {
   static constexpr std::array<std::array<float, 3>, 11> kStops{{
@@ -1020,24 +1038,6 @@ std_msgs::msg::ColorRGBA viridis(double u) noexcept
   color.a = 1.0F;
   return color;
 }
-
-/// @brief Fills a Path with poses oriented along the local tangent of `points`.
-void fillPath(nav_msgs::msg::Path * path, const std::vector<Vec2> & points, std::size_t n)
-{
-  path->poses.resize(n);
-  for (std::size_t k = 0; k < n; ++k) {
-    const std::size_t a = k > 0 ? k - 1 : 0;
-    const std::size_t b = k + 1 < n ? k + 1 : n - 1;
-    const Vec2 d = points[b] - points[a];
-    const double yaw = d.squaredNorm() > 0.0 ? std::atan2(d.y(), d.x()) : 0.0;
-    geometry_msgs::msg::PoseStamped & pose = path->poses[k];
-    pose.header = path->header;
-    pose.pose.position = toPoint(points[k]);
-    pose.pose.orientation = yawQuaternion(yaw);
-  }
-}
-
-}  // namespace
 
 MarkerBuilder::MarkerBuilder()
 {

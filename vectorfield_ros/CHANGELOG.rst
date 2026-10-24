@@ -2,6 +2,11 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* viridis() is public (marker_builder.hpp): the field grid's colour by distance, shared with the
+  3D follower's field arrows.
+
 0.3.0 (2026-10-23)
 ------------------
 * The obstacle_mode description covers cbf for Ackermann (rear axle, turning margin).

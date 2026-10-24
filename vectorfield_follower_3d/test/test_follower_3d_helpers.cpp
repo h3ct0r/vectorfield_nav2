@@ -325,17 +325,24 @@ TEST(Markers, DrawsTheCurveTheObstaclesAndTheStatus)
   EXPECT_EQ(array.markers.front().action, visualization_msgs::msg::Marker::DELETEALL);
   int curve = 0;
   int obstacle = 0;
-  std::size_t field_points = 0;
+  const visualization_msgs::msg::Marker * field = nullptr;
   for (const auto & m : array.markers) {
     curve += m.ns == "curve" ? 1 : 0;
     obstacle += m.ns == "obstacles" ? 1 : 0;
-    if (m.ns == "field") {
-      field_points = m.points.size();
-    }
+    field = m.ns == "field" ? &m : field;
   }
   EXPECT_EQ(curve, 1);
   EXPECT_EQ(obstacle, 2);
-  EXPECT_EQ(field_points, 2U * 27U);
+  ASSERT_NE(field, nullptr);
+  // 27 arrows: a shaft and three head strokes each, one colour per point.
+  EXPECT_EQ(field->points.size(), 8U * 27U);
+  ASSERT_EQ(field->colors.size(), field->points.size());
+  // Coloured by distance: the lattice spans the curve's neighbourhood, so not all one colour.
+  bool varied = false;
+  for (const auto & c : field->colors) {
+    varied = varied || c.r != field->colors.front().r || c.b != field->colors.front().b;
+  }
+  EXPECT_TRUE(varied);
 }
 
 }  // namespace

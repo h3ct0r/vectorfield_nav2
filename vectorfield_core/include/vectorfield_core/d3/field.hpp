@@ -131,6 +131,9 @@ public:
   /// time t. For plots and tests; the Tracker keeps hints.
   Vec3 at(const Curve3 & curve, const Vec3 & x, double t) const noexcept;
 
+  /// @brief Like at(), with the whole sample (D, the foot, G, H, ...), e.g. to colour plots.
+  FieldSample3 sampleAt(const Curve3 & curve, const Vec3 & x, double t) const noexcept;
+
   /// @brief The gain function.
   const GainFunction & gain() const noexcept { return gain_; }
   /// @brief \f$v_r\f$.

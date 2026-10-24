@@ -189,13 +189,18 @@ void DistanceField3::evaluateTerminal(
 
 Vec3 DistanceField3::at(const Curve3 & curve, const Vec3 & x, double t) const noexcept
 {
+  return sampleAt(curve, x, t).Phi;
+}
+
+FieldSample3 DistanceField3::sampleAt(const Curve3 & curve, const Vec3 & x, double t) const noexcept
+{
   EvalContext3 context;
   context.t = t;
   context.direction = direction_;
   const ClosestPoint3 cp = curve.closestPoint(x, context, CurveHint3{});
   FieldSample3 sample;
   evaluate(x, cp, curve.velocity(cp, t), &sample);
-  return sample.Phi;
+  return sample;
 }
 
 std::size_t streamline(

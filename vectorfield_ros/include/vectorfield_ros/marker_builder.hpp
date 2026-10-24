@@ -33,6 +33,7 @@
 #include "builtin_interfaces/msg/time.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
+#include "std_msgs/msg/color_rgba.hpp"
 #include "vectorfield_core/curve.hpp"
 #include "vectorfield_core/span.hpp"
 #include "vectorfield_core/tracker.hpp"
@@ -164,6 +165,10 @@ private:
   nav_msgs::msg::OccupancyGrid distance_;
   std::vector<vectorfield_core::Vec2> points_;
 };
+
+/// @brief Viridis colour map at \f$u \in [0, 1]\f$ (clamped; NaN maps to 1): the field grid's
+/// colour by distance, shared with the 3D follower's field arrows.
+std_msgs::msg::ColorRGBA viridis(double u) noexcept;
 
 }  // namespace vectorfield_ros
 

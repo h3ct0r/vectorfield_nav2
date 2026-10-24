@@ -2,6 +2,11 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* d3: DistanceField3::sampleAt(), the whole field sample (D, foot, G, H) at a point; at() is
+  its field vector.
+
 0.3.0 (2026-10-23)
 ------------------
 * 3D core (experimental): obstacle avoidance by a 3D CBF safety filter (math_spec §14.8

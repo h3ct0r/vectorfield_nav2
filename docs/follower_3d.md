@@ -154,7 +154,7 @@ the node is silent until the next goal.
 | `cmd_vel` | `geometry_msgs/TwistStamped` (pub) | `cmd_vel_topic`, only while a goal executes |
 | `~/curve` | `vectorfield_msgs/Curve3` | The goal's curve, transient local |
 | `~/field_state` | `vectorfield_msgs/FieldState3` | Every cycle: pose, foot, $D$, lap, $\Phi$, CBF barrier, commands |
-| `~/markers` | `visualization_msgs/MarkerArray` | Every `visualization_period`: `curve`, `closest_point`, `tangent`, `command`, `field` (arrows of $\Phi$ on a lattice of `field_arrows_step` within `field_arrows_extent`), `goal`, `obstacles`, `voxels`, `body`, `status` |
+| `~/markers` | `visualization_msgs/MarkerArray` | Every `visualization_period`: `curve`, `closest_point`, `tangent`, `command`, `field` (arrows of $\Phi$ with three-stroke heads on a lattice of `field_arrows_step` within `field_arrows_extent`, coloured viridis by the distance to the curve, like the 2D field grid), `goal`, `obstacles`, `voxels`, `body`, `status` |
 | `voxel_cloud_topic` | `sensor_msgs/PointCloud2` (sub) | Optional |
 | `<frame_odom_topic>` | `nav_msgs/Odometry` (sub) | Moving-frame goals |
 

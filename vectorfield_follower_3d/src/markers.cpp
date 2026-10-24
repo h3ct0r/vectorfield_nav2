@@ -20,6 +20,7 @@
 
 #include "std_msgs/msg/color_rgba.hpp"
 #include "vectorfield_follower_3d/conversions.hpp"
+#include "vectorfield_ros/marker_builder.hpp"
 
 namespace vectorfield_follower_3d
 {
@@ -35,6 +36,9 @@ namespace
 constexpr double kTangentLength = 0.4;
 /// Length of a field arrow at the reference speed (m).
 constexpr double kFieldArrowLength = 0.25;
+// Head strokes: a third of the arrow, 25° off its axis.
+constexpr double kFieldHeadFraction = 0.3;
+constexpr double kFieldHeadAngle = 25.0 * vectorfield_core::kPi / 180.0;
 /// Size of a drawn plane (m).
 constexpr double kPlaneSize = 6.0;
 
@@ -119,9 +123,12 @@ void addField(const MarkerInput3 & in, MarkerArray * out)
   if (in.field == nullptr || in.curve == nullptr || !(in.field_extent > 0.0)) {
     return;
   }
+  // One LINE_LIST: per arrow a shaft and three head strokes 120° apart (a direction readable
+  // from any viewpoint), coloured like the 2D field grid by the distance to the curve (viridis
+  // over the lattice's half extent).
   Marker m = base(in, "field", Marker::LINE_LIST);
-  m.scale.x = 0.01;
-  m.color = color(0.6F, 0.6F, 0.6F, 0.8F);
+  m.scale.x = 0.012;
+  m.color = color(1.0F, 1.0F, 1.0F, 1.0F);
   const int half = static_cast<int>(std::floor(in.field_extent / in.field_step + 1e-9));
   const d3::Isometry3 inverse = in.frame.T_eval_curve.inverse();
   const double v_r = in.field->referenceSpeed();
@@ -129,13 +136,30 @@ void addField(const MarkerInput3 & in, MarkerArray * out)
     for (int j = -half; j <= half; ++j) {
       for (int k = -half; k <= half; ++k) {
         const d3::Vec3 x = in.pose.p + in.field_step * d3::Vec3(i, j, k);
-        const d3::Vec3 phi =
-          in.frame.T_eval_curve.linear() * in.field->at(*in.curve, inverse * x, in.t);
-        if (!d3::isFinite(phi) || !(v_r > 0.0)) {
+        const d3::FieldSample3 sample = in.field->sampleAt(*in.curve, inverse * x, in.t);
+        const d3::Vec3 phi = in.frame.T_eval_curve.linear() * sample.Phi;
+        const double speed = phi.norm();
+        if (!d3::isFinite(phi) || !(v_r > 0.0) || !(speed > 1e-9)) {
           continue;
         }
+        const d3::Vec3 tip = x + (kFieldArrowLength / v_r) * phi;
+        const d3::Vec3 u = phi / speed;
+        // Two unit vectors normal to the arrow span the head's base circle.
+        const d3::Vec3 side =
+          u.cross(std::abs(u.z()) < 0.9 ? d3::Vec3::UnitZ() : d3::Vec3::UnitX()).normalized();
+        const d3::Vec3 other = u.cross(side);
+        const double head = kFieldHeadFraction * (tip - x).norm();
+        const auto rgba = vectorfield_ros::viridis(sample.D / in.field_extent);
         m.points.push_back(toPointMsg(x));
-        m.points.push_back(toPointMsg(x + (kFieldArrowLength / v_r) * phi));
+        m.points.push_back(toPointMsg(tip));
+        for (int stroke = 0; stroke < 3; ++stroke) {
+          const double a = vectorfield_core::kTwoPi * stroke / 3.0;
+          const d3::Vec3 radial = std::cos(a) * side + std::sin(a) * other;
+          m.points.push_back(toPointMsg(tip));
+          m.points.push_back(toPointMsg(
+            tip - head * (std::cos(kFieldHeadAngle) * u - std::sin(kFieldHeadAngle) * radial)));
+        }
+        m.colors.insert(m.colors.end(), 8, rgba);
       }
     }
   }
