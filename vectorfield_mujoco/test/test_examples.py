@@ -185,7 +185,7 @@ def _validate(merged, plugin='FollowPath', follower_only=()):
 def test_scout_slip_compensation_is_identified():
     """The Scout Mini compensates its skid slip (identified with identify_skid_slip.py)."""
     follow_path = _node(_merged('scout_mini'), 'controller_server')['FollowPath']
-    assert 0.3 < follow_path['skid_yaw_rate_efficiency'] < 1.0
+    assert 0.2 < follow_path['skid_yaw_rate_efficiency'] < 1.0
     assert (
         abs(follow_path['skid_icr_offset'])
         < 0.5 * _limits(_merged('scout_mini'))['control_point_offset']

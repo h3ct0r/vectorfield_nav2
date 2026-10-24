@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Scenario of skid_steer.launch.py: the Scout Mini in corridor_door (vectorfield_mujoco.examples).
-# The 0.6 m wide robot drives through the 0.8 m door at x = 5 m to the end of the 2 m corridor,
+# The 0.55 m wide robot drives through the 0.8 m door at x = 5 m to the end of the 2 m corridor,
 # turns around in place and drives back: tracking a narrow passage with slip compensation.
 description: "Scout Mini through a door and back, with skid-slip compensation"
 

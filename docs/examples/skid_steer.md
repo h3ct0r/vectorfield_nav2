@@ -30,9 +30,9 @@ ros2 launch vectorfield_mujoco skid_steer.launch.py
 
 ## What you see
 
-The 0.6 m wide robot leaves (0, 0), passes the door with 0.1 m to spare on each side, drives to
-the end of the corridor at (9, 0), turns around in place and drives back. Its wheels realise
-only about half of the commanded yaw rate in place; without compensation it would run outside
+The 0.55 m wide robot leaves (0, 0), passes the door with 0.12 m to spare on each side, drives
+to the end of the corridor at (9, 0), turns around in place and drives back. Its wheels realise
+only about a quarter of the commanded yaw rate; without compensation it would run outside
 every turn. The robot overlay sets the identified slip (`skid_yaw_rate_efficiency`,
 `skid_icr_offset`), so the controller scales its yaw-rate command to match
 ({ref}`skid-slip`).
@@ -50,8 +50,8 @@ The slip values come from `identify_skid_slip.py` run on this model, as on a rea
 comment in the robot overlay has the command and the result). The Scout Mini model itself is
 documented in
 [`models/scout_mini/README.md`](https://github.com/h3ct0r/vectorfield_nav2/blob/main/vectorfield_mujoco/models/scout_mini/README.md):
-the geometry from the xacro, the 20 kg datasheet mass and every change from the Gazebo
-description.
+the wheel geometry and the 20 kg mass from the AgileX user manual, and every change from the
+Gazebo description.
 
 ::::{tab-set}
 
@@ -99,7 +99,7 @@ and the velocity smoother.
 
 ## Troubleshooting
 
-- **The robot touches the door frame**: the door leaves 0.1 m on each side. Check that the
+- **The robot touches the door frame**: the door leaves 0.12 m on each side. Check that the
   footprint in `scout_mini.yaml` still matches the model if you changed it.
 - **It turns too little or overshoots in place**: the slip values no longer match the model,
   for example after a friction change; identify them again as above.

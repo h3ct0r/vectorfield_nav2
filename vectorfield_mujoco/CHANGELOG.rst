@@ -20,7 +20,9 @@ Forthcoming
     (markers drawn into a MuJoCo scene), recorder (MP4 in simulated time) and gl.
 
 * models/scout_mini: the AgileX Scout Mini converted from agilexrobotics/ugv_gazebo_sim by
-  tools/convert_scout_mini.py (BSD per its package.xml; changes in its README.md).
+  tools/convert_scout_mini.py (BSD per its package.xml; changes in its README.md), with the
+  wheel geometry and mass of the AgileX user manual (wheelbase 452 mm, track 450 mm, 175 mm
+  wheels, 20 kg) and the chassis mesh turned to lie along x (front fence at +x).
 * models/ackermann_car: a front-steered, rear-driven car built from primitives, sized for the
   Ackermann controller overlay.
 * mujoco_sim (sim_node, simulation): the MuJoCo simulator node with vectorfield_sim's interface

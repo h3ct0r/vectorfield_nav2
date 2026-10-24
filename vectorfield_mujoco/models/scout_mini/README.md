@@ -65,27 +65,35 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 
 ## Changes made in the conversion
 
-1. **Geometry from the xacro.** `scout_mini.xacro` wins over the Gazebo skid-steer plugin
-   (`wheelSeparation 0.58`, `wheelbase 0.49`) and over the stale `scout_mini.urdf` (wheels at
-   ±0.2320, ±0.2083, a 60 kg chassis): wheelbase 0.3132556 m, joint track 0.4563536 m, wheel
-   diameter 0.16 m, width 0.084 m, wheel centres 0.077 m below `base_link`. The xacro's 1 mm
-   higher right wheels are not kept.
-2. **Wheel contact.** The xacro's wheel collision cylinders (radius 0.08 m, length 0.084 m)
-   sit 0.03 m outwards along the axle from the wheel joints, so the contact track is
-   0.5163536 m. Both are kept; `registry.read_geometry()` reports the contact track.
+1. **Wheel geometry from the AgileX manual.** SCOUT MINI User Manual v1.0.1 (AgileX):
+   wheelbase 452 mm (section 1.2; the side view in section 6.1 draws 460 mm), track 450 mm
+   between the wheel centres, 549 mm overall width (so 99 mm tyres) and 175 mm wheels (the
+   rear view in section 6.1). The wheels sit at the four corners. Upstream's descriptions match
+   neither the manual nor each other: `scout_mini.xacro` has a 313 mm wheelbase, a 456 mm joint
+   track, 160 mm × 84 mm wheels and wheel collisions 0.03 m outboard (a 516 mm contact track);
+   the Gazebo skid-steer plugin uses `wheelSeparation 0.58` and `wheelbase 0.49`; the stale
+   `scout_mini.urdf` puts the wheels at ±0.2320, ±0.2083. Only the wheel centres' height
+   (0.077 m below `base_link`) comes from the xacro.
+2. **Wheel contact.** One cylinder per wheel, radius 0.0875 m and length 0.099 m, centred on
+   the wheel, so the contact track is the 450 mm track; `registry.read_geometry()` reports it.
 3. **Mass.** The xacro's 132.39 kg chassis is replaced by the datasheet: "Weight of vehicle body
-   20 kg" (SCOUT MINI User Manual v1.0.1, AgileX, section 1.2) is the total. The wheels keep
-   the upstream 3 kg each (in-wheel motors), so the chassis is 8 kg, with its centre of mass at
-   `base_link` (the xacro's 0.023 m lateral offset only aligned the mesh) and the inertia of a
-   solid box of the chassis collision box (0.39 × 0.42 × 0.18 m). The wheel inertias are the
-   upstream ones. A later manual lists 23 kg; the datasheet also gives a 452 mm wheelbase and a
-   450 mm track, which neither upstream description matches.
+   20 kg" (section 1.2) is the total. The wheels keep the upstream 3 kg each (in-wheel motors),
+   with the inertia of a solid 175 mm × 99 mm cylinder, so the chassis is 8 kg, with its
+   centre of mass at `base_link` and the inertia of a solid box of the chassis collision box.
+   A later manual lists 23 kg.
 4. **Meshes.** The 205 k-triangle chassis STL is decimated to 24 k triangles (quadric
-   simplification) and placed at the xacro's visual origin; `wheel.dae` is split by material
-   colour into tyre, hub and trim parts and decimated to 9 k triangles in total. All visual
-   meshes are in geom group 2, without contacts.
-5. **Collision primitives** (geom group 3): a 0.39 × 0.42 × 0.18 m chassis box between the
-   motor mounts, wheel cylinders, and a lidar puck.
+   simplification) and turned −90° about z: the STL lies with its long side across the
+   wheels, so the xacro's visual origin (rpy 0) shows the body crosswise (the URDF's `.dae`
+   visual turns its mesh by rpy 1.57 0 -1.57). Turned, the deck rails run along x with the
+   front fence and light at +x and the tail recess (voltmeter, power switch, charging port) at
+   −x, as the manual's sections 2 and 6.1 show (upstream's RViz image has front and rear
+   swapped). The mesh is centred on its four suspension arms (the parts below z = −0.06 m,
+   which end at the wheel hubs), so they meet the wheels. `wheel.dae` is split by material
+   colour into tyre, hub and trim parts, decimated to 9 k triangles in total and scaled from
+   upstream's 160 mm × 84 mm wheel to the datasheet's 175 mm × 99 mm. All visual meshes are in
+   geom group 2, without contacts.
+5. **Collision primitives** (geom group 3): a 0.56 × 0.35 × 0.18 m chassis box (fence to tail,
+   up to the tyres' inner faces), the wheel cylinders, and a lidar puck.
 6. **Drive.** Four wheel hinges (axle = `base_link` y, positive forward), each with a velocity
    servo (`kv` 20 N m s/rad, ±70 rad/s, ±20 N m), as the real robot's four in-wheel motors. The
    Gazebo `planar_move` plugin, which moved the body directly, is not ported.
@@ -93,7 +101,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
    upstream) are direction-dependent; MuJoCo's geom friction is isotropic, so the wheels use
    the lateral 0.9, which governs skid-steer slip, and win over the floor's friction through
    `priority`.
-8. **Sensors.** `lidar` site on a 2D lidar puck on top of the chassis, 0.282 m above the ground
+8. **Sensors.** `lidar` site on a 2D lidar puck on top of the chassis, 0.29 m above the ground
    (upstream `laser_link` was 0.4 m above `base_link`, above the 0.5 m walls of the example
    worlds); `imu` site at `base_link` with gyro, accelerometer and orientation sensors;
    `base_footprint` site on the ground below `base_link`.

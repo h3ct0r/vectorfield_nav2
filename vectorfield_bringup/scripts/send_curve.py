@@ -43,10 +43,11 @@ import threading
 import time
 
 import rclpy
-from action_msgs.msg import GoalStatus
+from action_msgs.msg import GoalStatus, GoalStatusArray
 from geometry_msgs.msg import PoseStamped
 from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
+from rclpy.qos import qos_profile_action_status_default
 from rclpy.signals import SignalHandlerOptions
 from rclpy.time import Time
 from tf2_ros import Buffer, TransformException, TransformListener
@@ -71,6 +72,13 @@ PHASES = {
     if name.startswith('PHASE_') and isinstance(value, int)
 }
 FEEDBACK_PERIOD = 2.0
+
+# A goal in these states keeps the follower from starting (its Nav2 interlock).
+ACTIVE_STATUSES = (
+    GoalStatus.STATUS_ACCEPTED,
+    GoalStatus.STATUS_EXECUTING,
+    GoalStatus.STATUS_CANCELING,
+)
 
 
 def parse_arguments(argv):
@@ -139,6 +147,15 @@ class CurveClient:
         self._thread = threading.Thread(target=self._executor.spin, daemon=True)
         self._thread.start()
         self.feedback = None
+        # The follower refuses a goal while NavigateToPose's status topic shows a goal active,
+        # and that topic reports the approach's end after its result arrives.
+        self.navigation_active = None
+        self.node.create_subscription(
+            GoalStatusArray,
+            'navigate_to_pose/_action/status',
+            self._on_navigation_status,
+            qos_profile_action_status_default,
+        )
 
     def close(self):
         """Stop spinning and destroy the node."""
@@ -160,6 +177,15 @@ class CurveClient:
     def on_feedback(self, message):
         """Keep the latest feedback."""
         self.feedback = message.feedback
+
+    def _on_navigation_status(self, message):
+        self.navigation_active = any(s.status in ACTIVE_STATUSES for s in message.status_list)
+
+    def wait_navigation_idle(self, timeout=5.0):
+        """Wait until NavigateToPose's status topic shows no active goal (or ``timeout`` s)."""
+        deadline = time.monotonic() + timeout
+        while self.navigation_active and time.monotonic() < deadline:
+            time.sleep(0.05)
 
 
 def wait(future, timeout=None):
@@ -205,6 +231,7 @@ def approach(description, frame, args, client, log):
     if result != TaskResult.SUCCEEDED:
         log(f'approach failed: {result}')
         return False
+    client.wait_navigation_idle()
     return True
 
 

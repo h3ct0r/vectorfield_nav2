@@ -15,10 +15,11 @@
 # Robot overlay: the AgileX Scout Mini (models/scout_mini), merged after vectorfield_bringup's
 # config/controller/skid_steer.yaml and config/mujoco_sim.yaml.
 #
-# Limits: the in-wheel servos reach 70 rad/s (5.6 m/s with the 0.08 m wheels); the controller
-# keeps the overlay's 0.5 m/s. In place the base realises only about half of the commanded yaw
-# rate (the wheels skid), so max_angular_vel lets the compensated command (below) reach about
-# 1.3 rad/s of real yaw rate.
+# Limits: the in-wheel servos reach 70 rad/s (6.1 m/s with the 0.0875 m wheels); the controller
+# keeps the overlay's 0.5 m/s. The base realises only about a quarter of the commanded yaw rate
+# (the wheels skid; wheelbase and track are about equal), and less at higher rates: about 0.17
+# of 2 rad/s in place. max_angular_vel, which clamps the compensated command (below), so caps
+# the real yaw rate at about 0.4 rad/s in place and 0.6 rad/s on arcs.
 
 controller_server:
   ros__parameters:
@@ -37,22 +38,23 @@ controller_server:
       # --repeats 2 --max-distance 4.0` drives turns in place and arcs (0.2 m/s, 0.6 rad/s)
       # through Nav2's command chain and compares the commanded motion with the pose: here
       # mujoco_sim's odom, the ground truth, which sees the slip (on a robot, an IMU-fused or
-      # localisation pose). It gave eta_psi 0.517 (spread 0.020; 0.53 in place, 0.50 on the
-      # arcs) and x_ICR 0.008 m (spread 0.009). Rerun it after changing the model's friction.
-      skid_yaw_rate_efficiency: 0.52
-      skid_icr_offset: 0.008
+      # localisation pose). Two runs gave eta_psi 0.253 and 0.278 (spread 0.015 and 0.013, in
+      # place and on the arcs alike) and x_ICR 0.003 and 0.001 m (spread 0.003 and 0.004).
+      # Rerun it after changing the model's geometry or friction.
+      skid_yaw_rate_efficiency: 0.27
+      skid_icr_offset: 0.002
 
-# The wheels' outer contact edges: 0.474 m x 0.60 m (the chassis is inside them). The collision
-# monitor's FootprintApproach polygon follows /local_costmap/published_footprint, so it uses it
-# too.
+# The wheels' outer edges, 0.627 m x 0.549 m (the manual's overall size; the chassis lies within
+# them). The collision monitor's FootprintApproach polygon follows
+# /local_costmap/published_footprint, so it uses it too.
 local_costmap:
   local_costmap:
     ros__parameters:
-      footprint: "[[0.237, 0.30], [0.237, -0.30], [-0.237, -0.30], [-0.237, 0.30]]"
+      footprint: "[[0.315, 0.275], [0.315, -0.275], [-0.315, -0.275], [-0.315, 0.275]]"
 global_costmap:
   global_costmap:
     ros__parameters:
-      footprint: "[[0.237, 0.30], [0.237, -0.30], [-0.237, -0.30], [-0.237, 0.30]]"
+      footprint: "[[0.315, 0.275], [0.315, -0.275], [-0.315, -0.275], [-0.315, 0.275]]"
 
 # Full [x, y, theta] lists: x and theta at least the controller limits and within the wheels'
 # (decelerations negative), y zero.
@@ -63,7 +65,7 @@ velocity_smoother:
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
 
-# The 2D lidar puck on top of the chassis, 0.282 m above the ground over base_link, published
+# The 2D lidar puck on top of the chassis, 0.29 m above the ground over base_link, published
 # as base_scan.
 mujoco_sim:
   ros__parameters:

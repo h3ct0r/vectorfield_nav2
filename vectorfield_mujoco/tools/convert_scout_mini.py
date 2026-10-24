@@ -27,8 +27,10 @@ Steps:
 
 1. Fetch the pinned files of ``agilexrobotics/ugv_gazebo_sim`` ``scout/scout_description``
    (:data:`UPSTREAM_COMMIT`) and print their SHA-256.
-2. Read the geometry from ``scout_mini.xacro`` and the wheel xacros, which win over the Gazebo
-   plugin's ``wheelSeparation``/``wheelbase`` and over the stale ``scout_mini.urdf``.
+2. Read the wheel height, wheel mass and friction from ``scout_mini.xacro``, the wheel xacros and
+   ``scout_mini.gazebo``. The wheel geometry comes from the AgileX user manual instead
+   (:data:`DATASHEET_WHEELBASE` and the constants after it): upstream's descriptions match
+   neither the manual nor each other.
 3. Decimate ``scout_mini_base_link.STL`` and ``wheel.dae`` (split by material colour into tyre,
    hub and accent parts) to OBJ.
 4. Write ``scout_mini.xml``: visual meshes in group 2, collision primitives in group 3, four
@@ -69,6 +71,23 @@ UPSTREAM_FILES = (
 #: Total vehicle mass (kg): "Weight of vehicle body 20 kg", SCOUT MINI User Manual v1.0.1
 #: (AgileX), section 1.2. The xacro's chassis alone is 132.39 kg.
 DATASHEET_MASS = 20.0
+
+#: Wheel geometry from the same manual: wheelbase 452 mm (section 1.2; the side view in section
+#: 6.1 draws 460), track 450 mm between the wheel centres and 549 mm overall width (rear view,
+#: so a 99 mm tyre), and a 175 mm wheel. Upstream's xacro (wheelbase 313 mm, joint track
+#: 456 mm, 160 mm wheels, collisions 30 mm outboard) and its Gazebo plugin (separation 580 mm,
+#: wheelbase 490 mm) match neither the manual nor each other.
+DATASHEET_WHEELBASE = 0.452
+DATASHEET_TRACK = 0.450
+DATASHEET_WIDTH = 0.549
+DATASHEET_WHEEL_DIAMETER = 0.175
+
+#: Yaw (deg) of the chassis mesh on base_link. The STL lies with its long side (0.56 m) along y,
+#: across the wheels: the xacro's rpy 0 is wrong (the URDF's .dae visual turns its mesh by rpy
+#: 1.57 0 -1.57). -90° puts the deck rails along x with the front fence and light at +x and the
+#: tail recess (voltmeter, power switch, charging port) at -x, as the manual's sections 2 and 6.1
+#: show (upstream's RViz image has front and rear swapped).
+BASE_YAW_DEG = -90.0
 
 #: Face budgets of the decimated meshes (the model directory must stay under 3 MB).
 BASE_FACES = 24000
@@ -126,42 +145,19 @@ def xacro_properties(text):
 
 
 def read_upstream(src):
-    """Read the geometry, masses and friction the conversion keeps from the upstream files."""
+    """Read the wheel height, wheel mass and friction the conversion keeps from upstream."""
     props = xacro_properties((src / 'scout_mini.xacro').read_text())
     wheel = _strip_comments((src / 'scout_mini_wheel_1.xacro').read_text())
-    # The wheel link's collision: a cylinder offset along the axle (outwards on every wheel).
-    collision = re.search(r'<collision>.*?</collision>', wheel, flags=re.DOTALL).group(0)
-    offset = float(re.search(r'xyz="0 0 ([-0-9.e]+)"', collision).group(1))
-    cylinder = re.search(r'<cylinder radius="([0-9.e-]+)" length="([0-9.e-]+)"', collision)
     inertial = re.search(r'<inertial>.*?</inertial>', wheel, flags=re.DOTALL).group(0)
     wheel_mass = float(re.search(r'<mass value="([0-9.e-]+)"', inertial).group(1))
-    inertia = {
-        k: float(v)
-        for k, v in re.findall(r'(i[xyz]{2})="\s*([-0-9.eE]+)"', inertial)
-        if k in ('ixx', 'iyy', 'izz')
-    }
     gazebo = (src / 'scout_mini.gazebo').read_text()  # mu1/mu2 sit in a commented-out block
     mu1 = float(re.search(r'<mu1 value="([0-9.]+)"', gazebo).group(1))
     mu2 = float(re.search(r'<mu2 value="([0-9.]+)"', gazebo).group(1))
-    base_visual = re.search(
-        r'<link name="base_link">.*?<origin xyz="([^"]+)"',
-        _strip_comments((src / 'scout_mini.xacro').read_text()),
-        flags=re.DOTALL,
-    ).group(1)
     return {
-        'wheelbase': props['wheelbase'],
-        'track': props['track'],
         'wheel_vertical_offset': props['wheel_vertical_offset'],
-        'wheel_radius': props['wheel_diameter'] / 2.0,
-        'wheel_width': props['wheel_width'],
-        'collision_radius': float(cylinder.group(1)),
-        'collision_length': float(cylinder.group(2)),
-        'collision_offset': offset,
         'wheel_mass': wheel_mass,
-        'wheel_inertia': (inertia['ixx'], inertia['iyy'], inertia['izz']),
         'mu1': mu1,
         'mu2': mu2,
-        'base_visual_pos': tuple(float(v) for v in base_visual.split()),
     }
 
 
@@ -231,34 +227,68 @@ def _f(*values):
     return ' '.join(f'{v:.7g}' for v in values)
 
 
-def mjcf(geo):
-    """Return the scout_mini.xml text for the upstream geometry ``geo``."""
-    half_l, half_t = geo['wheelbase'] / 2.0, geo['track'] / 2.0
+def obj_vertices(path):
+    """Return an OBJ file's vertices as an (n, 3) array."""
+    return np.array(
+        [line.split()[1:4] for line in path.read_text().splitlines() if line.startswith('v ')],
+        dtype=float,
+    )
+
+
+def mjcf(geo, mesh_dir):
+    """Return the scout_mini.xml text for the upstream geometry ``geo``.
+
+    ``mesh_dir`` holds the decimated meshes, whose vertices place the chassis and the wheels.
+    """
+    half_l, half_t = DATASHEET_WHEELBASE / 2.0, DATASHEET_TRACK / 2.0
     wz = geo['wheel_vertical_offset']
-    r = geo['collision_radius']
+    r = DATASHEET_WHEEL_DIAMETER / 2.0
+    tyre = DATASHEET_WIDTH - DATASHEET_TRACK
     # base_link sits at the wheel-centre height above the ground plus the wheel radius.
-    ground = -(wz - geo['wheel_radius'])
-    # Chassis collision box: the body mesh between the motor mounts (|y| < 0.21 m; the tyres start
-    # at 0.216 m), its full length (0.39 m) and height (0.18 m).
-    chassis_half = (0.195, 0.21, 0.09)
+    ground = -(wz - r)
+    # The chassis mesh turned by BASE_YAW_DEG, with its suspension arms (the parts below
+    # z = -0.06 m, which end at the wheel hubs) centred on base_link, so that they meet wheels
+    # at the datasheet wheelbase and track.
+    yaw = np.radians(BASE_YAW_DEG)
+    rot = np.array([[np.cos(yaw), -np.sin(yaw)], [np.sin(yaw), np.cos(yaw)]])
+    body = obj_vertices(mesh_dir / 'base_link.obj')
+    turned = body[:, :2] @ rot.T
+    arms = turned[body[:, 2] < -0.06]
+    shift = -(arms.min(axis=0) + arms.max(axis=0)) / 2.0
+    base_pos = (*shift, 0.0)
+    base_quat = (np.cos(yaw / 2.0), 0.0, 0.0, np.sin(yaw / 2.0))
+    # Chassis collision box: the turned body's length (fence to tail) and height (0.18 m), and
+    # its width up to the tyres' inner faces.
+    lo, hi = turned.min(axis=0) + shift, turned.max(axis=0) + shift
+    chassis_pos = ((lo[0] + hi[0]) / 2.0, 0.0, 0.0)
+    chassis_half = ((hi[0] - lo[0]) / 2.0, min((hi[1] - lo[1]) / 2.0, half_t - tyre / 2.0), 0.09)
     wheel_mass = geo['wheel_mass']
     chassis_mass = DATASHEET_MASS - 4.0 * wheel_mass
     ixx, iyy, izz = _box_inertia(chassis_mass, chassis_half)
-    # The wheel xacro's inertia is about its own axes (z = axle); here the axle is body y.
-    wxx, _, wzz = geo['wheel_inertia']
+    # Solid-cylinder inertia of the datasheet wheel (upstream's is for its 160 mm wheel); the
+    # axle is body y.
+    w_axle = wheel_mass * r * r / 2.0
+    w_diam = wheel_mass * (3.0 * r * r + tyre * tyre) / 12.0
+    # The upstream wheel meshes (axle = mesh z, the tyre between z ~ 0 and its width) scaled to
+    # the datasheet wheel and centred on the hub.
+    tyre_mesh = obj_vertices(mesh_dir / 'wheel_tire.obj')
+    mesh_r = (tyre_mesh[:, 0].max() - tyre_mesh[:, 0].min()) / 2.0
+    mesh_w = tyre_mesh[:, 2].max() - tyre_mesh[:, 2].min()
+    scale = (r / mesh_r, r / mesh_r, tyre / mesh_w)
+    mesh_mid = (tyre_mesh[:, 2].max() + tyre_mesh[:, 2].min()) / 2.0 * scale[2]
     friction = geo['mu2']
     wheels = []
     for name, side, sign in WHEELS:
         euler = '-1.5707963 0 0' if side > 0 else '1.5707963 0 0'
+        visual = f'pos="{_f(0, -side * mesh_mid, 0)}" euler="{euler}"'
         wheels.append(f'''
       <body name="{name}_wheel_link" pos="{_f(sign * half_l, side * half_t, wz)}">
         <joint name="{name}_wheel" class="scout_wheel"/>
-        <inertial pos="0 0 0" mass="{_f(wheel_mass)}" diaginertia="{_f(wxx, wzz, wxx)}"/>
-        <geom name="{name}_wheel" class="scout_wheel"
-          pos="{_f(0, side * geo['collision_offset'], 0)}"/>
-        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" euler="{euler}"/>
-        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" euler="{euler}"/>
-        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" euler="{euler}"/>
+        <inertial pos="0 0 0" mass="{_f(wheel_mass)}" diaginertia="{_f(w_diam, w_axle, w_diam)}"/>
+        <geom name="{name}_wheel" class="scout_wheel"/>
+        <geom class="scout_visual" mesh="wheel_tire" material="scout_tire" {visual}/>
+        <geom class="scout_visual" mesh="wheel_hub" material="scout_hub" {visual}/>
+        <geom class="scout_visual" mesh="wheel_trim" material="scout_trim" {visual}/>
       </body>''')
     actuators = '\n'.join(
         f'    <velocity name="{name}_wheel" joint="{name}_wheel" class="scout_wheel"/>'
@@ -287,7 +317,7 @@ rerun it. README.md lists the sources and every change made to them.
            through priority. ctrlrange covers the 20 km/h top speed. -->
       <default class="scout_wheel">
         <joint axis="0 1 0" damping="0.01" armature="0.002"/>
-        <geom type="cylinder" size="{_f(r, geo['collision_length'] / 2.0)}" zaxis="0 1 0" group="3"
+        <geom type="cylinder" size="{_f(r, tyre / 2.0)}" zaxis="0 1 0" group="3"
           mass="0" friction="{_f(friction)} 0.005 0.0001" priority="1" material="scout_collision"/>
         <velocity kv="20" ctrlrange="-70 70" forcerange="-20 20"/>
       </default>
@@ -302,9 +332,9 @@ rerun it. README.md lists the sources and every change made to them.
     <material name="scout_lidar" rgba="0.08 0.08 0.08 1"/>
     <material name="scout_collision" rgba="0.6 0.3 0.3 0.4"/>
     <mesh name="base_link" file="base_link.obj"/>
-    <mesh name="wheel_tire" file="wheel_tire.obj"/>
-    <mesh name="wheel_hub" file="wheel_hub.obj"/>
-    <mesh name="wheel_trim" file="wheel_trim.obj"/>
+    <mesh name="wheel_tire" file="wheel_tire.obj" scale="{_f(*scale)}"/>
+    <mesh name="wheel_hub" file="wheel_hub.obj" scale="{_f(*scale)}"/>
+    <mesh name="wheel_trim" file="wheel_trim.obj" scale="{_f(*scale)}"/>
   </asset>
 
   <worldbody>
@@ -314,8 +344,9 @@ rerun it. README.md lists the sources and every change made to them.
            inertia of a solid box of the chassis collision box, centred on base_link. -->
       <inertial pos="0 0 0" mass="{_f(chassis_mass)}" diaginertia="{_f(ixx, iyy, izz)}"/>
       <geom class="scout_visual" mesh="base_link" material="scout_body"
-        pos="{_f(*geo['base_visual_pos'])}"/>
-      <geom name="chassis" class="scout_collision" type="box" size="{_f(*chassis_half)}"/>
+        pos="{_f(*base_pos)}" quat="{_f(*base_quat)}"/>
+      <geom name="chassis" class="scout_collision" type="box" pos="{_f(*chassis_pos)}"
+        size="{_f(*chassis_half)}"/>
       <!-- A top-mounted 2D lidar puck (upstream: laser_link 0.4 m above base_link). -->
       <geom class="scout_visual" type="cylinder" size="0.04 0.025" pos="0 0 0.115"
         material="scout_lidar"/>
@@ -387,7 +418,7 @@ def main(argv=None):
     print({k: v for k, v in geo.items()}, file=sys.stderr)
     convert_meshes(args.download_dir, args.out / 'meshes', args.base_faces, args.wheel_faces)
     xml_path = args.out / 'scout_mini.xml'
-    xml_path.write_text(mjcf(geo))
+    xml_path.write_text(mjcf(geo, args.out / 'meshes'))
     size = sum(p.stat().st_size for p in args.out.rglob('*') if p.is_file())
     print(f'wrote {xml_path} ({size / 1e6:.2f} MB in {args.out})', file=sys.stderr)
     if not args.no_check:

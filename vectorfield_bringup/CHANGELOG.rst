@@ -4,6 +4,9 @@ Changelog for package vectorfield_bringup
 
 Forthcoming
 -----------
+* send_curve.py waits, after the approach, until NavigateToPose's status topic shows the goal
+  done: its result arrives first, and the follower's Nav2 interlock read the still-active status
+  and refused the curve (NAV2_ACTIVE).
 * vectorfield_bringup.demo: nav2_demo_actions() (map_server and its manager, navigation_launch.py,
   Humble's collision_monitor, the initial pose and RViz around a simulator's own actions),
   curve_follower_actions() (the follower and its manager), sim_cmd_vel_topic() and the

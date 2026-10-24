@@ -177,7 +177,7 @@ def test_initial_pose_teleports_and_keeps_odometry():
     assert _close(simulation.compose(sim.map_to_odom(), odom), (-2.0, 1.5, -1.0), 1e-6)
     assert max(abs(v) for v in sim.body_twist()) < 1e-9
     # The base keeps its height (no drop) and stays level.
-    assert sim.world.base_pose()[2] == pytest.approx(0.157, abs=0.005)
+    assert sim.world.base_pose()[2] == pytest.approx(0.1645, abs=0.005)
     assert not sim.set_initial_pose(*sim.truth())
 
 

@@ -190,7 +190,7 @@ def test_initial_pose_teleports(node):
     assert sim.sim.truth() == pytest.approx((-2.0, 2.0, 1.0), abs=1e-6)
     assert sim.interface.frame_pose('base_footprint') == pytest.approx((-2.0, 2.0, 0.0, 1.0))
     x, y, z, yaw = sim.interface.frame_pose('base_link')
-    assert z == pytest.approx(0.157, abs=0.005)
+    assert z == pytest.approx(0.1645, abs=0.005)
     assert sim.interface.frame_pose('unknown_frame') is None
     message.header.frame_id = 'odom'
     sim.interface.on_initial_pose(message)  # ignored: not the map frame

@@ -14,7 +14,7 @@
 
 """Tests of the package's own robots: the vendored Scout Mini and the Ackermann car.
 
-They compile, the drive geometry read back from the compiled model matches the upstream xacro
+They compile, the drive geometry read back from the compiled model matches the AgileX manual
 (Scout Mini) and the Ackermann controller overlay (car), and they drive as their kinematics say.
 No network: neither robot comes from the Menagerie.
 """
@@ -28,11 +28,11 @@ mujoco = pytest.importorskip('mujoco')
 
 from vectorfield_mujoco import registry, scene  # noqa: E402
 
-# scout_description/urdf/scout_mini.xacro and scout_mini_wheel_*.xacro.
-XACRO_WHEELBASE = 0.3132556
-XACRO_TRACK = 0.4563536
-XACRO_WHEEL_RADIUS = 0.08
-XACRO_COLLISION_OFFSET = 0.03  # wheel collision cylinder, outwards along the axle
+# SCOUT MINI User Manual v1.0.1 (AgileX), sections 1.2 and 6.1.
+DATASHEET_WHEELBASE = 0.452
+DATASHEET_TRACK = 0.450
+DATASHEET_WHEEL_RADIUS = 0.0875
+WHEEL_DROP = 0.077  # wheel centres below base_link (the xacro)
 
 # vectorfield_bringup/config/controller/ackermann.yaml.
 MIN_TURNING_RADIUS = 0.5
@@ -54,23 +54,23 @@ def test_models_dir_budget():
 
 
 def test_scout_mini_geometry():
-    """Wheel radius, wheelbase and track read from the model match the xacro."""
+    """Wheel radius, wheelbase and track read from the model match the manual."""
     world = scene.make_world('scout_mini')
     g = world.geometry
-    assert g['radius'] == pytest.approx(XACRO_WHEEL_RADIUS)
-    assert g['wheelbase'] == pytest.approx(XACRO_WHEELBASE)
-    # The contact track is the xacro joint track plus the collision offset on each side.
-    assert g['track'] == pytest.approx(XACRO_TRACK + 2 * XACRO_COLLISION_OFFSET)
+    assert g['radius'] == pytest.approx(DATASHEET_WHEEL_RADIUS)
+    assert g['wheelbase'] == pytest.approx(DATASHEET_WHEELBASE)
+    # The wheel collisions are centred on the wheels: the contact track is the track.
+    assert g['track'] == pytest.approx(DATASHEET_TRACK)
     model, data = world.model, world.data
     joints = {
         side: data.xanchor[model.joint(world.name(f'front_{side}_wheel')).id]
         for side in ('left', 'right')
     }
-    assert joints['left'][1] - joints['right'][1] == pytest.approx(XACRO_TRACK)
+    assert joints['left'][1] - joints['right'][1] == pytest.approx(DATASHEET_TRACK)
     base = world.base_id
     # The datasheet mass (20 kg) for the whole robot, and it rests on its wheels.
     assert model.body_subtreemass[base] == pytest.approx(20.0)
-    assert world.base_pose()[2] == pytest.approx(XACRO_WHEEL_RADIUS + 0.077, abs=1e-3)
+    assert world.base_pose()[2] == pytest.approx(DATASHEET_WHEEL_RADIUS + WHEEL_DROP, abs=1e-3)
     assert world.robot.scan_site and world.scan_site >= 0
 
 
@@ -86,15 +86,15 @@ def test_scout_mini_drives_straight_and_spins():
     travelled = math.hypot(x1 - x0, y1 - y0)
     assert travelled == pytest.approx(1.5, rel=0.05)
     assert math.atan2(y1 - y0, x1 - x0) == pytest.approx(0.3, abs=0.01)
-    # Opposite wheel speeds: a spin in place, slower than commanded (skid-steer slip).
+    # Opposite wheel speeds: a spin in place, slower than commanded (skid-steer slip). With
+    # wheelbase and track about equal the wheels skid hard and the rate jitters: check its mean.
     world.reset()
     _drive(world, 0.5, 0.0)
     start = np.array(world.base_pose())
     _drive(world, 3.0, 0.0, omega=1.0)
-    lin, ang = world.base_twist()
     end = np.array(world.base_pose())
     assert math.hypot(*(end[:2] - start[:2])) < 0.03
-    assert 0.3 < ang[2] < 1.0
+    assert 0.05 < (end[3] - start[3]) / 3.0 < 1.0
     assert world.base_pose()[2] == pytest.approx(z0, abs=2e-3)
 
 
