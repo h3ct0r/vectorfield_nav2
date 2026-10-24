@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_ros</name>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
   <description>ROS 2 layer shared by the vectorfield_nav2 nodes: Nav2 distro compatibility helpers, message and costmap conversions for vectorfield_core, the shared controller parameters and their validation, RViz/Foxglove visualization of the vector field (MarkerBuilder, FieldVisualizer), and the vf_link_ament_deps() CMake helper.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

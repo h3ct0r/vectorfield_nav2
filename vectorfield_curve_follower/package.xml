@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_curve_follower</name>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
   <description>Lifecycle component with a FollowCurve action server that drives a robot along closed, parametric and time-varying curves, including curves in moving frames, with the vectorfield_nav2 vector-field tracker.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

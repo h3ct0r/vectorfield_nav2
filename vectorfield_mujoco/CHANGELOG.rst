@@ -2,8 +2,8 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2026-10-24)
+------------------
 * mujoco_sim waits for the passive viewer's thread when it closes and, after a viewer session,
   exits without the interpreter's teardown: with viewer:=true the node crashed (SIGSEGV) at the
   end of an example.

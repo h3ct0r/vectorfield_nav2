@@ -2,8 +2,8 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2026-10-24)
+------------------
 * rviz/vectorfield.rviz and foxglove/vectorfield.json show the field grid by default and orbit
   the robot (RViz Orbit view on base_link; a perspective Foxglove camera following base_link).
 * send_curve.py waits, after the approach, until NavigateToPose's status topic shows the goal

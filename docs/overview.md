@@ -52,7 +52,7 @@ upstream defects that motivated this decision is in the design documents
 - **Examples:** one MuJoCo launch per mode, on robot models from the MuJoCo Menagerie and
   others: differential, skid-steer, omnidirectional, Ackermann and a drone ({doc}`examples/index`).
 
-0.3.0 is released; the binary packages wait on the ROS build farm. The {doc}`roadmap` lists what
+0.4.0 is released; the binary packages wait on the ROS build farm. The {doc}`roadmap` lists what
 each milestone delivered, and {doc}`quickstart` runs the demos.
 
 ## Packages

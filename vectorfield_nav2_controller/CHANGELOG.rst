@@ -2,6 +2,9 @@
 Changelog for package vectorfield_nav2_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2026-10-24)
+------------------
+
 0.3.0 (2026-10-23)
 ------------------
 * obstacle_mode cbf for Ackermann (core 0.3.0): layer-2 case of a box beside an Ackermann plan,

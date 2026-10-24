@@ -13,8 +13,8 @@ authors:
   - family-names: Azpúrua
     given-names: Héctor
     email: hector@dcc.ufmg.br
-version: 0.3.0
-date-released: 2026-10-23
+version: 0.4.0
+date-released: 2026-10-24
 license: Apache-2.0
 repository-code: "https://github.com/h3ct0r/vectorfield_nav2"
 url: "https://h3ct0r.github.io/vectorfield_nav2/"

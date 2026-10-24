@@ -2,8 +2,8 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.0 (2026-10-24)
+------------------
 * viridis() is public (marker_builder.hpp): the field grid's colour by distance, shared with the
   3D follower's field arrows.
 

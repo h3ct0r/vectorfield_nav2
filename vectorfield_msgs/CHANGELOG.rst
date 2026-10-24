@@ -2,6 +2,9 @@
 Changelog for package vectorfield_msgs
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2026-10-24)
+------------------
+
 0.3.0 (2026-10-23)
 ------------------
 * Curve3, FieldState3 and the FollowCurve3 action for the experimental 3D follower

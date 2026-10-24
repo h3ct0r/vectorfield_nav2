@@ -2,6 +2,9 @@
 Changelog for package vectorfield_system_tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2026-10-24)
+------------------
+
 0.3.0 (2026-10-23)
 ------------------
 * test_follower_3d (experimental 3D follower on point_sim_3d, every distro): an open helix, two

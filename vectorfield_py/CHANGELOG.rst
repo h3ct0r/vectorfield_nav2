@@ -2,6 +2,9 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2026-10-24)
+------------------
+
 0.3.0 (2026-10-23)
 ------------------
 * vectorfield.d3 obstacles (math_spec 14.8): Primitive (sphere, box, cylinder, plane;

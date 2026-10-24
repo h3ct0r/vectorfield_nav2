@@ -2,6 +2,9 @@
 Changelog for package vectorfield_behavior_tree
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.0 (2026-10-24)
+------------------
+
 0.3.0 (2026-10-23)
 ------------------
 * A goal that gets no result fails with GOAL_REJECTED, SEND_GOAL_FAILURE or TIMEOUT in
