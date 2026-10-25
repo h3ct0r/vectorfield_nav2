@@ -187,8 +187,9 @@ and the controller's markers, pre-configured with the shared colour legend:
 - the goal with its tolerance and settle rings and the orange braking zone;
 - during obstacle contouring, the blocking obstacle cells, the distance rings and the chosen
   side;
-- optionally, the `field_grid` arrows that show the whole field around the robot (the
-  "Field grid" display, off by default because the grid costs CPU while subscribed).
+- the `field_grid` arrows that show the whole field around the robot (the "Field grid"
+  display, on by default; untick it to save the grid's CPU, which is spent only while
+  subscribed).
 
 The "Curve follower" group shows the same markers, window and predicted path for
 `curve_follower`. The global plan is grey, the controller's window teal and the

@@ -110,7 +110,7 @@ points. Optional extras are `tools` (matplotlib, Pillow and PyYAML) and `test` (
 ## Build with colcon
 
 ```bash
-rosdep install --from-paths src --ignore-src -y
+rosdep install --from-paths src --ignore-src -y --skip-keys python3-mujoco-pip
 colcon build --packages-up-to vectorfield_py
 colcon test --packages-select vectorfield_py
 colcon test-result --verbose

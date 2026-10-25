@@ -249,6 +249,23 @@ TEST_F(FollowerGoalChecks, Nav2ActiveAtGoalStartPublishesNothing)
   expectRunsThenCancel();
 }
 
+TEST_F(FollowerGoalChecks, Nav2StatusEndingJustAfterGoalStartIsWaitedFor)
+{
+  // A client that starts the curve as soon as a Nav2 action's result arrives, before its
+  // terminal status: the follower waits for the status instead of refusing the goal.
+  ASSERT_NO_FATAL_FAILURE(start());
+  ActionStatusStub navigate(robot_->node(), "navigate_to_pose");
+  ASSERT_TRUE(waitFor([&]() { return navigate.subscribers() > 0; })) << navigate.topic();
+  navigate.publish(GoalStatus::STATUS_EXECUTING);
+  ASSERT_NO_FATAL_FAILURE(waitPublisherSeen(navigate.topic()));
+  std::thread ending([&navigate]() {
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    navigate.publish(GoalStatus::STATUS_SUCCEEDED);
+  });
+  expectRunsThenCancel();
+  ending.join();
+}
+
 TEST_F(FollowerGoalChecks, NavigateToPoseBecomingActiveMidRunSendsExactlyOneZero)
 {
   ASSERT_NO_FATAL_FAILURE(start());

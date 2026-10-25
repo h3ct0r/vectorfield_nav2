@@ -25,6 +25,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -94,6 +95,11 @@ constexpr const char * kInterlockAction = "follow_path";
 constexpr const char * kStatusSuffix = "/_action/status";
 /// Grace of SimpleActionServer::deactivate() before it terminates the goals itself.
 constexpr std::chrono::milliseconds kServerTimeout{500};
+/// Longest wait at goal start for an exclusive action's terminal status (wall time): an action
+/// that has just ended publishes its result before its status, so a client that starts this goal
+/// right after it (an approach, the FollowCurve BT node after FollowPath) would otherwise be
+/// refused on the stale status.
+constexpr std::chrono::milliseconds kInterlockSettle{500};
 /// A measured Δt longer than this many periods (a stall) is replaced by the nominal period.
 constexpr double kMaxDtPeriods = 5.0;
 /// Minimum Δt of a TF differencing pair (s).
@@ -623,7 +629,13 @@ struct CurveFollower::Impl
         }
       }
     }
+    // The status callbacks run on the node's executor while this runs on the action server's
+    // thread, so they can catch up during the wait.
     std::string active;
+    const auto settle_deadline = std::chrono::steady_clock::now() + kInterlockSettle;
+    while (nav2Active(&active) && std::chrono::steady_clock::now() < settle_deadline) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
     if (nav2Active(&active)) {
       return GoalRejection{result_code::kNav2Active, "the Nav2 action " + active + " is active"};
     }

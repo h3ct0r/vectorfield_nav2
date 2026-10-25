@@ -78,8 +78,11 @@ jobs:
       # The MuJoCo Menagerie robots (TIAGo, TidyBot, X2) are fetched at the commit pinned in
       # menagerie.py and cached under that commit. VF_MENAGERIE_DIR points the examples at the
       # checkout; GITHUB_WORKSPACE is the container's path (github.workspace is the host's).
+      # These steps may fail (offline, cache miss) without stopping the Gazebo and injection
+      # tests below; the MuJoCo tests then fail or fetch on their own.
       - name: Pinned MuJoCo Menagerie commit
         id: menagerie
+        continue-on-error: true
         run: |
           set -eo pipefail
           sha="$(sed -n "s/^MENAGERIE_COMMIT = '\([0-9a-f]\{40\}\)'\$/\1/p" \
@@ -90,13 +93,17 @@ jobs:
 
       - name: Restore the MuJoCo Menagerie checkout
         id: menagerie-cache
+        if: steps.menagerie.outcome == 'success'
+        continue-on-error: true
         uses: actions/cache/restore@v6
         with:
           path: menagerie
           key: mujoco-menagerie-${{ steps.menagerie.outputs.sha }}
 
       - name: Fetch the MuJoCo Menagerie robots
-        if: steps.menagerie-cache.outputs.cache-hit != 'true'
+        id: menagerie-fetch
+        if: steps.menagerie.outcome == 'success' && steps.menagerie-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
         working-directory: ws
         run: |
           set -eo pipefail
@@ -104,9 +111,11 @@ jobs:
           source install/setup.bash
           ros2 run vectorfield_mujoco fetch_menagerie
 
-      # Saved right after the fetch, so a failing test does not lose the download.
+      # Saved right after a complete fetch, so a failing test does not lose the download (and a
+      # failed fetch never caches a partial checkout under the pinned commit).
       - name: Save the MuJoCo Menagerie checkout
-        if: steps.menagerie-cache.outputs.cache-hit != 'true'
+        if: steps.menagerie-fetch.outcome == 'success'
+        continue-on-error: true
         uses: actions/cache/save@v6
         with:
           path: menagerie

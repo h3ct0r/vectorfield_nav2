@@ -135,9 +135,9 @@ def ensure_menagerie(path=None, commit=MENAGERIE_COMMIT, robot_dirs=ROBOT_DIRS, 
         if not has_robots(tmp, robot_dirs):
             raise MenagerieError(f'commit {commit} does not contain {", ".join(robot_dirs)}')
         (tmp / _MARKER).write_text(commit + '\n')
-        if path.exists():
-            path.rmdir()  # empty, checked above
         try:
+            if path.exists():
+                path.rmdir()  # empty when checked above, unless another fetch has filled it since
             tmp.rename(path)
         except OSError:
             # Another process finished the same fetch first.

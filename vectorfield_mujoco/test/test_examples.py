@@ -330,7 +330,10 @@ def test_runner_commands():
         examples.validate_scenario({'waypoints': [[1, 0, 0], [2, 1, 1.5]]})
     )
     assert Path(route[0]).name == 'navigate_waypoints.py'
-    assert route[1:] == ['--poses', '1,0,0 2,1,1.5']
+    assert route[1:] == ['--poses=1,0,0 2,1,1.5']
+    # One argv item: a lone pose starting with '-' must not read as an option.
+    lone = runner.client_command(examples.validate_scenario({'waypoints': [[-2, 1, 0]]}))
+    assert lone[1:] == ['--poses=-2,1,0']
     curve = runner.client_command(
         examples.validate_scenario({'curve': 'superellipse', 'laps': 2, 'speed': 0.3})
     )

@@ -28,7 +28,7 @@ same topics under its private namespace (`~/markers`, and so on), plus `~/curve`
 | Topic | Type | Content |
 |---|---|---|
 | `<ns>/markers` | `visualization_msgs/MarkerArray` | The marker namespaces in the legend below. |
-| `<ns>/field_grid` | `visualization_msgs/MarkerArray` | The field on a grid around the robot; separate so its cost is opt-in. |
+| `<ns>/field_grid` | `visualization_msgs/MarkerArray` | The field on a grid around the robot; separate so that only its subscribers pay its cost (the shipped RViz and Foxglove layouts show it). |
 | `<ns>/predicted_path` | `nav_msgs/Path` | The collision-prediction rollout. |
 | `<ns>/window` | `nav_msgs/Path` | The conditioned path window the field is built on. |
 | `<ns>/field_state` | `vectorfield_msgs/FieldState` | Every per-cycle value, for plotting. |

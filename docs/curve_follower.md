@@ -104,7 +104,9 @@ follower subscribes to the status topic of every action in `exclusive_actions` (
 `drive_on_heading`, `assisted_teleop`, `dock_robot`, `undock_robot` and `follow_object`). An action
 counts as active while any of its goals is accepted, executing or cancelling.
 
-- A goal does not start while one is active: it ends with `NAV2_ACTIVE` before any command.
+- A goal does not start while one is active: it ends with `NAV2_ACTIVE` before any command. At
+  goal start the follower first waits up to 0.5 s for the statuses to settle, because an action
+  that has just ended publishes its result before its final status.
 - When one becomes active during a goal, the follower sends one zero command, goes silent and
   ends the goal with `NAV2_ACTIVE`.
 - With `require_nav2_interlock` (default `true`), a goal is refused with `UNSUPPORTED` when

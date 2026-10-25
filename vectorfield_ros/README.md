@@ -34,7 +34,7 @@ markers of namespaces that do not apply are deleted, so nothing stale remains.
 | Topic | Type | Content |
 |---|---|---|
 | `<ns>/markers` | `MarkerArray` | The namespaces below; each can be toggled in RViz |
-| `<ns>/field_grid` | `MarkerArray` | The field on a square around the robot, as arrows or streamlines (opt-in cost) |
+| `<ns>/field_grid` | `MarkerArray` | The field on a square around the robot, as arrows or streamlines (computed only while subscribed) |
 | `<ns>/predicted_path` | `nav_msgs/Path` | The collision-prediction rollout |
 | `<ns>/window` | `nav_msgs/Path` | The curve window the field uses |
 | `<ns>/field_state` | `vectorfield_msgs/FieldState` | Per-cycle numbers for plots |

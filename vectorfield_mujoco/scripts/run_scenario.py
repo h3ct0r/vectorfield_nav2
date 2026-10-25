@@ -35,6 +35,7 @@ with their scenario; ``exit_on_done:=true`` ends the launch with it.
 
 import argparse
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -47,6 +48,9 @@ from vectorfield_mujoco import examples
 
 #: The waits for Nav2 and the follower (wall s): software rendering slows the first start.
 READY_TIMEOUT = 300.0
+
+#: Wall seconds a client has, after its SIGINT, to cancel its goal and exit before it is killed.
+CANCEL_GRACE = 5.0
 
 #: Simulated time (s) between the 3D follower becoming active and the goal: the obstacle cloud
 #: (2 Hz) reaches it first, else the goal would start on a stale voxel input.
@@ -70,7 +74,8 @@ def client_command(scenario):
     """
     if 'waypoints' in scenario:
         poses = ' '.join(','.join(f'{v:g}' for v in pose) for pose in scenario['waypoints'])
-        return [bringup_script('navigate_waypoints.py'), '--poses', poses]
+        # One argv item: a lone pose such as "-2,1,0" would otherwise read as an option.
+        return [bringup_script('navigate_waypoints.py'), f'--poses={poses}']
     for key, script in (('curve', 'send_curve.py'), ('curve3d', 'send_curve3d.py')):
         if key in scenario:
             command = [bringup_script(script), '--shape', scenario[key]]
@@ -109,16 +114,38 @@ class Waiter:
                 break
         return self.node.get_clock().now().nanoseconds * 1e-9
 
-    def wait_for_nav2(self):
-        """Wait until bt_navigator (and the controller) are active."""
-        from nav2_simple_commander.robot_navigator import BasicNavigator
+    def wait_active(self, name, deadline):
+        """Return whether lifecycle node ``name`` is active before ``deadline`` (monotonic s)."""
+        from lifecycle_msgs.msg import State
+        from lifecycle_msgs.srv import GetState
 
-        navigator = BasicNavigator('run_scenario_navigator')
+        get_state = self.node.create_client(GetState, f'{name}/get_state')
         try:
-            # controller_server stands in for the localizer, which these setups do not have.
-            navigator.waitUntilNav2Active(localizer='controller_server')
+            while time.monotonic() < deadline:
+                if get_state.wait_for_service(timeout_sec=1.0):
+                    future = get_state.call_async(GetState.Request())
+                    rclpy.spin_until_future_complete(self.node, future, timeout_sec=5.0)
+                    result = future.result()
+                    if (
+                        result is not None
+                        and result.current_state.id == State.PRIMARY_STATE_ACTIVE
+                    ):
+                        return True
+                time.sleep(0.5)
+            return False
         finally:
-            navigator.destroyNode()
+            self.node.destroy_client(get_state)
+
+    def wait_for_nav2(self, timeout=READY_TIMEOUT):
+        """Return whether controller_server and bt_navigator became active within ``timeout``.
+
+        The check of BasicNavigator.waitUntilNav2Active, which waits forever; controller_server
+        stands in for the localizer, which these setups do not have.
+        """
+        deadline = time.monotonic() + timeout
+        return all(
+            self.wait_active(name, deadline) for name in ('controller_server', 'bt_navigator')
+        )
 
     def wait_for_follower(self, timeout=READY_TIMEOUT):
         """Return whether the follow_curve action server appeared within ``timeout`` wall s."""
@@ -137,34 +164,19 @@ class Waiter:
 
         Then wait :data:`CLOUD_SETTLE` simulated seconds (the time runs: /clock is up).
         """
-        from lifecycle_msgs.msg import State
-        from lifecycle_msgs.srv import GetState
         from rclpy.action import ActionClient
 
         from vectorfield_msgs.action import FollowCurve3
 
         deadline = time.monotonic() + timeout
-        get_state = self.node.create_client(GetState, 'follower_3d/get_state')
+        if not self.wait_active('follower_3d', deadline):
+            return False
         action = ActionClient(self.node, FollowCurve3, 'follow_curve_3d')
         try:
-            while time.monotonic() < deadline:
-                if get_state.wait_for_service(timeout_sec=1.0):
-                    future = get_state.call_async(GetState.Request())
-                    rclpy.spin_until_future_complete(self.node, future, timeout_sec=5.0)
-                    result = future.result()
-                    if (
-                        result is not None
-                        and result.current_state.id == State.PRIMARY_STATE_ACTIVE
-                    ):
-                        break
-                time.sleep(0.5)
-            else:
-                return False
             if not action.wait_for_server(timeout_sec=max(1.0, deadline - time.monotonic())):
                 return False
         finally:
             action.destroy()
-            self.node.destroy_client(get_state)
         start = self.sim_time()
         while self.sim_time() < start + CLOUD_SETTLE:
             if time.monotonic() > deadline:
@@ -174,6 +186,33 @@ class Waiter:
     def close(self):
         """Destroy the node."""
         self.node.destroy_node()
+
+
+def run_client(command, timeout=None):
+    """Run a scenario client; return its exit status, or None after ``timeout`` wall s.
+
+    The client runs in a session of its own and gets exactly one SIGINT when it has to stop
+    (the timeout, Ctrl-C or SIGTERM here), so that it cancels its goal; it is killed only when it
+    has not exited :data:`CANCEL_GRACE` s later.
+    """
+    process = subprocess.Popen(command, start_new_session=True)
+    try:
+        return process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _interrupt(process)
+        return None
+    except KeyboardInterrupt:
+        _interrupt(process)
+        raise
+
+
+def _interrupt(process):
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=CANCEL_GRACE)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        process.kill()
+        process.wait()
 
 
 def main():
@@ -187,9 +226,14 @@ def main():
         print(f'run_scenario: {e}', file=sys.stderr)
         return 2
     name = os.path.splitext(os.path.basename(path))[0]
-    # Without rclpy's signal handlers Ctrl-C raises KeyboardInterrupt here, and the clients
-    # (which get it too) cancel their goals.
+    # Without rclpy's signal handlers Ctrl-C (and, below, SIGTERM) raises KeyboardInterrupt
+    # here; run_client() then interrupts the client, which cancels its goal.
     rclpy.init(args=sys.argv, signal_handler_options=SignalHandlerOptions.NO)
+
+    def on_sigterm(signum, frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, on_sigterm)
     waiter = Waiter()
     logger = waiter.node.get_logger()
     code = 1
@@ -203,15 +247,18 @@ def main():
                 return 1
         else:
             logger.info(f'scenario {name}: {scenario.get("description", "")}; waiting for Nav2')
-            waiter.wait_for_nav2()
+            if not waiter.wait_for_nav2():
+                logger.error(
+                    f'controller_server and bt_navigator are not active after {READY_TIMEOUT:g} s'
+                )
+                return 1
         if 'curve' in scenario and not waiter.wait_for_follower():
             logger.error('no follow_curve action server (is the curve follower launch running?)')
             return 1
         start_wall, start_sim = time.monotonic(), waiter.sim_time()
         logger.info(f'scenario {name}: running {" ".join(os.path.basename(c) for c in command)}')
-        try:
-            code = subprocess.run(command, timeout=args.timeout or None, check=False).returncode
-        except subprocess.TimeoutExpired:
+        code = run_client(command, timeout=args.timeout or None)
+        if code is None:
             logger.error(f'scenario {name}: no result after {args.timeout:g} s')
             code = 1
         wall, sim = time.monotonic() - start_wall, waiter.sim_time() - start_sim

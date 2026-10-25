@@ -197,7 +197,8 @@ def merge(overlays, base=None, distro=None, share_directory=_share_directory):
     """Deep-merge parameter overlays onto nav2_bringup's parameter file.
 
     Args:
-        overlays: Overlay file paths, applied in order (later files win).
+        overlays: Overlay file paths (or already loaded dictionaries), applied in order (later
+            ones win); all of them go through the substitutions and renames below.
         base: Base parameter file; defaults to :func:`stock_params_file`.
         distro: ROS distro name; defaults to :func:`ros_distro`.
         share_directory: ``package -> share directory`` lookup (ament_index by default).
@@ -210,7 +211,7 @@ def merge(overlays, base=None, distro=None, share_directory=_share_directory):
         distro = ros_distro()
     params = load_yaml(base if base is not None else stock_params_file(share_directory))
     for overlay in overlays:
-        params = deep_merge(params, load_yaml(overlay))
+        params = deep_merge(params, overlay if isinstance(overlay, dict) else load_yaml(overlay))
     params = substitute_values(params, STOCK_PLACEHOLDERS)
     params = resolve_bt_xml(params, share_directory)
     if distro == 'humble':

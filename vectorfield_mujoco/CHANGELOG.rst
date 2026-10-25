@@ -2,6 +2,19 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* mujoco_sim: the camera image and the obstacle cloud are assigned as array.array, which
+  rosidl's uint8[] setter takes as is (on Humble, bytes cost ~40 ms per 640x360 frame inside
+  the physics timer); close() joins the passive viewer's render thread (Handle.is_running()
+  turns False at once); odom_rate, scan_rate, scan_beams, camera_rate and cmd_vel_timeout are
+  range-checked; a concurrent first Menagerie fetch reuses the checkout another process finished.
+* run_scenario: a lone waypoint with a negative x no longer reads as an option; the wait for
+  Nav2 is bounded (300 s); the client gets one SIGINT (it cancels its goal) on the timeout,
+  Ctrl-C or SIGTERM instead of being killed; scenario params go through params.merge's
+  substitutions, behaviour-tree paths and Humble plugin names.
+* test_sim_node runs isolated (a ROS domain of its own).
+
 0.4.0 (2026-10-24)
 ------------------
 * mujoco_sim waits for the passive viewer's thread when it closes and, after a viewer session,

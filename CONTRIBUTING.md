@@ -129,7 +129,7 @@ Every released package has a `CHANGELOG.rst`. You do not need to edit it in a pu
 1. `catkin_generate_changelog`, then edit each `CHANGELOG.rst`.
 2. Set `version` in `CITATION.cff` to the new version (CI checks it on tags), and commit it together with the changelogs.
 3. `catkin_prepare_release`, which bumps every `package.xml`, commits and tags. `package.xml` is the single source of version truth: the Python package and the core's generated `version.hpp` read it.
-4. `bloom-release` into `ros2-gbp/vectorfield_nav2-release` for Humble, Jazzy and Lyrical, with `source:` and `doc:` entries. `vectorfield_system_tests` is never released.
+4. `bloom-release` into `ros2-gbp/vectorfield_nav2-release` for Humble, Jazzy and Lyrical. `vectorfield_system_tests` and `vectorfield_mujoco` are never released: list both, one per line, in the release repository's `humble.ignored`, `jazzy.ignored` and `lyrical.ignored` files (bloom's `<track>.ignored`, on its master branch). `vectorfield_mujoco` gets MuJoCo through the pip-only rosdep key `python3-mujoco-pip`, which bloom cannot turn into a Debian or RPM dependency. The build farm's `source:` (devel) and `doc:` jobs resolve every package's dependencies in the same way, so add those entries only once `vectorfield_mujoco` no longer stops them (for example with its pip dependency made conditional, REP 149), and release without them until then.
 
 Humble and Jazzy are released for Ubuntu only. On Lyrical every package except `vectorfield_bringup` is released as RPM. There is no Rolling release until Nav2 is released into Rolling.
 

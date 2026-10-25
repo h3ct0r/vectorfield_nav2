@@ -47,12 +47,12 @@ endforeach()
 
 if(BUILD_TESTING)
   find_package(ament_cmake_pytest REQUIRED)
+  find_package(ament_cmake_ros REQUIRED)
   # colcon test puts only the dependencies' install spaces on the paths; the tests import the
   # package this package has just installed and read its installed models.
   foreach(_vf_test IN ITEMS
       test_adapters test_flight test_scene test_sensors test_overlay test_models
-      test_menagerie test_menagerie_robots test_recorder test_simulation test_sim_node
-      test_examples)
+      test_menagerie test_menagerie_robots test_recorder test_simulation test_examples)
     ament_add_pytest_test(${_vf_test} test/${_vf_test}.py
       APPEND_ENV
         PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
@@ -60,12 +60,19 @@ if(BUILD_TESTING)
       TIMEOUT 300
     )
   endforeach()
+  # test_sim_node starts a mujoco_sim and a probe node: isolated (a ROS_DOMAIN_ID of its own),
+  # like every node test, so that it neither hears nor drives a running system.
+  ament_add_ros_isolated_pytest_test(test_sim_node test/test_sim_node.py
+    APPEND_ENV
+      PYTHONPATH=${CMAKE_INSTALL_PREFIX}/${PYTHON_INSTALL_DIR}
+      AMENT_PREFIX_PATH=${CMAKE_INSTALL_PREFIX}
+    TIMEOUT 300
+  )
 
   # Launch tests (label `mujoco`), as vectorfield_system_tests registers its own: isolated (one
   # ROS_DOMAIN_ID each), serial, discovery restricted to this host, TIMEOUT scaled in coverage
   # builds, and on Fast DDS 3 (Lyrical and later) the profile that keeps builtin traffic off the
   # intra-process path (test/fastdds_no_builtin_intraprocess.xml).
-  find_package(ament_cmake_ros REQUIRED)
   find_package(launch_testing_ament_cmake REQUIRED)
   if("$ENV{ROS_DISTRO}" STREQUAL "humble")
     set(VF_DISCOVERY_ENV "ROS_LOCALHOST_ONLY=1")

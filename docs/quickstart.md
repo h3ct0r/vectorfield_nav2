@@ -106,8 +106,8 @@ In RViz, check:
 - the cyan command arrow;
 - the green prediction line;
 - the goal rings (XY tolerance and $\sigma_{\mathrm{stop}}$) and the orange braking zone;
-- the field grid (enable the **Field grid** display), which shows the whole field around the
-  robot.
+- the field grid (the **Field grid** display, on by default), which shows the whole field
+  around the robot.
 
 ## Obstacles
 

@@ -115,7 +115,7 @@ One command per mode starts MuJoCo physics, the controller, RViz and a scenario 
 | M5 | `vectorfield_curve_follower` (`follow_curve` action), curve demos and example clients | Done |
 | M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | Done |
 | M7 | Optional extensions; done: an experimental 3D core (`vectorfield_core::d3`, `vectorfield.d3`, `vf-sim3d`), the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`), reversing (plans with cusps) with Nav2 path constraints, obstacle contouring for Ackermann bases, and the control-barrier-function obstacle mode (`obstacle_mode: cbf`) | Optional |
-| Examples | `vectorfield_mujoco`: MuJoCo examples for every mode, the gallery clips, the documentation revamp | Done, for the next release |
+| Examples | `vectorfield_mujoco`: MuJoCo examples for every mode, the gallery clips, the documentation revamp | Done (0.4.0) |
 
 ## Packages
 

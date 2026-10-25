@@ -8,7 +8,7 @@ steps.
 :::{admonition} Build from source
 :class: note
 
-0.3.0 is released, but its binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS
+0.4.0 is released, but its binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS
 build farm ({doc}`../distro_matrix`). Until they are out, build the packages from source as
 below.
 :::
@@ -204,7 +204,7 @@ The vector-field markers are drawn at the robot and along the plan:
 - the **command** (cyan arrow) and the **predicted path** (green up to the first predicted
   collision);
 - the **goal rings** (the XY tolerance and the settle radius) and the orange **braking zone**;
-- the **field grid** (the *Field grid* display, off by default): the field around the robot.
+- the **field grid** (the *Field grid* display, on by default): the field around the robot.
 
 {doc}`../visualization` has the full legend, screenshots of every phase and the Foxglove and
 PlotJuggler layouts.

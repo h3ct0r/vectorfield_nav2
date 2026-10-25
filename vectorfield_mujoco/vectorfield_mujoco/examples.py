@@ -281,11 +281,10 @@ def merged_params(robot, driver, scenario_params=None, share_dir=None, bringup_s
         merged = {}
         for path in paths:
             merged = params.deep_merge(merged, params.load_yaml(path))
-    else:
-        merged = params.merge(paths)
-    if scenario_params:
-        merged = params.deep_merge(merged, scenario_params)
-    return merged
+        return params.deep_merge(merged, scenario_params) if scenario_params else merged
+    # The scenario's params last, through merge()'s substitutions, behaviour-tree paths and
+    # Humble's plugin names like every overlay.
+    return params.merge(paths + ([scenario_params] if scenario_params else []))
 
 
 def parse_obstacles_argument(value, scenario, share_dir=None):

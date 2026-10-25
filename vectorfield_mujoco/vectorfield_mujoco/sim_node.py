@@ -78,10 +78,12 @@ EGL) the node refuses the viewer, the camera and the recording with an error and
 else; a backend that fails while rendering stops only that feature.
 """
 
+import array
 import collections
 import contextlib
 import math
 import os
+import threading
 import time
 
 import numpy as np
@@ -214,7 +216,9 @@ def point_cloud(points, frame_id, stamp):
     msg.point_step = 12
     msg.row_step = 12 * msg.width
     msg.is_dense = True
-    msg.data = xyz.tobytes()
+    # array.array, not bytes: rosidl's uint8[] setter checks bytes element by element in Python
+    # (Humble: ~35 ms for a 50k-point cloud), an array.array it takes as is.
+    msg.data = array.array('B', xyz.tobytes())
     return msg
 
 
@@ -420,6 +424,8 @@ class GroundInterface:
         publish_robot_tf = p(
             'publish_robot_tf', True, 'Publish base_footprint -> base_link -> base_scan'
         )
+        if not (odom_rate > 0.0 and scan_rate > 0.0 and beams >= 1):
+            raise ValueError('odom_rate and scan_rate must be positive and scan_beams at least 1')
 
         tick = sim.tick_period
         self.odom_every = simulation.steps_per_period(1.0 / odom_rate, tick)
@@ -800,6 +806,8 @@ class MujocoSim(Node):
         cmd_timeout = self.read_only(
             'cmd_vel_timeout', 0.5, 'A command older than this (simulated s) is zero; 0: never'
         )
+        if not cmd_timeout >= 0.0:
+            raise ValueError('cmd_vel_timeout must be 0 (never) or positive')
         if not all(math.isfinite(v) for v in pose):
             raise ValueError('initial_pose_x, initial_pose_y and initial_pose_yaw must be finite')
         aerial = robot.adapter == 'quadrotor'
@@ -879,6 +887,8 @@ class MujocoSim(Node):
             'camera_topic', '', 'Offscreen camera Image topic; empty: off'
         )
         camera_rate = self.read_only('camera_rate', 10.0, 'Camera images per simulated s')
+        if not camera_rate > 0.0:
+            raise ValueError('camera_rate must be positive')
         camera_size = simulation.parse_size(self.read_only('camera_size', '640x360', 'WxH'))
         camera_mode = self.read_only('camera_mode', 'chase', 'chase, follow, top or fixed')
         record_path = self.read_only('record_path', '', 'MP4 to record; empty: off')
@@ -913,6 +923,7 @@ class MujocoSim(Node):
         self._viewer = None
         # Whether a viewer was opened (main() then exits without the interpreter's teardown).
         self.viewer_used = False
+        self._viewer_threads = []
         requested = [
             name
             for name, on in (
@@ -1033,6 +1044,7 @@ class MujocoSim(Node):
 
         from vectorfield_mujoco import scene
 
+        before = set(threading.enumerate())
         try:
             self._viewer = mujoco.viewer.launch_passive(
                 world.model, world.data, show_left_ui=False, show_right_ui=False
@@ -1041,6 +1053,10 @@ class MujocoSim(Node):
             self.get_logger().error(f'viewer off: {e}')
             return
         self.viewer_used = True
+        # launch_passive renders in a thread of its own (except on macOS) and does not return
+        # it; close() joins it. Handle.is_running() turns False as soon as close() asks the
+        # viewer to exit, long before that thread has dropped its window and GL context.
+        self._viewer_threads = [t for t in threading.enumerate() if t not in before]
         with self._viewer.lock():
             self._viewer.opt.geomgroup[:] = scene.visual_option().geomgroup
             self._viewer.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
@@ -1095,7 +1111,7 @@ class MujocoSim(Node):
         msg.height, msg.width = int(pixels.shape[0]), int(pixels.shape[1])
         msg.encoding = 'rgb8'
         msg.step = msg.width * 3
-        msg.data = np.ascontiguousarray(pixels).tobytes()
+        msg.data = array.array('B', np.ascontiguousarray(pixels).tobytes())  # see point_cloud()
         publisher.publish(msg)
 
     def _sync_viewer(self):
@@ -1130,13 +1146,14 @@ class MujocoSim(Node):
             self._camera[0].close()
             self._camera = None
         if self._viewer is not None:
-            viewer, self._viewer = self._viewer, None
-            viewer.close()
-            # The viewer renders in its own thread: give it time to drop its window and GL
-            # context before the process goes on to exit.
-            deadline = time.monotonic() + VIEWER_CLOSE_TIMEOUT
-            while viewer.is_running() and time.monotonic() < deadline:
-                time.sleep(0.02)
+            self._viewer.close()
+            self._viewer = None
+        # Wait until the viewer's thread has dropped its window and GL context (also after the
+        # window was closed by hand), so that none of it runs while the process exits.
+        deadline = time.monotonic() + VIEWER_CLOSE_TIMEOUT
+        for thread in self._viewer_threads:
+            thread.join(max(0.0, deadline - time.monotonic()))
+        self._viewer_threads = []
 
 
 def main(args=None):

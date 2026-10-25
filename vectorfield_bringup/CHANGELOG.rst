@@ -2,6 +2,10 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* params.merge() also takes already loaded dictionaries as overlays.
+
 0.4.0 (2026-10-24)
 ------------------
 * rviz/vectorfield.rviz and foxglove/vectorfield.json show the field grid by default and orbit

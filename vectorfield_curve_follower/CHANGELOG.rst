@@ -2,6 +2,13 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* At goal start the Nav2 interlock waits up to 0.5 s for the exclusive actions' statuses to
+  settle: an action that has just ended publishes its result before its final status, so a
+  client starting the curve right after it (an approach, the FollowCurve BT node after
+  FollowPath) was refused with NAV2_ACTIVE.
+
 0.4.0 (2026-10-24)
 ------------------
 
