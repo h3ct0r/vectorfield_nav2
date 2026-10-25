@@ -2,8 +2,8 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.1 (2026-10-25)
+------------------
 * mujoco_sim: the camera image and the obstacle cloud are assigned as array.array, which
   rosidl's uint8[] setter takes as is (on Humble, bytes cost ~40 ms per 640x360 frame inside
   the physics timer); close() joins the passive viewer's render thread (Handle.is_running()

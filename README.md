@@ -12,7 +12,7 @@
 Artificial vector-field navigation for ROS 2 and Nav2. vectorfield_nav2 implements the constructive time-varying vector fields of Rezende, Gonçalves and Pimenta ([IEEE T-RO 2022](https://doi.org/10.1109/TRO.2021.3093674)) as a Nav2 controller plugin and as a standalone curve-following action server, both built on a ROS-free C++ core. The field makes the robot converge to a path or curve and then circulate along it at a set speed; its time-varying feedforward term lets the robot follow curves that move. The implementation is a clean-room C++ rewrite from the equations in the paper and in Rezende's PhD thesis.
 
 > [!NOTE]
-> **Status: 0.4.0 is released.** The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build farm; until they are out, build from source. The [documentation](https://h3ct0r.github.io/vectorfield_nav2/) has a quickstart, the examples, the theory, a tuning guide and the parameter reference.
+> **Status: 0.4.1 is released.** The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build farm; until they are out, build from source. The [documentation](https://h3ct0r.github.io/vectorfield_nav2/) has a quickstart, the examples, the theory, a tuning guide and the parameter reference.
 
 ## Examples
 

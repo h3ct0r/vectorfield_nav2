@@ -2,8 +2,8 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.4.1 (2026-10-25)
+------------------
 * params.merge() also takes already loaded dictionaries as overlays.
 
 0.4.0 (2026-10-24)

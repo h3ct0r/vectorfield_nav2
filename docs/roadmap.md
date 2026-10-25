@@ -4,7 +4,7 @@ Development is split into milestones. A milestone is done when its exit criteria
 green on Humble, Jazzy (amd64 and arm64) and Lyrical. Rolling builds nightly without gating
 releases; its failures become issues.
 
-Status: M0 to M6 are done, and 0.1.0 to 0.4.0 are released, with the M7 extensions marked done
+Status: M0 to M6 are done, and 0.1.0 to 0.4.1 are released, with the M7 extensions marked done
 below; the binary packages wait on the ROS build farm. 0.4.0 added the MuJoCo examples and this
 site's revamp.
 

@@ -2,6 +2,9 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.1 (2026-10-25)
+------------------
+
 0.4.0 (2026-10-24)
 ------------------
 * The field arrows in ~/markers have heads (three strokes 120° apart, readable from any

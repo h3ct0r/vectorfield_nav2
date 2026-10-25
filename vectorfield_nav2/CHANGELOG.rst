@@ -2,6 +2,20 @@
 Changelog for package vectorfield_nav2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.1 (2026-10-25)
+------------------
+* Fixes from a review of 0.4.0:
+
+  * The curve follower waits up to 0.5 s at goal start for the Nav2 action statuses to settle,
+    so a curve started right after a Nav2 action (an approach, the FollowCurve BT node after
+    FollowPath) is no longer refused with NAV2_ACTIVE.
+  * MuJoCo examples: no ~40 ms per camera frame on Humble; the viewer's render thread is joined
+    at shutdown; rates are range-checked; concurrent first Menagerie fetches; run_scenario
+    (a lone negative-x waypoint, a bounded wait for Nav2, the client cancels its goal on
+    timeout or interrupt); scenario params get Humble's plugin names and behaviour-tree paths.
+  * Docs: release status, field grid default, rosdep lines that skip the MuJoCo pip key, bloom
+    ignores vectorfield_mujoco.
+
 0.4.0 (2026-10-24)
 ------------------
 * MuJoCo examples (vectorfield_mujoco, source-only): one launch per motion model, with physics,

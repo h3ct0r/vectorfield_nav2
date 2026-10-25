@@ -2,6 +2,9 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.4.1 (2026-10-25)
+------------------
+
 0.4.0 (2026-10-24)
 ------------------
 * d3: DistanceField3::sampleAt(), the whole field sample (D, foot, G, H) at a point; at() is
