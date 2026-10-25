@@ -10,7 +10,7 @@ a feedforward term when the curve itself moves. Integral curves of the field con
 target curve and then travel along it (see {doc}`theory`).
 
 ```{clip} overview
-:alt: Left, a Skydio X2 drone follows a helix past a sphere and a pole, the 3D field drawn as coloured arrows around it. Right, an AgileX Scout Mini drives through a door with Nav2 and the vector-field controller.
+:alt: Left, a Skydio X2 drone follows a helix past a sphere and a pole. Right, an AgileX Scout Mini drives through a door with Nav2 and the vector-field controller.
 :class: vf-wide
 ```
 
