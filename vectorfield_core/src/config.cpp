@@ -31,7 +31,7 @@ namespace
 {
 
 // ---------------------------------------------------------------------------------------------
-// Enum <-> parameter string tables (plan §5.4 values; the first entry is the default).
+// Enum <-> parameter string tables (the first entry is the default).
 
 template <typename Enum>
 struct EnumName
@@ -557,7 +557,7 @@ CoreConfig resolveAutoValues(const CoreConfig & config)
   resolved.motion.tracking_law =
     resolveTrackingLaw(config.motion.motion_model, config.motion.tracking_law);
 
-  // Ackermann (math_spec §6.6 [Design, M7]): the circulation and the turn-in grow with R_min.
+  // Ackermann (math_spec §6.6 [Design]): the circulation and the turn-in grow with R_min.
   const bool ackermann = resolved.motion.motion_model == MotionModel::kAckermann &&
                          resolved.motion.min_turning_radius > 0.0;
   const double r_min = ackermann ? resolved.motion.min_turning_radius : 0.0;
@@ -638,7 +638,7 @@ double coverRadius(const FootprintSpec & footprint, const Vec2 & point) noexcept
   return radius;
 }
 
-/// @brief The Ackermann contour warnings of math_spec §6.6 [Design, M7] on a resolved config.
+/// @brief The Ackermann contour warnings of math_spec §6.6 [Design] on a resolved config.
 void addAckermannContourWarnings(
   const CoreConfig & r, const FootprintRadii & radii, std::vector<ValidationIssue> * warnings)
 {

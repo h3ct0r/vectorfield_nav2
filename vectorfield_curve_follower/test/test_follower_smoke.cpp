@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Smoke test of the CurveFollower node in process (plan §6): configure and activate with a fake
+// Smoke test of the CurveFollower node in process: configure and activate with a fake
 // robot (odometry, TF, an empty local costmap and a footprint), one short closed-curve goal
 // SUCCEEDS with laps_completed = 1, then the follower is silent. An invalid goal ends with
 // INVALID_GOAL and no command.

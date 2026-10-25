@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Occupancy grid snapshot, Felzenszwalb–Huttenlocher distance and feature transform, the bilinear
-// obstacle query and K's flood fill (plan §3.2; math_spec §6.1, §6.4).
+// obstacle query and K's flood fill (math_spec §6.1, §6.4).
 
 #include "vectorfield_core/occupancy.hpp"
 

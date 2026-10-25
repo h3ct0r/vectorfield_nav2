@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: localization corrections and replans. A map→odom
+// Layer 2, through the server harness: localization corrections and replans. A map→odom
 // step with replan jitter, a settle-then-rotate approach disturbed by map→odom steps and replans
 // (math_spec §9.1), a goal end that moves at every replan during a contour episode (goal identity
-// keeps the episode and the limiter, math_spec §9.1), consecutive goals (Humble's reset
-// emulation, plan §5.1) and Lyrical's skew between the window and the goal (nav2_api_matrix.md
+// keeps the episode and the limiter, math_spec §9.1), a replan that grazes the contoured box (the
+// gate's hysteresis, math_spec §6.4), consecutive goals (Humble's reset
+// emulation) and Lyrical's skew between the window and the goal (nav2_api_matrix.md
 // §4.1).
 
 #include <gtest/gtest.h>

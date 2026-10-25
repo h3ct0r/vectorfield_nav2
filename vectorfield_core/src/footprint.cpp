@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Robot footprint and the footprint collision checker (plan §3.2; math_spec §10.1).
+// Robot footprint and the footprint collision checker (math_spec §10.1).
 
 #include "vectorfield_core/footprint.hpp"
 

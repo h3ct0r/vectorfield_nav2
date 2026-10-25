@@ -2,7 +2,7 @@
 
 ROS 2 interface definitions for the vectorfield_nav2 stack.
 
-**Status:** complete; `FieldState` was frozen at M2, `Curve` and `FollowCurve` at M5. Once
+**Status:** complete; `FieldState`, `Curve` and `FollowCurve` are frozen. Once
 released into a distro, the definitions evolve only by adding new types.
 
 ## Interfaces

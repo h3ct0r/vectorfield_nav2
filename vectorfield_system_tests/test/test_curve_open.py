@@ -17,7 +17,7 @@
 curve_follower_demo on ``open_10x10``. Open curves are approached as send_curve.py does
 (NavigateToPose to their start, facing along them).
 
-1. an open polyline at 0.4 m/s: SUCCEEDED within length/v_r + 10 s (M5 exit criterion);
+1. an open polyline at 0.4 m/s: SUCCEEDED within length/v_r + 10 s;
 2. an open curve at 0.04 m/s: SUCCEEDED, never BLOCKED (the progress watchdog scales with the
    speed);
 3. a FollowCurve goal while a NavigateToPose executes: aborted with NAV2_ACTIVE, without a

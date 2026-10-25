@@ -14,7 +14,7 @@ is not supported. The per-distro details of the Nav2 interfaces, with their sour
 | Lyrical | 26.04 (resolute) | Gen C: `newPathReceived`, 5-argument `computeVelocityCommands`; the server's path handler | every pull request (amd64) | Supported |
 | Rolling | 26.04 (resolute) | Gen C | nightly, against the Nav2 nightly image, without launch tests | Built and tested; failures do not gate |
 
-A milestone or release requires green CI on Humble, Jazzy (amd64 and arm64) and Lyrical.
+A release requires green CI on Humble, Jazzy (amd64 and arm64) and Lyrical.
 Rolling failures become issues. Nav2 is not released into Rolling, so vectorfield_nav2 has no
 Rolling binaries.
 

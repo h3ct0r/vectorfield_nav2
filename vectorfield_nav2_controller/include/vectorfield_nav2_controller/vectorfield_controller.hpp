@@ -14,12 +14,12 @@
 
 /// @file
 /// @brief `vectorfield_nav2_controller::VectorFieldController`, the `nav2_core::Controller`
-/// plugin (plan §5; nav2_api_matrix.md §2.5).
+/// plugin (nav2_api_matrix.md §2.5).
 ///
-/// Implemented in src/vectorfield_controller.cpp (M2 wave 2, plugin), which also holds
+/// Implemented in src/vectorfield_controller.cpp, which also holds
 /// `PLUGINLIB_EXPORT_CLASS(vectorfield_nav2_controller::VectorFieldController,
 /// nav2_core::Controller)`. The plugin type string, the parameter names and the topic names are
-/// stable surfaces (plan §9).
+/// stable surfaces.
 
 #ifndef VECTORFIELD_NAV2_CONTROLLER__VECTORFIELD_CONTROLLER_HPP_
 #define VECTORFIELD_NAV2_CONTROLLER__VECTORFIELD_CONTROLLER_HPP_
@@ -89,7 +89,7 @@ struct CycleDiagnostics
   bool cusp_stop{false};
 };
 
-/// @brief The vector-field path follower as a Nav2 controller plugin (plan §5).
+/// @brief The vector-field path follower as a Nav2 controller plugin.
 ///
 /// **Distro blocks.** This class is the only place in the plugin with distro conditionals:
 /// `#if VF_HAS_PATH_HANDLER` (Gen C: newPathReceived and the 5-argument compute) / `#else`
@@ -105,7 +105,7 @@ struct CycleDiagnostics
 /// (speed-limit scale, node-derived configuration for the cross-validator) is guarded by a
 /// mutex.
 ///
-/// **Per cycle** (computeCommandImpl(), plan §5.2): empty window → `InvalidPath`; costmap
+/// **Per cycle** (computeCommandImpl()): empty window → `InvalidPath`; costmap
 /// snapshot (copied under the costmap mutex) → OccupancyGrid → EDT, rebuilt only on change;
 /// pending parameter or footprint change → transactional rebuild; window conditioning
 /// (buildWindow(), `PolylineCurve::assign` with `WindowScan` over \f$[-(d + 0.3), d + 0.5]\f$);
@@ -125,7 +125,7 @@ public:
   VectorFieldController & operator=(const VectorFieldController &) = delete;
 
   /// @brief Declares the parameters, validates them against the costmap and the footprint, and
-  /// builds the Tracker (plan §4, §5.4).
+  /// builds the Tracker.
   ///
   /// Declares `vectorfield_common_params` under the prefix `name` (and, on Gen A/B,
   /// `vectorfield_legacy_path_params`, with the LegacyPathHandler); reads the server's
@@ -170,7 +170,7 @@ public:
 #else  // Gen A/B (Humble to Kilted): LegacyPathHandler builds the same window
   /// @brief A new raw global plan (goal start and every replan): processRawPlan(), then the
   /// LegacyPathHandler's setPlan() and the re-arm of the emulated XY latch. On Humble (no
-  /// reset() from the server) a full reset first when resetDue() (plan §5.1).
+  /// reset() from the server) a full reset first when resetDue().
   /// @throws vectorfield_ros::compat::InvalidPath for an empty plan, or a cusp without
   /// `allow_reversing`.
   void setPlan(const nav_msgs::msg::Path & path) override;

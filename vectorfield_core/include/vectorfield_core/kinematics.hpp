@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief Kinematic model and limits of the robot, and exact planar integration
-/// (plan §3.2; math_spec §7.5, §10.2).
+/// (math_spec §7.5, §10.2).
 
 #ifndef VECTORFIELD_CORE__KINEMATICS_HPP_
 #define VECTORFIELD_CORE__KINEMATICS_HPP_
@@ -29,7 +29,7 @@ namespace vectorfield_core
 {
 
 /// @brief Motion model and limits, shared by the tracking laws, the kinematic box, the
-/// CommandLimiter, the CollisionPredictor and sim::integrate (plan §3.2).
+/// CommandLimiter, the CollisionPredictor and sim::integrate.
 ///
 /// A plain value type; fromConfig() copies the Motion and Phases parameters it needs without
 /// validating them (validateConfig() does that).

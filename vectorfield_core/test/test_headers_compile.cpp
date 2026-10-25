@@ -91,7 +91,7 @@ static_assert(std::is_trivially_destructible_v<vf::Kinematics>, "Kinematics");
 static_assert(std::is_trivially_copyable_v<vf::FieldProbe>, "FieldProbe never allocates");
 static_assert(std::is_trivially_copyable_v<vf::Span<const vf::Pose2>>, "Span is a view");
 
-// The error hierarchy of plan §3.1.
+// The error hierarchy.
 static_assert(std::is_base_of_v<std::invalid_argument, vf::ConfigError>, "ConfigError");
 static_assert(std::is_base_of_v<vf::ConfigError, vf::CurveError>, "CurveError");
 

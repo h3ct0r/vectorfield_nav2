@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The follower in process (plan §9 layer 2b), goal validation and mutual exclusion (plan §6
-// "Failure modes"): every INVALID_CURVE, INVALID_GOAL and UNSUPPORTED row ends before the first
+// The follower in process, goal validation and mutual exclusion (the
+// failure table): every INVALID_CURVE, INVALID_GOAL and UNSUPPORTED row ends before the first
 // command; a Nav2 action active at goal start ends NAV2_ACTIVE with no message, and one that
 // becomes active mid-run gets exactly one zero; the interlock and the output topic follow the
 // node's namespace.

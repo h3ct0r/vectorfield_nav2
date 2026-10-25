@@ -15,7 +15,7 @@
 /// @file
 /// @brief The exception type of vectorfield_core.
 ///
-/// Error policy (plan §3.1): constructors, factories (`makeCurve`) and validation helpers throw
+/// Error policy: constructors, factories (`makeCurve`) and validation helpers throw
 /// ConfigError. Everything on the control path (`Tracker::step`, curve evaluation, field
 /// evaluation, tracking laws, `CommandLimiter::limit`, `sim::integrate`) is `noexcept` and
 /// reports problems through status bits (status.hpp) instead. The only exception that can escape

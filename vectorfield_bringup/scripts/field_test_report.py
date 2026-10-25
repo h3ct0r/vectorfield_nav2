@@ -31,8 +31,8 @@ NavigateThroughPoses or FollowCurve goal (from the action status topics). Per ep
 Session-wide: speed-limit periods and the commanded speeds in them, map -> odom corrections and
 the recorded topics with their rates. Writes ``report.md``, ``metrics.json`` and one
 ``episode_NN.png`` per episode (matplotlib) into ``--output`` (default ``<bag>_report``). The
-thresholds of the pass/fail checks are options; the defaults are the M3/M5 simulation numbers
-relaxed for a real robot (docs/tutorials/field_testing.md).
+thresholds of the pass/fail checks are options; the defaults are the system tests' simulation
+numbers relaxed for a real robot (docs/tutorials/field_testing.md).
 
 Example::
 

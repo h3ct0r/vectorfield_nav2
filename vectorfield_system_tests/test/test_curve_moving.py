@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Curves in moving frames on vectorfield_sim (M5 exit criteria), for ``VF_TEST_MOTION_MODEL``.
+"""Curves in moving frames on vectorfield_sim, for ``VF_TEST_MOTION_MODEL``.
 
 curve_follower_demo on ``open_10x10``; the frame comes from moving_frame_publisher.py (parent
 ``odom``), run by the test. The robot first drives to a point of the curve, facing along it; the

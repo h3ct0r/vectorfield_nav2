@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// CBF oracle O58 (math_spec §6.7 [Design, M7], §12.5): closed loops of the TC robot along y = 0.
+// CBF oracle O58 (math_spec §6.7 [Design], §12.5): closed loops of the TC robot along y = 0.
 
 #include <gtest/gtest.h>
 

@@ -30,7 +30,7 @@ ros2 run vectorfield_bringup send_curve3d.py --shape viviani --laps 2
 MAVROS takes the global-frame output on `/mavros/setpoint_velocity/cmd_vel`. PX4 (uXRCE-DDS,
 NED) and ArduPilot (`/ap/cmd_vel`) need a remap or a few lines of adapter. See the documentation:
 `docs/follower_3d.md` (reference), `docs/tutorials/aerial_3d.md` (tutorial),
-`docs/design/m7_3d_ros.md` (design) and the generated parameter reference
+`docs/design/follower_3d.md` (design) and the generated parameter reference
 (`params/vectorfield_follower_3d_params.yaml`).
 
 ## Tests

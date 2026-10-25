@@ -33,8 +33,8 @@ class FunctionRef;
 /// @brief Non-owning reference to a callable with signature `R(Args...)`.
 ///
 /// Stores an object pointer and a function pointer; it never allocates and is trivially
-/// copyable, which is why the hot path uses it instead of `std::function` (plan §3.2,
-/// `FieldProbe`). Rules:
+/// copyable, which is why the hot path uses it instead of `std::function`
+/// (`FieldProbe`). Rules:
 /// - A callable object (lambda, functor) is referenced, not copied: it must outlive every call.
 ///   Passing a temporary lambda directly as a function argument is safe for the duration of
 ///   that call.

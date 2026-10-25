@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The FollowCurve behaviour-tree node end to end (M7), for ``VF_TEST_MOTION_MODEL``.
+"""The FollowCurve behaviour-tree node end to end, for ``VF_TEST_MOTION_MODEL``.
 
 curve_follower_demo on ``open_10x10`` with the ``follow_curve_bt`` overlay, so bt_navigator runs
 bringup's ``behavior_trees/follow_curve.xml`` for NavigateToPose. The tree approaches (2, 0)

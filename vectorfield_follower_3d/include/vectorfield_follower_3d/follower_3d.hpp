@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief `vectorfield_follower_3d::Follower3D`: the experimental 3D curve follower, a lifecycle
-/// component with the `follow_curve_3d` action server (docs/design/m7_3d_ros.md).
+/// component with the `follow_curve_3d` action server (docs/design/follower_3d.md).
 ///
 /// Implemented in src/follower_3d.cpp, which also registers the component. The node name
 /// defaults to `follower_3d`.

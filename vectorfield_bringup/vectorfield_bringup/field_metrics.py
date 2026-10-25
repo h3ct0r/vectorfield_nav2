@@ -44,7 +44,7 @@ PHASE_NAMES = {
     PHASE_ROTATE_TO_HEADING: 'ROTATE_TO_HEADING',
     PHASE_STOPPED: 'STOPPED',
 }
-#: Phases in which the robot tracks the path (the M3 tracking criterion).
+#: Phases in which the robot tracks the path (the system tests' tracking criterion).
 TRACKING_PHASES = (PHASE_FOLLOW, PHASE_FINAL_APPROACH)
 
 #: ``FieldState.STATUS_*`` bit -> name.
@@ -129,8 +129,9 @@ def second_differences(samples):
 def tracking_error(t, phase, distance, converged=0.05, after=-math.inf):
     """Return max |D| over the tracking samples from the first one with |D| <= ``converged``.
 
-    The M3 criterion of the launch tests: only samples in :data:`TRACKING_PHASES` and later than
-    ``after`` count. Returns inf if |D| never got that small, NaN without tracking samples.
+    The tracking criterion of the launch tests: only samples in :data:`TRACKING_PHASES` and
+    later than ``after`` count. Returns inf if |D| never got that small, NaN without tracking
+    samples.
     """
     t, phase, distance = (np.asarray(a, dtype=float) for a in (t, phase, distance))
     tracking = np.isin(phase, TRACKING_PHASES) & (t > after)

@@ -4,9 +4,9 @@
 goals to the curve follower ([`vectorfield_curve_follower`](../vectorfield_curve_follower/README.md)),
 and `bt_runner`, a minimal executor that ticks a behaviour tree from a file. The full guide is
 [docs/behavior_tree.md](../docs/behavior_tree.md); the design and the per-distro differences are
-in [docs/design/m7_follow_curve_bt.md](../docs/design/m7_follow_curve_bt.md).
+in [docs/design/follow_curve_bt.md](../docs/design/follow_curve_bt.md).
 
-**Status:** M7. Tested in trees against a fake `follow_curve` server, and end to end on the
+**Status:** complete. Tested in trees against a fake `follow_curve` server, and end to end on the
 kinematic simulator with the real follower, in `bt_runner` and in bt_navigator
 (`test_follow_curve_bt` in `vectorfield_system_tests`).
 

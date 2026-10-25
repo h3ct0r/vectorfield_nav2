@@ -87,9 +87,9 @@ static_assert(result_code::kInvalidGoal == FollowCurve::Result::INVALID_GOAL, "F
 namespace
 {
 
-/// A published_footprint vertex moving more than this is a footprint change (plan §4).
+/// A published_footprint vertex moving more than this is a footprint change.
 constexpr double kFootprintChangeTolerance = 0.01;
-/// The action whose status publisher proves that the interlock sees Nav2 (plan §6).
+/// The action whose status publisher proves that the interlock sees Nav2.
 constexpr const char * kInterlockAction = "follow_path";
 /// Suffix of an action's status topic.
 constexpr const char * kStatusSuffix = "/_action/status";
@@ -344,7 +344,7 @@ struct CurveFollower::Impl
     return true;
   }
 
-  /// The transactional rebuild (plan §4): builds into a temporary and installs it only on
+  /// The transactional rebuild: builds into a temporary and installs it only on
   /// success. A failure marks the goal's configuration invalid (the goal aborts UNKNOWN).
   void buildTracker(GoalRun & run, const char * cause)
   {
@@ -372,7 +372,7 @@ struct CurveFollower::Impl
       run.config_error = error;
       return;
     }
-    // Costmap rules: warn once per costmap geometry (plan §4).
+    // Costmap rules: warn once per costmap geometry.
     if (
       grid_valid && (!warned_costmap || warned_costmap->width_m != costmap_info.width_m ||
                      warned_costmap->height_m != costmap_info.height_m ||
@@ -392,7 +392,7 @@ struct CurveFollower::Impl
       const vf::CoreConfig & before = run.tracker->config();
       const vf::CoreConfig & after = next->config();
       // An episode ends when the mode or λ changes (the configs are resolved, so a footprint
-      // change that moves the auto λ counts); a law change restarts in FOLLOW (plan §4).
+      // change that moves the auto λ counts); a law change restarts in FOLLOW.
       if (
         before.obstacles.obstacle_mode != after.obstacles.obstacle_mode ||
         before.obstacles.obstacle_contour_distance != after.obstacles.obstacle_contour_distance) {
@@ -592,7 +592,7 @@ struct CurveFollower::Impl
 
   // --- Goals -------------------------------------------------------------------------------
 
-  /// Validates a goal and sets up its run (plan §6): nullopt, or why it must be terminated
+  /// Validates a goal and sets up its run: nullopt, or why it must be terminated
   /// before any command.
   std::optional<GoalRejection> startGoal(
     const FollowCurve::Goal & goal, const GoalRun * previous, GoalRun * run)
@@ -616,7 +616,7 @@ struct CurveFollower::Impl
       return rejection;
     }
 
-    // Interlock liveness and mutual exclusion (plan §6).
+    // Interlock liveness and mutual exclusion.
     if (follower_params.require_nav2_interlock) {
       for (std::size_t i = 0; i < status_actions.size(); ++i) {
         if (status_actions[i] == kInterlockAction) {
@@ -694,7 +694,7 @@ struct CurveFollower::Impl
     return std::nullopt;
   }
 
-  /// The curve frame this cycle (plan §6 "Frames").
+  /// The curve frame this cycle.
   struct FrameState
   {
     vf::CurveFrame frame;
@@ -956,7 +956,7 @@ struct CurveFollower::Impl
       input.cap_at_curve_end = false;
       output = run.tracker->step(input, run.state, &run.state, scratch);
       ran = true;
-      // Commit the goal context before acting on the status (plan §3.1).
+      // Commit the goal context before acting on the status.
       run.laps.update(output.field.s_star, curve.length(now));
     } else {
       vf::requestLimiterReseed(&run.state);
@@ -1246,7 +1246,7 @@ CurveFollower::CallbackReturn CurveFollower::on_configure(const rclcpp_lifecycle
         s.logger, "configuration: %s [%s]", warning.message.c_str(), warning.code.c_str());
     }
     Impl * impl = impl_.get();
-    // Registered after the listeners: rclcpp runs it first (plan §4).
+    // Registered after the listeners: rclcpp runs it first.
     s.cross_validator = std::make_unique<vr::CrossValidator>(
       parameters, "", followerSetters(), std::nullopt, [impl]() { return impl->committedTarget(); },
       s.logger,

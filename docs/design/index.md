@@ -1,7 +1,7 @@
 # Design documents
 
-These documents distil the research and review rounds that preceded the implementation. Later
-work cites them, not the raw research.
+The design documents record what the code implements and why. The code and its tests cite
+them.
 
 - **Mathematical specification**: every equation, symbol, guard and tolerance the core
   implements, with thesis equation numbers and the derivations this project adds.
@@ -9,6 +9,8 @@ work cites them, not the raw research.
   plugin adapts to it.
 - **Upstream audit**: the defects found in the ROS 1 `vectorfield_stack` and how this
   implementation avoids each one.
+- **Feature notes**: the 3D core and its node, the control-barrier-function mode, obstacle
+  contouring for Ackermann bases, reversing, and the FollowCurve behaviour-tree node.
 
 ```{toctree}
 :glob:

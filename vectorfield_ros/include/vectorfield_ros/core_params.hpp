@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Parameter ↔ core binding: the binding-table row, `kCommonCoreParams`, toCoreConfig(),
-/// the node-derived fields, the cross-parameter validator and validateFromNode() (plan §4
-/// "Parameters").
+/// the node-derived fields, the cross-parameter validator and validateFromNode().
 ///
-/// **The tables are the only name ↔ field mapping** (plan §4):
+/// **The tables are the only name ↔ field mapping**:
 /// - toCoreConfig() / applyRows() apply every table a node owns (the plugin: kCommonCoreParams;
 ///   the follower: kCommonCoreParams and its own kFollowerCoreParams);
 /// - the CrossValidator applies each incoming name through the `set` of the row that holds it;
@@ -29,9 +28,9 @@
 /// **Node-derived fields** (`CoreConfig::node`: the control frequency and the footprint) are not
 /// parameters of these tables; setNodeDerivedFields() sets them after the tables are applied.
 ///
-/// Split: the table (src/core_params_table.cpp), toCoreConfig() and toVizConfig() are
-/// implemented in M2 wave 1; the CrossValidator, setNodeDerivedFields(), controllerFrequencyOf(),
-/// validateParams() and validateFromNode() in src/core_params.cpp (M2 wave 2, ros-io).
+/// Split: the table, toCoreConfig() and toVizConfig() are in src/core_params_table.cpp; the
+/// CrossValidator, setNodeDerivedFields(), controllerFrequencyOf(),
+/// validateParams() and validateFromNode() in src/core_params.cpp.
 
 #ifndef VECTORFIELD_ROS__CORE_PARAMS_HPP_
 #define VECTORFIELD_ROS__CORE_PARAMS_HPP_
@@ -70,7 +69,7 @@ struct CoreParamTarget
   vectorfield_core::CurveOptions curve_options;
 };
 
-/// @brief One row of a binding table (plan §4): a parameter name and the three conversions that
+/// @brief One row of a binding table: a parameter name and the three conversions that
 /// connect the gpl `Params` struct, a `rclcpp::ParameterValue` and the core configuration.
 ///
 /// Rows are written as stateless lambdas converted to function pointers, so a table is a
@@ -106,7 +105,7 @@ using CommonParamRow = CoreParamRow<CommonParams>;
 /// the Visualization group (Field 3, Motion 19, Phases 10, Obstacles 16, Safety 3).
 inline constexpr std::size_t kCommonCoreParamCount = 53;
 
-/// @brief The binding table of vectorfield_common_params (plan §4), in YAML order.
+/// @brief The binding table of vectorfield_common_params, in YAML order.
 extern const std::array<CommonParamRow, kCommonCoreParamCount> kCommonCoreParams;
 
 /// @brief The keys of vectorfield_common_params with no core field (the Visualization group,
@@ -181,7 +180,7 @@ void appendSetters(const Rows & rows, std::vector<ParamSetter> * out)
   }
 }
 
-/// @brief Sets the node-derived fields after the tables (plan §4): the control frequency and the
+/// @brief Sets the node-derived fields after the tables: the control frequency and the
 /// robot-frame footprint (toFootprintSpec() of the polygon). The footprint radii \f$w_{\mathrm{lat}},
 /// r_{\mathrm{insc}}, r_{\mathrm{circ}}\f$ and the auto \f$\lambda, D_{\mathrm{in}},
 /// D'_{\mathrm{in}}\f$ follow from them inside the core.
@@ -214,8 +213,8 @@ vectorfield_core::ValidationReport validateParams(
   const std::vector<geometry_msgs::msg::Point> & robot_footprint,
   vectorfield_core::CoreConfig * config = nullptr);
 
-/// @brief Shared validation of a node's configuration (plan §4): used by the plugin's
-/// configure() and by the system_tests config check (M3).
+/// @brief Shared validation of a node's configuration: used by the plugin's
+/// configure() and by the system_tests config check.
 ///
 /// Constructs a temporary `CommonParamListener` on `parameters` with the prefix `plugin_name`
 /// (declaring the parameters if they are not declared yet, which adopts any override from a
@@ -250,7 +249,7 @@ vectorfield_core::ValidationReport validateFromNode(
     robot_footprint, config);
 }
 
-/// @brief The cross-parameter validator (plan §4): one `add_on_set_parameters_callback`,
+/// @brief The cross-parameter validator: one `add_on_set_parameters_callback`,
 /// registered **after** the gpl listeners.
 ///
 /// rclcpp runs the newest on-set callback first and stops at the first rejection, so this

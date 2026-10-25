@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contour oracle O57, Ackermann (math_spec §6.6 [Design, M7], §12.5).
+// Contour oracle O57, Ackermann (math_spec §6.6 [Design], §12.5).
 
 #include <gtest/gtest.h>
 

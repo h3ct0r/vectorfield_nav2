@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// API-generation test (plan §9 CI, nav2_api_matrix.md §2.3 and §7.4).
+// API-generation test (nav2_api_matrix.md §2.3 and §7.4).
 //
 // Compile time: the probe macros match the distro this package was configured for, and the
 // CMake-side VF_CMAKE_HAS_ROS_COMMON equals the header probe VF_HAS_ROS_COMMON. Run time: logs the

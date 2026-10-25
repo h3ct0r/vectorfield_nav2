@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // The binding table kCommonCoreParams against vectorfield_common_params.yaml and CoreConfig
-// (plan §4 "Binding tables"): integrity, default parity, round trip of a non-default value, and
+//: integrity, default parity, round trip of a non-default value, and
 // coverage of every key the gpl listener declares.
 
 #include <gtest/gtest.h>

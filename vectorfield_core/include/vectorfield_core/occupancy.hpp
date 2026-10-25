@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Occupancy grid snapshot, Felzenszwalb–Huttenlocher distance transform with feature
-/// transform, the bilinear obstacle query and the K flood fill (plan §3.2; math_spec §6.1, §6.4).
+/// transform, the bilinear obstacle query and the K flood fill (math_spec §6.1, §6.4).
 ///
-/// Implemented in src/occupancy.cpp (M1 wave 2, occupancy). The public API is binding; private
-/// members are the implementer's choice.
+/// Implemented in src/occupancy.cpp.
 ///
 /// **Grid conventions.** Cell (ix, iy) has index `iy * width + ix` and covers
 /// \f$[o_x + ix\cdot\mathrm{res}, o_x + (ix+1)\mathrm{res}) \times [o_y + iy\cdot\mathrm{res},
@@ -208,7 +207,7 @@ bool nearestDilatedCell(
   const EuclideanDistanceTransform & edt_all, double dilation_radius, const Vec2 & x_grid,
   double search_radius, int * cell_x, int * cell_y) noexcept;
 
-/// @brief The obstacle inputs of one cycle (plan §3.1): non-owning pointers valid for the call.
+/// @brief The obstacle inputs of one cycle: non-owning pointers valid for the call.
 ///
 /// `edt` is \f$\mathrm{EDT}_{\mathrm{all}}\f$ of `grid`, already updated by the caller (rebuilt
 /// only when the grid changed). `T_grid_eval` maps evaluation-frame points into the grid frame

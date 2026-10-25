@@ -15,7 +15,7 @@ vehicles and other robots that take a 3D velocity setpoint. It serves a `follow_
 `Tracker3`: the field $\Phi = \eta\Phi_S + \Phi_T$ in $\mathbb R^3$, the yaw policy, the
 limiter, moving frames and the CBF obstacle filter. The node mirrors the planar
 {doc}`curve_follower`: the same execution model, safety contract, failure table and result codes.
-It has no Nav2 dependency at run time and no costmap. The design is in {doc}`design/m7_3d_ros`.
+It has no Nav2 dependency at run time and no costmap. The design is in {doc}`design/follower_3d`.
 
 ## Try it
 

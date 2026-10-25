@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay for plans that reverse (M7, docs/design/m7_reversing.md). Merged after the
+# Scenario overlay for plans that reverse (docs/design/reversing.md). Merged after the
 # motion-model overlay of a differential, skid-steer or Ackermann base:
 #
 #   ros2 launch vectorfield_bringup kinematic_sim_demo.launch.py motion_model:=ackermann \

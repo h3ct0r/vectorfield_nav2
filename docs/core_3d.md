@@ -13,7 +13,7 @@ direction. It provides curves in $\mathbb R^3$, the field $\Phi = \eta\Phi_S + \
 terminal field for open curves, a holonomic single-integrator law with a yaw policy for
 multirotors {cite:p}`rezende2020quadcopter`, a minimal tracker and a kinematic simulator. The
 equations are in {doc}`design/math_spec` §14, and the design rationale is in
-{doc}`design/m7_3d`.
+{doc}`design/core_3d`.
 
 ## What it contains
 
@@ -155,7 +155,7 @@ moving frame adds to the residual distance: 8 mm on a 2 m circle translating at 
 [0.3.0] With `obstacles.obstacle_mode = CBF`, `Tracker3` keeps a spherical body away from static
 obstacles. It uses a control-barrier-function safety filter, the 3D form of the planar
 {ref}`cbf-mode`. The equations are in math_spec §14.8, and the design rationale is in
-{doc}`design/m7_3d`, "Obstacles".
+{doc}`design/core_3d`, "Obstacles".
 
 - **Obstacles** live in the evaluation frame. They are analytic primitives: spheres, boxes
   (axis-aligned, or rotated by yaw, pitch and roll), vertical cylinders (finite, or infinite

@@ -77,6 +77,9 @@ result at `frame_twist_cutoff_hz` (2 Hz) and extrapolates the frame for at most 
 localization jumps would read as frame motion; the demo uses `odom`. With an empty
 `moving_frame_reference` and no Odometry topic, a moving goal is rejected with `UNSUPPORTED`.
 
+A moving curve is a rigid frame plus, for expressions, $r(s, t)$. Polylines whose vertices move
+independently (streamed per-vertex updates) are not supported.
+
 **Assumption 3** of the method requires the curve to move slower than the robot. The feedforward
 is clamped to $(1 - \varepsilon_v)$ of the reference speed (`assumption3_margin` $\varepsilon_v$ =
 0.1), shown as `A3-CLAMP` in the status text; a clamp that lasts `assumption3_abort_time` (1 s)
@@ -162,7 +165,8 @@ tracker state carries over only when the curve and the goal overrides are identi
 
 The follower bypasses the planner, so it sees obstacles only through the **local costmap**. Its
 collision prediction and contouring work as in {doc}`obstacle_avoidance`, but nothing checks the
-curve against the global map. The `curve_follower` overlay of `vectorfield_bringup` therefore
+curve against the global map (a check of the curve against the global costmap at goal start is
+not implemented yet). The `curve_follower` overlay of `vectorfield_bringup` therefore
 adds the `static_layer` to the local costmap, so mapped walls stop the robot as well as sensed
 obstacles. Without it, only sensed obstacles stop the robot, the same limit as sending a
 user-made path straight to `follow_path`. The local costmap must also publish the full costmap

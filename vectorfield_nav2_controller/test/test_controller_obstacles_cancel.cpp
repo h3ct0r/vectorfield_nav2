@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: a blocked path maps to NoValidControl after the
+// Layer 2, through the server harness: a blocked path maps to NoValidControl after the
 // state is committed, so the server's patience resumes a short block and aborts a persistent one
-// (plan §5.2 step 6); and a cancel decelerates through the core's STOPPED phase until cancel()
-// returns true (plan §5.3; Humble stops at once without telling the plugin).
+//; and a cancel decelerates through the core's STOPPED phase until cancel()
+// returns true (Humble stops at once without telling the plugin).
 
 #include <gtest/gtest.h>
 

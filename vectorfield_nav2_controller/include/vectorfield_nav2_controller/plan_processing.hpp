@@ -15,10 +15,10 @@
 /// @file
 /// @brief Pure plan-processing rules of the controller plugin: raw-plan intake (goal identity,
 /// end tangent, cusps, sparse and unsmoothed plans), the per-cycle window (tail conditioning,
-/// dedupe, the one-pose rule) and the small server-input rules (plan §5.1–§5.3; math_spec §2.8,
+/// dedupe, the one-pose rule) and the small server-input rules (math_spec §2.8,
 /// §9.1).
 ///
-/// Implemented in src/plan_processing.cpp (M2 wave 2, path). Everything here works on
+/// Implemented in src/plan_processing.cpp. Everything here works on
 /// vectorfield_core types only (no ROS), composes the core's conditioning helpers
 /// (vectorfield_core/conditioning.hpp: endTangent, decimateChords, findCusps, despike,
 /// tailCondition, dedupe, onePoseWindow) and is unit-testable without a node. Functions that fill
@@ -44,19 +44,19 @@ namespace vectorfield_nav2_controller
 
 /// @name Fixed thresholds (not parameters)
 /// @{
-/// Goal identity: two raw-plan goals are the same goal within 1 cm ... (plan §3.3).
+/// Goal identity: two raw-plan goals are the same goal within 1 cm ....
 inline constexpr double kGoalIdentityDistance = 0.01;
-/// ... and 0.01 rad (plan §3.3).
+/// ... and 0.01 rad.
 inline constexpr double kGoalIdentityYaw = 0.01;
-/// Sparse-plan warning when a raw segment exceeds 0.25 m (plan §5.1).
+/// Sparse-plan warning when a raw segment exceeds 0.25 m.
 inline constexpr double kSparseSegmentLength = 0.25;
-/// "Unsmoothed plan" advisory (math_spec §11 "Runtime, once per plan"; criterion fixed in M2):
+/// "Unsmoothed plan" advisory (math_spec §11 "Runtime, once per plan"):
 /// some interior vertex of the chord-decimated plan turns by more than 45°, i.e. a corner sharper
 /// than a curvature of about \f$(\pi/4)/\ell_c\f$. Reversals (cusps: vectorfield_core::findCusps)
 /// are errors instead; a sharp forward corner is only unsmoothed.
 inline constexpr double kUnsmoothedTurnAngle = 0.25 * vectorfield_core::kPi;
 /// Humble reset emulation: a full reset in setPlan() when more than this many control periods
-/// passed since the last compute (plan §5.1).
+/// passed since the last compute.
 inline constexpr double kResetIdlePeriods = 3.0;
 /// Lower bound of the speed-limit scale (setSpeedLimit), so the field stays defined.
 inline constexpr double kMinSpeedLimitScale = 0.01;
@@ -114,7 +114,7 @@ struct PlanIntake
   double max_chord_turn{0.0};
 };
 
-/// @brief Raw-plan intake (plan §5.1), run in `setPlan()` / `newPathReceived()` on the raw plan
+/// @brief Raw-plan intake, run in `setPlan()` / `newPathReceived()` on the raw plan
 /// in its own (plan) frame.
 ///
 /// In order:
@@ -191,7 +191,7 @@ struct WindowBuild
   int virtual_vertex{-1};
 };
 
-/// @brief Per-cycle window conditioning (plan §5.2 step 1, §5.3; math_spec §2.8).
+/// @brief Per-cycle window conditioning (math_spec §2.8).
 ///
 /// 1. Updates `state->goal_in_window` (latched until the next plan) with
 ///    \f$\lVert W_{\mathrm{back}} - \mathrm{goal}\rVert\f$ < vectorfield_core::kWindowAtGoalDistance.
@@ -214,21 +214,21 @@ WindowBuild buildWindow(
   const WindowInput & input, PlanIntakeState * state, std::vector<vectorfield_core::Vec2> * work,
   std::vector<vectorfield_core::Vec2> * out) noexcept;
 
-/// @brief `TrackerInput::speed_limit_scale` from `setSpeedLimit()` (plan §5.3).
+/// @brief `TrackerInput::speed_limit_scale` from `setSpeedLimit()`.
 ///
 /// `nav2_costmap_2d::NO_SPEED_LIMIT` (0), a negative or a non-finite limit → 1. Percentage:
 /// limit/100. Absolute (m/s): limit / desired_speed. The result is clamped to
 /// [kMinSpeedLimitScale, 1]. It scales \f$v_r\f$ and, inside the core, \f$\omega_{\max}\f$.
 double speedLimitScale(double speed_limit, bool percentage, double desired_speed) noexcept;
 
-/// @brief Humble reset emulation (plan §5.1): a full reset is due in `setPlan()` iff there was no
+/// @brief Humble reset emulation: a full reset is due in `setPlan()` iff there was no
 /// compute yet for this goal or more than kResetIdlePeriods control periods passed since the last
 /// one. Replans and goal moves within a run never reset (goal_seq handles them).
 /// @param seconds_since_last_compute Time since the last compute (s); negative or NaN: none yet.
 /// @param control_period \f$1/f\f$ (s).
 bool resetDue(double seconds_since_last_compute, double control_period) noexcept;
 
-/// @brief Status bits that the plugin maps to `NoValidControl` (plan §5.2 step 6), after
+/// @brief Status bits that the plugin maps to `NoValidControl`, after
 /// committing the state: kBlocked, kNonFinite, kContourWatchdog and kHeadingInfeasible.
 inline constexpr std::uint32_t kNoValidControlStatus =
   vectorfield_core::Status::kBlocked | vectorfield_core::Status::kNonFinite |

@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief MarkerBuilder: pure conversion of one Tracker cycle into the visualization messages
-/// (plan §4.1; math_spec Appendix A).
+/// (math_spec Appendix A).
 ///
-/// Implemented in src/marker_builder.cpp (M2 wave 2, ros-viz). No node, no I/O, no clock: every
+/// Implemented in src/marker_builder.cpp. No node, no I/O, no clock: every
 /// output is a function of the MarkerContext (and the VizConfig) only, so it is unit-testable.
 /// The builder owns reusable message buffers that are preallocated at construction and refilled
 /// in place, so a steady-state cycle does not allocate once the variable-size fields (rollout
@@ -45,7 +45,7 @@
 namespace vectorfield_ros
 {
 
-/// @brief Follower-only data of the `curve_info` namespace (M5). The plugin passes none, and
+/// @brief Follower-only data of the `curve_info` namespace. The plugin passes none, and
 /// `curve_info` is then DELETEd.
 struct CurveInfo
 {
@@ -99,7 +99,7 @@ struct MarkerContext
   double compute_time_ms{0.0};
 };
 
-/// @brief Builds the visualization messages of one cycle (plan §4.1).
+/// @brief Builds the visualization messages of one cycle.
 ///
 /// **Contract of markers()** (tested per phase × status by the layer-2 MarkerBuilder gtest):
 /// - exactly one marker per (namespace, id) of the legend (legend::kNamespaces), in legend order:

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /// @file
-/// @brief The control-barrier-function filter of `obstacle_mode: cbf` (math_spec §6.7 [Design,
-/// M7]): the constrained sites at a point and the minimal modification of the field. The Tracker
+/// @brief The control-barrier-function filter of `obstacle_mode: cbf` (math_spec §6.7 [Design]):
+/// the constrained sites at a point and the minimal modification of the field. The Tracker
 /// composes them (evaluation point, \f$\delta_{\mathrm{safe}}\f$, the hold). All functions are
 /// `noexcept` and allocation-free.
 

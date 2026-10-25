@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Closed-loop upstream regressions about evaluation and execution (docs/design/upstream_audit.md
-// §3; plan §3.5 naming): U19 evaluation has no side effects, U25 commands respect the limits
+// §3): U19 evaluation has no side effects, U25 commands respect the limits
 // (closed-loop part), U30 concurrent const evaluation. Split from
 // test_upstream_regressions_closed_loop.cpp to keep each executable under 20 s in Debug.
 

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Obstacle distance: the Felzenszwalb–Huttenlocher distance and feature transform and the
-// bilinear query (plan §3.5 target: < 100 µs for the transform of a 60 x 60 grid, the stock
+// bilinear query (target: < 100 µs for the transform of a 60 x 60 grid, the stock
 // 3 x 3 m local costmap at 0.05 m).
 
 #include <benchmark/benchmark.h>

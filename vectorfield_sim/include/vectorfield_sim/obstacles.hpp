@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Unmapped obstacles of the simulator and the parsers of their parameters
-/// (`circle_obstacles`, `box_obstacles`; plan §8, upstream_audit U37).
+/// (`circle_obstacles`, `box_obstacles`; upstream_audit U37).
 ///
-/// **Format (fixed at M3).** Both parameters are flat lists of numbers in the map frame:
+/// **Format (fixed).** Both parameters are flat lists of numbers in the map frame:
 /// - `circle_obstacles`: `[x, y, radius]` per circle, radius > 0;
 /// - `box_obstacles`: `[x, y, size_x, size_y, yaw]` per box (centre, full side lengths along the
 ///   box axes, rotation about the centre), sizes > 0.

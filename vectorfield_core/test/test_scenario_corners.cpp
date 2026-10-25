@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // O42 Rotate to field (math_spec §9.2 "Why π/2 and π/4, measured at the tracked point", §12.6) and
-// the corner scenarios of plan §3.5: FL corners of 60–170°, closed triangle, square and pentagon,
+// the corner scenarios: FL corners of 60–170°, closed triangle, square and pentagon,
 // a U-turn of radius 0.15 m and goals behind the robot. TC, FL, no obstacles.
 
 #include <gtest/gtest.h>

@@ -23,7 +23,7 @@ Forthcoming
 0.3.0 (2026-10-23)
 ------------------
 * 3D core (experimental): obstacle avoidance by a 3D CBF safety filter (math_spec §14.8
-  [Design, 0.3.0], m7_3d.md "Obstacles"). New d3/obstacles.hpp: analytic Primitive3 obstacles
+  [Design, 0.3.0], core_3d.md "Obstacles"). New d3/obstacles.hpp: analytic Primitive3 obstacles
   (sphere, oriented box, vertical cylinder or infinite pole, solid half-space) with exact
   signedDistance() and outward normals; VoxelGrid3 and DistanceTransform3, the exact separable
   Felzenszwalb-Huttenlocher distance and feature transform in 3D (rebuilt only when the grid
@@ -37,7 +37,7 @@ Forthcoming
   (test_d3_obstacles, test_oracle_d3_cbf), no-allocation cases with obstacles and for the voxel
   EDT rebuild, and the benchmarks BM_D3CbfSolve_FourSites, BM_D3TrackerStep_Helix_Cbf* and
   BM_D3VoxelEdt_64.
-* 3D core (experimental): moving curve frames (math_spec §14.7 [Design, 0.3.0], m7_3d.md "Moving
+* 3D core (experimental): moving curve frames (math_spec §14.7 [Design, 0.3.0], core_3d.md "Moving
   frames"). New d3/frame.hpp: CurveFrame3 {T_eval_curve, FrameTwist3 twist, moving},
   expSE3()/logSE3()/bodyTwist()/extrapolate()/frameVelocity(), and FrameTwistEstimator3 (log_SE(3)
   differencing of sampled poses, outlier rejection, LPF, staleness). Tracker3Input::frame: the
@@ -48,7 +48,7 @@ Forthcoming
   SimulationOptions3::frame and frame_motion, SimulationRecord3::T_eval_curve,
   ClosedLoopSimulator3::frameAt(). A static identity frame is bit-identical to 0.2. Oracles
   O3D-10 to O3D-14 (test_d3_frame) and a moving-frame no-allocation case.
-* obstacle_mode cbf for Ackermann (math_spec §6.7 [Design, 0.3.0], m7_cbf.md "Ackermann"): the
+* obstacle_mode cbf for Ackermann (math_spec §6.7 [Design, 0.3.0], cbf.md "Ackermann"): the
   error ackermann_cbf_unsupported is removed. The filter runs at the rear axle on
   max(0, h_j − μ_j), with the turning margin μ_j = R_min (1 − sqrt(1 − c_j²)) for
   c_j = −n_jᵀ q h > 0 (the distance a full-lock turn away from a face covers toward it), and

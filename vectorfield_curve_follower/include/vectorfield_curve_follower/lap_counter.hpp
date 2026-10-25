@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /// @file
-/// @brief LapCounter: progress and laps of a FollowCurve goal (plan §6 "Progress and laps";
-/// math_spec §9.3). Goal-context state, not TrackerState. Pure.
+/// @brief LapCounter: progress and laps of a FollowCurve goal
+/// (math_spec §9.3). Goal-context state, not TrackerState. Pure.
 ///
 /// - At the first update of a goal, \f$\theta_0 = s^\star/L\f$ and \f$p = 0\f$.
 /// - Each update: \f$p \mathrel{+}= \mathrm{dir}\cdot\mathrm{wrap}(s^\star/L(t) -

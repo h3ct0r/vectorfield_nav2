@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// FrameTwistEstimator (plan §6 "Frames"): exact log_SE(2) differencing across ±π, TF source equal
+// FrameTwistEstimator: exact log_SE(2) differencing across ±π, TF source equal
 // to the Odometry source under a constant twist, the Δt window, outliers, the LPF and the
 // extrapolation limit.
 

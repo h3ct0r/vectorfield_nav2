@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The binding table kCommonCoreParams, toCoreConfig() and toVizConfig() (plan §4).
+// The binding table kCommonCoreParams, toCoreConfig() and toVizConfig().
 //
 // Every vectorfield_core::CoreConfig field has the same name as its parameter (config.hpp), so a
 // row is written once as VF_CORE_ROW(group, name): the stringised name, the gpl Params member and

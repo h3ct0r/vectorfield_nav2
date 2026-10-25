@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Parametric curves \f$r(u, t)\f$: golden-section local search, global M-sample stage,
-/// adoption rule, arc length (plan §3.2; math_spec §2.5–§2.6).
+/// adoption rule, arc length (math_spec §2.5–§2.6).
 ///
-/// Implemented in src/parametric_curve.cpp (M1 wave 2, parametric curves). The public and
-/// protected API is binding; private members are the implementer's choice. The concrete
+/// Implemented in src/parametric_curve.cpp. The concrete
 /// subclasses (built-in shapes, ExpressionCurve) are internal to the library and reached through
 /// makeCurve() (curve_spec.hpp).
 

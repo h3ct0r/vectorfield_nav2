@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// O55 SteadyStateNoAlloc (math_spec §12.8; plan §3.1 "Allocation"): a separate executable that
+// O55 SteadyStateNoAlloc (math_spec §12.8): a separate executable that
 // replaces the global operator new/delete with counting versions (the CMake glob skips files named
 // test_noalloc*.cpp under sanitizers). After StepScratch::reserve() and 10 warm-up cycles, 1000
 // Tracker::step calls (plus sim::integrate) on a fixed grid, with the contour active and the

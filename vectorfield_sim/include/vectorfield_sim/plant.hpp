@@ -15,7 +15,7 @@
 /// @file
 /// @brief The simulated robot: fixed-step integration with `vectorfield_core::sim::integrate`,
 /// the command timeout, the Ackermann infeasible-command count, simulated time and the
-/// map→odom bookkeeping (plan §8). ROS-free.
+/// map→odom bookkeeping. ROS-free.
 
 #ifndef VECTORFIELD_SIM__PLANT_HPP_
 #define VECTORFIELD_SIM__PLANT_HPP_
@@ -29,7 +29,7 @@ namespace vectorfield_sim
 {
 
 /// @brief Slip of the skid-steer plant: \f$\eta_\psi = 0.75\f$, \f$x_{\mathrm{ICR}} = 0.05\f$ m
-/// (plan §8). The other models use the identity.
+///. The other models use the identity.
 inline constexpr vectorfield_core::sim::SlipParams kSkidSteerSlip{0.75, 0.05};
 
 /// @brief Velocities at or below this magnitude count as zero in the Ackermann infeasibility

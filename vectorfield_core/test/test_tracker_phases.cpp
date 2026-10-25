@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Unit tests of the Tracker's cycle structure and phase machine (plan §3.1, §3.3;
-// math_spec §5.5, §9). Closed-loop oracles and scenarios live in test_oracle_* / test_scenario_*.
+// Unit tests of the Tracker's cycle structure and phase machine
+// (math_spec §5.5, §9). Closed-loop oracles and scenarios live in test_oracle_* / test_scenario_*.
 
 #include <gtest/gtest.h>
 

@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Steady-state allocation check of the Tracker WITHOUT StepScratch::reserve() (plan §3.1
-// "Allocation"; the reserved case is oracle O55 in test_noalloc_tracker.cpp): the Tracker grows
-// its scratch buffers to their bounds on the first cycle with a map, so 1000 later steps on a fixed
+// Steady-state allocation check of the Tracker WITHOUT StepScratch::reserve() (the reserved case
+// is oracle O55 in test_noalloc_tracker.cpp): the Tracker grows its scratch buffers to their bounds on the first cycle with a map, so 1000 later steps on a fixed
 // grid, with contour episodes starting and ending and the rollout on, allocate nothing, even when
 // the first episode (and its side probe) starts after the warm-up. Every global operator new is
 // counted, so this file is not built under the sanitizers (the test_noalloc prefix).

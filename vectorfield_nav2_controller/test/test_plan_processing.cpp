@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Pure unit test of the raw-plan intake (plan §5.1 "Pure unit test"): NavFn-style tails and sharp
+// Pure unit test of the raw-plan intake: NavFn-style tails and sharp
 // forward corners never read as a cusp while a real reversal longer than 2ℓ_c always does, and
 // the end-tangent rules (walk back ℓ_c, keep the stored tangent for the same goal, none for a
 // one-pose plan). No ROS.

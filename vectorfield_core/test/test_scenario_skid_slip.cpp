@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Skid slip scenario of plan §3.5 (plan §8: vectorfield_sim's skid SlipParams η_ψ = 0.75,
+// Skid slip scenario (vectorfield_sim's skid SlipParams η_ψ = 0.75,
 // x_ICR = 0.05; math_spec §4.4 ultimate bound), and its compensation (math_spec §8.4). Skid
 // steer with FL; the plant applies the slip,
 // the Tracker sees ideal odometry. The spec states no tolerance; the bounds below come from an

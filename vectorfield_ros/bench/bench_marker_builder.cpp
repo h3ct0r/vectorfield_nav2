@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// MarkerBuilder cost per cycle (plan §4.1): the full `markers` set (target < 0.2 ms) and the
+// MarkerBuilder cost per cycle: the full `markers` set (target < 0.2 ms) and the
 // 12 x 12 `field_grid` (reported separately), on a plugin-style cycle in a contour episode, so
 // K's cells, the rings and the prediction are all drawn.
 

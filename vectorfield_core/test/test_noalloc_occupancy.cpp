@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Steady-state allocation check of the occupancy module (plan §3.1 "Allocation"): once its
+// Steady-state allocation check of the occupancy module: once its
 // buffers have grown, a grid update, the distance-transform rebuild, K's flood fill, the EDT_K
 // build, obstacle queries and footprint checks perform no heap allocation. Every global
 // operator new is counted, so this file is not built under the sanitizers (the test_noalloc

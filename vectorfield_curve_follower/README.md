@@ -6,7 +6,7 @@ parametric and time-varying curves, including curves attached to a moving frame,
 vector-field tracker as the Nav2 controller plugin. Nav2's planner is bypassed: the curve itself
 is the reference.
 
-**Status:** the node is implemented (M5). `curve_follower_demo`, `send_curve.py` and
+**Status:** the node is implemented. `curve_follower_demo`, `send_curve.py` and
 `moving_frame_publisher.py` come with `vectorfield_bringup`; the end-to-end tests are the
 `test_curve_*` launch tests of `vectorfield_system_tests`.
 

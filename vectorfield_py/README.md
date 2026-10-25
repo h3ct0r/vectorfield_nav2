@@ -8,7 +8,7 @@ core. The package provides two Python packages:
 
 The bindings call the same C++ code as the Nav2 controller plugin and the curve follower.
 
-**Status: M4.** `vectorfield` binds the core API listed below; `vectorfield_tools` provides the
+**Status:** complete. `vectorfield` binds the core API listed below; `vectorfield_tools` provides the
 `vf-curve`, `vf-plot`, `vf-sim`, `vf-sim3d` and `vf-tune` command-line tools. The experimental 3D
 core is the `vectorfield.d3` submodule.
 

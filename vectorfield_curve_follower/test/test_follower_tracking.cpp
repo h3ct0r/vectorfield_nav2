@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The follower in process (plan §9 layer 2b), goals that succeed: laps done and an open curve
+// The follower in process, goals that succeed: laps done and an open curve
 // settled (one zero, then silence), reverse_direction, lap counting under ±5 cm dither from a
 // start 5 cm before s = 0, preemption (the TrackerState is kept only for an identical goal), and
 // a translating circle blocked by a box for 3 s.
@@ -232,7 +232,7 @@ TEST_F(FollowerTracking, TranslatingCircleBlockedByABoxResumes)
   EXPECT_GT(robot_->distance() - resumed, 1.0) << "the robot did not resume";
 }
 
-// obstacle_mode cbf (math_spec §6.7 [Design, M7]): a box whose near side is 0.1 m outside a 1 m
+// obstacle_mode cbf (math_spec §6.7 [Design]): a box whose near side is 0.1 m outside a 1 m
 // circle, closer than the square footprint's half side, is passed on the inside: one lap,
 // SUCCEEDED, kBlocked never set, and the footprint's circumscribed disc stays clear of the box.
 TEST_F(FollowerTracking, CbfPassesABoxBesideTheCircle)

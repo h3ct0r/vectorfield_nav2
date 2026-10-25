@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Reversing launch test (M7) on vectorfield_sim for one motion model.
+"""Reversing launch test on vectorfield_sim for one motion model.
 
 The model (differential or Ackermann) comes from ``VF_TEST_MOTION_MODEL``. kinematic_sim_demo on
 ``corridor_door`` (a 2 m corridor) with the ``reversing`` scenario overlay: Smac Hybrid-A* with

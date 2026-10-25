@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: the plugin loaded by pluginlib through its
+// Layer 2, through the server harness: the plugin loaded by pluginlib through its
 // lifecycle, speed limits, dynamic parameters (gpl validators and the cross-validator), a dotted
-// plugin name, and the visualization gating (plan §4.1).
+// plugin name, and the visualization gating.
 
 #include <gtest/gtest.h>
 

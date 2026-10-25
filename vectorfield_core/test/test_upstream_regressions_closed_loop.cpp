@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Closed-loop upstream regressions (docs/design/upstream_audit.md §3; plan §3.5 naming
+// Closed-loop upstream regressions (docs/design/upstream_audit.md §3; named
 // `UpstreamRegression.UNN_Name`): U06, U09 (phase part), U10, U15–U19, U24, U25 (closed-loop
 // part), U28 (closed-loop part), U30. TC unless stated otherwise.
 

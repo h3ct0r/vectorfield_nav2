@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ExpressionCurve on the vendored muParser (plan §3.2 expression hardening, §6 SECURITY.md;
+// ExpressionCurve on the vendored muParser (SECURITY.md;
 // upstream audit U01–U05). muParser headers are included in the sources only.
 
 #include "expression_curve.hpp"

@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief The follower's parameter binding: `kFollowerCoreParams`, the ROS-only allow-list and
-/// the follower's configuration builder (plan §4 "Parameters", §6 "Parameters").
+/// the follower's configuration builder.
 ///
 /// The follower owns two tables, both unprefixed: vectorfield_ros' `kCommonCoreParams` and
 /// `kFollowerCoreParams` (the CurveOptions keys and `assumption3_margin`). Every other key of
@@ -50,7 +50,7 @@ using FollowerParamRow = vectorfield_ros::CoreParamRow<FollowerParams>;
 /// `assumption3_margin`.
 inline constexpr std::size_t kFollowerCoreParamCount = 7;
 
-/// @brief The binding table of vectorfield_follower_params (plan §4), in YAML order: the
+/// @brief The binding table of vectorfield_follower_params, in YAML order: the
 /// curve-intake keys (`CoreParamTarget::curve_options`) and `assumption3_margin`
 /// (`CoreParamTarget::config.field.assumption3_margin`). Integer keys accept only integer values
 /// that fit an `int`.

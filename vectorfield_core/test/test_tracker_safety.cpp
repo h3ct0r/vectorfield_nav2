@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Unit tests of the Tracker's obstacle handling: rollout reuse, cap, kBlocked hysteresis, the
-// settled precedence, a cancel collision and a contour smoke run (plan §3.1; math_spec §6, §10).
+// settled precedence, a cancel collision and a contour smoke run (math_spec §6, §10).
 
 #include <gtest/gtest.h>
 

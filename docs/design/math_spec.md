@@ -2,7 +2,7 @@
 
 # Mathematical specification
 
-This is the authoritative mathematical specification of `vectorfield_core`. Milestone M1
+This is the authoritative mathematical specification of `vectorfield_core`. The core
 implements it and tests it against the oracles in {ref}`sec-math-oracles`. When code and this
 document disagree, one of them is wrong: settle the document first, then the code.
 {doc}`../theory` is the readable summary; this page holds every symbol, guard and tolerance.
@@ -14,7 +14,7 @@ Results that are not plain definitions carry a tag:
 | **[Thesis n.m]** | Equation or result *n.m* of the Rezende thesis {cite:p}`rezende2022thesis`. |
 | **[Derived]** | Derived in this document; the derivation is given. |
 | **[Design]** | A deliberate change to the thesis method, with its rationale. |
-| **[Spec]** | A detail the approved plan leaves open and this document fixes. {ref}`sec-math-spec-choices` lists them all for review. |
+| **[Spec]** | A detail the thesis leaves open and this document fixes. {ref}`sec-math-spec-choices` lists them all. |
 
 (sec-math-scope)=
 
@@ -24,7 +24,7 @@ Results that are not plain definitions carry a tag:
 Ackermann robots: curve geometry, gains, the static and time-varying field, the terminal field,
 the obstacle contour, tracking laws, speed shaping and limiting, phases, collision prediction,
 configuration validation and the test oracles. ROS behaviour appears only where it defines a
-core input. The 3D core is milestone M7. Units are SI; angles are in radians.
+core input. The experimental 3D core is §14. Units are SI; angles are in radians.
 
 **Sources.**
 
@@ -32,7 +32,6 @@ core input. The 3D core is milestone M7. Units are SI; angles are in radians.
 |---|---|
 | A. M. C. Rezende, *Vector Field Based Guidance and Control Strategies for Robot Navigation*, PhD thesis, Universidade Federal de Minas Gerais, 2022. Open access: <https://repositorio.ufmg.br/bitstream/1843/73611/3/Tese_AdrianoRezende_ABNT_PDFA.pdf> | Primary source. **All equation numbers in this document are thesis numbers.** Thesis p. 54 states that its §3.1–3.2 were published as the T-RO paper. Some PDF pages are raster images (pp. 70, 78, 80, 82, 85, 95–117, 137); content taken from them, including the obstacle method of §3.4 and the experimental values, was read by OCR. |
 | A. M. C. Rezende, V. M. Gonçalves, L. C. A. Pimenta, "Constructive Time-Varying Vector Fields for Robot Navigation", IEEE T-RO 38(2):852–867, 2022, doi:10.1109/TRO.2021.3093674 {cite:p}`rezende2022constructive` | Closed access. **T-RO equation numbers are UNVERIFIED** and are not used anywhere in this project until they are checked against the published paper. The paper writes the field as $\Psi$, the thesis as $\Phi$; this document follows the thesis. |
-| Approved implementation plan (revision 6) and its five design-review rounds | Source of every [Design] item. These records are not part of the repository; each rationale is restated here so this document stands alone. |
 | `adrianomcr/vectorfield_stack` (ROS 1) | Read for comparison only. No code is reused. Defects are in `docs/design/upstream_audit.md`. |
 | Nav2 (Humble, Jazzy, Lyrical) | Only where it defines inputs: goal checkers, path handlers, NavFn plan tails. See `docs/design/nav2_api_matrix.md`. |
 
@@ -79,8 +78,8 @@ $x_{\mathrm{ref}}$ repeats the plan's symbol table verbatim.
 | $\sigma_{\mathrm{stop}}$ | settle radius, $\mathrm{xy\_tol}/2$ (follower: `goal_tolerance`/2) | — |
 | $\varphi$ | terminal speed profile | — |
 | $d$ | control-point offset | `control_point_offset` 0.2 |
-| $q$ | drive sign, $-1$ iff `drive_backward` (Ackermann: $+1$); per plan segment under `allow_reversing` [Design, M7] ({ref}`sec-segments`) | `drive_backward` false |
-| $\sigma_{\mathrm{cusp}}$ | settle radius of a stop at a cusp; its XY tolerance is $2\sigma_{\mathrm{cusp}}$ [Design, M7] | `cusp_tolerance` 0.05 |
+| $q$ | drive sign, $-1$ iff `drive_backward` (Ackermann: $+1$); per plan segment under `allow_reversing` [Design] ({ref}`sec-segments`) | `drive_backward` false |
+| $\sigma_{\mathrm{cusp}}$ | settle radius of a stop at a cusp; its XY tolerance is $2\sigma_{\mathrm{cusp}}$ [Design] | `cusp_tolerance` 0.05 |
 | $k_\psi$ | heading gain | `heading_gain` 2.0 |
 | $\gamma$ | speed-shaping scale (the plan's $s$ in §3.4) | — |
 | $\gamma_{\mathrm{lim}}$ | external speed-limit scale | `speed_limit_scale` input, $(0, 1]$ |
@@ -220,7 +219,7 @@ $$
 T = s_w\, J n, \qquad s_w = \operatorname{sgn}\!\big((J n)^\top (t_{v-1} + t_v)\big).
 $$
 
-*Derivation* [Derived]. The continuous blend used by the research,
+*Derivation* [Derived]. The continuous blend
 $\operatorname{unit}\big((I - n n^\top)((1 - \alpha) t_{v-1} + \alpha t_v)\big)$ with
 $\alpha = a_1/(a_1 + a_2)$, keeps $n^\top T = 0$. In 2D, writing $y = x - P_v = D n$,
 $(J n)^\top [(1-\alpha) t_{v-1} + \alpha t_v] = D\,(t_{v-1} \times t_v)/(a_1 + a_2)$, whose sign is
@@ -332,19 +331,19 @@ $[0, 2\pi)$). The parameter is not arc length.
   $\eta$ formula stay exact.
 - **Golden section** [Spec]: stop when the bracket width is at most
   $10^{-10} \max(1, u_f - u_i)$, or after 100 iterations; then polish with at most 8 secant steps on
-  $(r - x)^\top r' = 0$ within $\pm 10^{-5}(u_f - u_i)$ [Spec, M1]: golden section alone locates the
+  $(r - x)^\top r' = 0$ within $\pm 10^{-5}(u_f - u_i)$ [Spec]: golden section alone locates the
   foot only to about $10^{-8}$ m at $D = 1$ m, short of O7's $10^{-9}$.
 - **Global stage** (thesis §5.1): $M$ samples equally spaced in $u$ (closed: $[u_i, u_f)$; open:
   inclusive) plus the two rays; every local minimum of the sampled distance within about half a
   sample spacing of the best (at most 4) is refined by golden section on
   $[u_{k - 1}, u_{k + 1}]$ (clamped to the domain when open), and the tie rule picks among the refined
-  feet [Spec, M1]. Refining only $\arg\min$ fails at self-intersections, where samples on both
+  feet [Spec]. Refining only $\arg\min$ fails at self-intersections, where samples on both
   branches sit on the crossing and tie. Static curves cache the sample positions at $t_0$.
-- **Adoption ties** [Spec, M1]: a global candidate within $10^{-9}$ m of the local one is not adopted
+- **Adoption ties** [Spec]: a global candidate within $10^{-9}$ m of the local one is not adopted
   (the tie goes to the hint).
-- **Regularity slack** [Spec, M1]: adjacent tangents exactly $90°$ apart pass (with $10^{-9}$ rad
+- **Regularity slack** [Spec]: adjacent tangents exactly $90°$ apart pass (with $10^{-9}$ rad
   slack), so a circle sampled at the minimum $M = 4$ is accepted.
-- **Expression time** [Spec, M1]: an expression's `t` is curve time minus `CurveSpec::t0`; regularity is
+- **Expression time** [Spec]: an expression's `t` is curve time minus `CurveSpec::t0`; regularity is
   checked at expression time 0 and $\partial_t r$ is differenced around $t - t_0$.
 - **Arc length, static curves**: a $u \leftrightarrow s$ table is built once at construction, with
   $s_k$ at the $M + 1$ samples by 5-point Gauss–Legendre per interval, and
@@ -440,9 +439,9 @@ Notes:
    vertex is $R(1/\cos(\theta/2) - 1) \le \delta$. Endpoints are preserved.
 3. Densify to `sample_spacing` (or `default_sample_spacing` 0.05 m): every vertex is kept and each
    segment of length $\ell$ is split into $\lceil \ell / \mathrm{spacing} \rceil$ equal pieces, so
-   endpoints and corners never move [Spec, confirmed M1]; then require $N \le$ `max_curve_points`.
+   endpoints and corners never move [Spec]; then require $N \le$ `max_curve_points`.
 
-**Plugin window** (per cycle, plan §5.2). Dedupe at 1 mm; no resampling or smoothing, because
+**Plugin window** (per cycle). Dedupe at 1 mm; no resampling or smoothing, because
 neither is shift-invariant on a re-pruned window; semi-infinite backward and forward rays.
 
 - **End tangent** $\hat T_{\mathrm{end}}$, computed once per raw plan in the plan frame: walk back
@@ -520,11 +519,11 @@ candidate a cusp, so a NavigateThroughPoses waypoint that the next leg leaves at
   headingless planner (an out-and-back NavigateThroughPoses route through one waypoint).
 
 Without `allow_reversing` a cusp raises `InvalidPath("plan contains reversing segments; use a
-forward-only planner")`; with it, the plan is split there into segments [Design, M7]
+forward-only planner")`; with it, the plan is split there into segments [Design]
 ({ref}`sec-segments`). A forward corner is followed as one, with ROTATE_TO_FIELD where the field
 turns too far.
 
-**Detection guarantee** [Derived, M1; 0.2.1]. A candidate needs a reversal longer than $\ell_c$; one
+**Detection guarantee** [Derived; 0.2.1]. A candidate needs a reversal longer than $\ell_c$; one
 longer than $2\ell_c$ always gives a candidate (the last forward vertex kept lies within $\ell_c$ of
 the turn, so it stays more than $\ell_c$ from the last pose and the final chord points backward).
 Between $\ell_c$ and $2\ell_c$ it depends on where the chord grid falls (measured: a 0.3 m reversal
@@ -740,7 +739,7 @@ so $\sigma_{\mathrm{ref}} = \mathrm{dir}\,(s_{\mathrm{goal,ref}} - s^\star(x_{\m
 $g_{\mathrm{ref}} = g_c + x_{\mathrm{ref}} T_{\mathrm{end}}$ whenever $s_{\mathrm{goal,ref}}$ lies on
 the forward ray ($x_{\mathrm{ref}} \ge 0$) or on the last segment
 ($\lvert x_{\mathrm{ref}} \rvert \le$ its length). $x_{\mathrm{ref}}$ is the offset of the law's
-point along the drive direction $q\mathbf h$ [Design, M7]: $x_{\mathrm{ref}} = d$ for FL in FOLLOW
+point along the drive direction $q\mathbf h$ [Design]: $x_{\mathrm{ref}} = d$ for FL in FOLLOW
 (the control point is $d$ ahead in the drive direction, also with `drive_backward` and in a
 reverse segment); $x_{\mathrm{ref}} = q\,x_r$, $x_r$ = `reference_point_offset`, for Ackermann in
 every phase (a rear axle behind base_link leads in reverse); 0 otherwise.
@@ -808,7 +807,7 @@ Consider the static terminal field on a borderless extended curve, $\dot x = \Ph
   `goal_seq` or when that distance exceeds 0.25 m. Only in terminal mode is the terminal field used
   and FINAL_APPROACH possible; otherwise the window carries the static field and
   $\sigma_{\mathrm{base}} := +\infty$. Leaving terminal mode returns FINAL_APPROACH to FOLLOW
-  [Spec, M1]. The follower passes $g = r(s_{\mathrm{goal}})$, so its open curves are always terminal.
+  [Spec]. The follower passes $g = r(s_{\mathrm{goal}})$, so its open curves are always terminal.
 - **Window-end cap** (`cap_at_curve_end`, plugin true): a speed-shaping term
   $\gamma_{\mathrm{ap}} = \min\big(1,\ \sqrt{v_{\min}^2 + 2 a_{\mathrm{dec}}\, \sigma_{\mathrm{end}}}\,/v_r\big)$,
   with $\sigma_{\mathrm{end}} = \max(0,\ S_{N-1} - s^\star_{\mathrm{base}})$ to the window's last real
@@ -924,7 +923,7 @@ side in a reverse segment, where every rule below applies unchanged with $v_r^{-
   with $s^\star$ the cycle's closest point, $\ell_{\mathrm{look}}$ = `obstacle_lookahead` (auto
   $\max(1.0,\ v_r T_h)$) and $s_{\mathrm{end}}$ the goal for open curves or the last window vertex;
   closed curves wrap; rays are never sampled; for $\mathrm{dir} = -1$ the samples run toward
-  decreasing $s$ and are kept in traversal order [Spec, M1];
+  decreasing $s$ and are kept in traversal order [Spec];
 - a sample is blocked iff $D_o^{\mathrm{all}}(r(s)) < w_{\mathrm{lat}} - $ `obstacle_gate_tolerance`
   (0.05). Grazing contacts are left to the predictor;
 - the gate is open in a cycle with a blocked sample; it closes after staying clear for
@@ -952,7 +951,7 @@ $D_o$ is measured to real cells, not to the dilation.
 
 - Seed when no episode is active: the feature cell of the first blocked gate sample. With
   `obstacle_activation: always` there is no gate: the seed is the site nearest to the evaluation
-  point, and no flood fill runs while that site is farther than $D_{\mathrm{in}}'$ [Spec, M1].
+  point, and no flood fill runs while that site is farther than $D_{\mathrm{in}}'$ [Spec].
 - Seed during an episode: $k_{\mathrm{seed}}$ = the last $x_o^\star$ in the grid frame (never a cell
   index, never the evaluation frame), mapped each cycle through the current grid origin. If that
   cell is not in the dilated mask, seed from the nearest dilated cell within
@@ -973,7 +972,7 @@ closer than $2 r_{\mathrm{insc}}$ merge, and gaps narrower than about $2\lambda$
    [Spec]; no episode starts while $B(s^\star)$ is empty;
 3. the side probe returns a side (`path_blocked`: a side that gets past the blockage).
 
-**Blocking set** (`path_blocked`) [Design, M1]. $B = \{b_j = (s_j, f_j)\}$: the station $s_j$ of each
+**Blocking set** (`path_blocked`) [Design]. $B = \{b_j = (s_j, f_j)\}$: the station $s_j$ of each
 blocked gate sample and its nearest lethal cell $f_j$ (the full-mask feature), kept when $f_j \in K$.
 The active set is $B(s^\star) = \{b_j : \mathrm{dir}\,(s_j - s^\star) \ge 0\}$ (station difference
 wrapped on closed curves); $D_B$ and $n_B$ are the distance and unit normal from the nearest
@@ -985,7 +984,7 @@ that actually blocks the path, and releases the episode once that part is behind
 
 Episodes start only in the once-per-call obstacle preparation, which also runs the side probe;
 rollouts never start one. No episode starts while cancelling, in STOPPED, while holding the goal or
-in ROTATE_TO_HEADING [Spec, M1]. A consequence: when $v_r T_h$ exceeds $D_{\mathrm{in}}'$, the rollout
+in ROTATE_TO_HEADING [Spec]. A consequence: when $v_r T_h$ exceeds $D_{\mathrm{in}}'$, the rollout
 sees the blocking obstacle before an episode can start and the cap brakes until it does.
 
 **Side probe**, once per episode start. For $\sigma_c = \pm 1$, roll out ({ref}`sec-collision`) with
@@ -1015,7 +1014,7 @@ If neither side has $s_{\mathrm{free}} \ge v_r^2/(2 a_{\mathrm{dec}}) + m_s$, no
 tie-break, i.e. tracking noise, picks the side; clearance ranks above path length so a side that
 grazes a wall by 1 cm loses to an open one.
 
-*Past the blockage* (`path_blocked`) [Design, M1]. A side reaches its exit (rank 2) only if its
+*Past the blockage* (`path_blocked`) [Design]. A side reaches its exit (rank 2) only if its
 rollout gets past the blockage: it ends on an exit test at a closest-point station with
 $\mathrm{dir}\,(s^\star - s_{B,1}) \ge 0$, $s_{B,1}$ the first station of $B$ in traversal order
 (station difference wrapped on closed curves). This includes $B(s^\star)$ empty; an exit reached
@@ -1062,7 +1061,7 @@ from the episode start. `travelled_m` > `obstacle_max_contour_length` (5.0) or `
 `obstacle_max_contour_time` (20) sets kContourWatchdog (→ STOPPED). The path length is
 $\lVert (v_x, v_y) \rVert \Delta t$ of the measured twist, counted from the cycle after the start; a trip
 ends the episode, reports its final counters in that cycle, and STOPPED keeps the kContourWatchdog
-bit [Spec, M1].
+bit [Spec].
 
 (sec-contour-notes)=
 
@@ -1076,7 +1075,7 @@ bit [Spec, M1].
   point obstacle at $w_{\mathrm{lat}} + 0.10$, i.e. 10 cm of lateral clearance;
   $r_{\mathrm{circ}} + d + 0.05$ guarantees $\lambda - d \ge r_{\mathrm{circ}} + 0.05$ by the
   triangle inequality, whatever the heading.
-- **Ackermann** [Design, M7]. With the auto values above the $\lambda$-offset needs curvature
+- **Ackermann** [Design]. With the auto values above the $\lambda$-offset needs curvature
   about $1/\lambda$ (≈ 2–3 m⁻¹), above $1/R_{\min}$, and a car turning at $R_{\min} = 1$ m from
   $D_{\mathrm{in}}'$ passes the head-on point at $\sqrt{D_{\mathrm{in}}'^2 + 1} - 1 \approx 0.20$ m,
   inside its footprint; {ref}`sec-contour-ackermann` scales $\lambda$ and the turn-in band with
@@ -1084,10 +1083,10 @@ bit [Spec, M1].
 
 (sec-contour-ackermann)=
 
-### 6.6 Ackermann [Design, M7]
+### 6.6 Ackermann [Design]
 
 Changes for `motion_model: ackermann` only; every other model keeps §6.4–6.5. The design note is
-`m7_ackermann_contour.md`.
+`ackermann_contour.md`.
 
 - **Evaluation point.** The contour runs at $p_r$ (the rear axle, the law's point,
   {ref}`sec-laws-points`), with $n_o$ from $\mathrm{EDT}_K$ at $p_r$ and the base_link guard of §6.4.
@@ -1131,11 +1130,11 @@ Changes for `motion_model: ackermann` only; every other model keeps §6.4–6.5.
 
 (sec-cbf)=
 
-### 6.7 CBF mode [Design, M7]
+### 6.7 CBF mode [Design]
 
 `obstacle_mode: cbf` replaces §6.2–6.6 by a safety filter on the shaped field; the gate, $K$, the
 blocking set, the side probe, the latch and the watchdog are not used. The design note is
-`m7_cbf.md`; the figure `cbf_disc.svg` of {doc}`../obstacle_avoidance` shows it.
+`cbf.md`; the figure `cbf_disc.svg` of {doc}`../obstacle_avoidance` shows it.
 
 - **Barrier.** $h_j(x) = D_j(x) - \delta_{\mathrm{safe}}$ at the law's evaluation point $x$
   ({ref}`sec-laws-points`), with $\delta_{\mathrm{safe}} = r_e + m$, $m$ = `cbf_margin`, and
@@ -1176,9 +1175,9 @@ blocking set, the side probe, the latch and the watchdog are not used. The desig
   path, where §6.1 makes $n$ exact, or a centred disc on a symmetric grid), $F^\star \to 0$ at
   $h \approx 0$ and the robot would otherwise wait without kBlocked: the rollout sees no contact. No
   tie-break circulation exists: a side without the probe is a guess, and a latched one is the
-  contour (`m7_cbf.md`). Near a disc the head-on point is unstable for $G'(0)\rho < 1$
+  contour (`cbf.md`). Near a disc the head-on point is unstable for $G'(0)\rho < 1$
   ({ref}`sec-contour-trap` with $\rho = R_o + \delta_{\mathrm{safe}}$), so off-centre discs pass.
-- **Ackermann** [Design, 0.3.0] (`m7_cbf.md`, Ackermann). The filter runs at the rear axle
+- **Ackermann** [Design, 0.3.0] (`cbf.md`, Ackermann). The filter runs at the rear axle
   $p_r$ ($\dot p_r = v\mathbf h$, no slip), on the turning-margin barrier
   $\tilde h_j = \max(0,\ h_j - \mu_j)$ in place of $h_j$, with
   $\mu_j = R_{\min}\bigl(1 - \sqrt{1 - c_j^2}\bigr)$ for $c_j = -n_j^\top q\mathbf h(\psi) > 0$ and
@@ -1209,7 +1208,7 @@ Signature: `Twist2 command(const Pose2&, const FieldSample&, FieldProbe, const K
 | FL in FINAL_APPROACH (switches to HT) | $p$ | 0 |
 | HT (diff, skid) | $p$ | 0 |
 | holonomic | $p$ | 0 |
-| Ackermann (HT), every phase | $p_r = p + x_r\, \mathbf h(\psi)$, $x_r$ = `reference_point_offset` | $q\,x_r$ [Design, M7] |
+| Ackermann (HT), every phase | $p_r = p + x_r\, \mathbf h(\psi)$, $x_r$ = `reference_point_offset` | $q\,x_r$ [Design] |
 
 Valid combinations: diff and skid with FL (auto) or HT; omni with holonomic; Ackermann with HT.
 Anything else is a ConfigError.
@@ -1260,7 +1259,7 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
 
 - **Desired heading.** $\psi_d$ is held at `last_psi_d` while $\lVert F \rVert < 0.05\, v_r\, \gamma_{\mathrm{lim}}$
   (the external speed-limit scale only, so a low Nav2 speed limit never freezes $\psi_d$); while held,
-  $\dot\psi_d = 0$ [Spec, threshold confirmed M1].
+  $\dot\psi_d = 0$ [Spec].
 - **Feedforward along the actual motion** [Design]:
 
   $$
@@ -1269,7 +1268,7 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
   $$
 
   $\bar\ell$ is the polyline's mean vertex spacing (`Curve::vertexSpacing()`; parametric and expression
-  curves report none and the term drops out) [Design, M1]. *Rationale*: with $2\delta$ below the
+  curves report none and the term drops out) [Design]. *Rationale*: with $2\delta$ below the
   vertex spacing, the number of vertices between the probes alternates between 0 and 1, so the
   finite difference alternates between 0 and the full vertex turn; on 5 cm polyline circles
   heading tracking then settled 2.7–4.5 cm off the curve (O40). A span of whole vertex spacings
@@ -1284,7 +1283,7 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
   $\lvert s^\star_+ - s^\star_- \rvert > 1.05\,\big(2\delta + 2\max(D_+, D_-)\big)$ (arc difference
   wrapped on closed curves), or differ in `contour_active` or `sigma_c`. A change of vertex or segment
   is not a jump. The 5% slack covers the polyline arc between feet on different segments, which
-  exceeds their chord by up to $1/\cos(\Theta/2)$, $\Theta$ the turn between them [Design, M1].
+  exceeds their chord by up to $1/\cos(\Theta/2)$, $\Theta$ the turn between them [Design].
   *Rationale*: probes $2\delta \ge 4$ cm apart straddle a vertex on most cycles of raw Nav2 plans
   (NavFn vertices every 2.5 cm), and zeroing on every segment change lost the feedforward on
   81–100% of cycles, leaving a steady offset of up to 0.22 m on a 0.5 m circle. On smooth pieces
@@ -1305,7 +1304,7 @@ with $\omega_c = \bar\omega$ (Ackermann: $\lvert v \rvert / R_{\min}$).
 
 HT at the rear-axle reference point $p_r$, on the field shifted by
 $x_{\mathrm{ref}} = q\,x_r$ ({ref}`sec-terminal-shift`). $q = +1$ (the configured
-`drive_backward` is ignored), except in a reverse plan segment, where $q = -1$ [Design, M7]
+`drive_backward` is ignored), except in a reverse plan segment, where $q = -1$ [Design]
 ({ref}`sec-segments`): $p_r$ moves with $v\mathbf h$ and no lateral velocity in both directions, so
 the law is HT on a unicycle at $p_r$ with heading $\psi_{\mathrm{dr}}$, and every bound below is
 symmetric in the sign of $v$.
@@ -1313,14 +1312,14 @@ symmetric in the sign of $v$.
 - **Speed band.** In FOLLOW, a law speed with $0 < q\,v < v_{\mathrm{ack}}$ is raised to
   $q\,v_{\mathrm{ack}}$. Only the braking cap (including kBlocked) and STOPPED (including cancel)
   command 0. The band is lifted once $\sigma_{\mathrm{base}} < \mathrm{xy\_tol} + v_{\mathrm{ack}}^2/(2 a_{\mathrm{dec}})$.
-  It applies before the kinematic box, and not in a cycle where the cap binds [Spec, M1].
+  It applies before the kinematic box, and not in a cycle where the cap binds [Spec].
   Rounding down instead would deadlock: at $v = 0$, $\lvert\omega\rvert \le \lvert v \rvert / R_{\min} = 0$,
   so the heading error between about 83° and 90° could never shrink.
 - **Speed limit.** $v_r\gamma_{\mathrm{lim}}$ is floored at $v_{\mathrm{ack}}$, with a warning; never in
   STOPPED.
 - **Curvature.** $\lvert\omega\rvert \le \lvert v \rvert/R_{\min}$ after scaling and limiting
   (kCurvatureSaturated).
-- **Contour episode** [Design, M7]: speed factor $\max(\cos e, \tfrac12)$, and no kHeadingInfeasible
+- **Contour episode** [Design]: speed factor $\max(\cos e, \tfrac12)$, and no kHeadingInfeasible
   from $\lvert e\rvert > \pi/2$ ({ref}`sec-contour-ackermann`).
 - **kHeadingInfeasible** when $\lvert e \rvert > \pi/2$ at $p_r$ outside a contour episode; or $\sigma_{\mathrm{base}} < 0$ while XY
   is not reached; or, at settled and only if $\mathrm{yaw\_tol} > 10^{-6}$,
@@ -1377,7 +1376,7 @@ For the current phase:
    the nominal $\Phi$.
 3. Speed shaping → shaped path field $\Phi_\gamma$ ({ref}`sec-limiter-shaping`).
 4. Contour → $F$, with speed $\lVert\Phi_\gamma\rVert$; or, with `obstacle_mode: cbf`, the CBF filter
-   $F = F^\star(\Phi_\gamma)$ ({ref}`sec-cbf`) [Design, M7].
+   $F = F^\star(\Phi_\gamma)$ ({ref}`sec-cbf`) [Design].
 5. Law, or the phase target (rotate law; zero for kBlocked, STOPPED and goal hold), then the
    FOLLOW-only Ackermann $v_{\mathrm{ack}}$ band and the rotate floors.
 6. Kinematic box ({ref}`sec-limiter-box`).
@@ -1471,7 +1470,7 @@ linear bound is $a_{\mathrm{can}}$, raised to $\max(a_{\mathrm{can}}, a_{\mathrm
 of the cancel once a rollout finds a collision, and the angular bound is $\alpha_{\max}$; otherwise
 the maximum decelerations. The cycle in which a cancel rollout first finds a collision is re-run with
 the raised bound, STATUS_COLLISION_AHEAD is set while that bound applies, and it clears when the
-cancel ends [Spec, M1].
+cancel ends [Spec].
 
 **Translation braking** [Design, 0.1.1]. In ROTATE_TO_FIELD, ROTATE_TO_HEADING and STOPPED the
 translational target is zero, and the translational axes ($x$, omni $y$) and $\omega$ each take
@@ -1529,7 +1528,7 @@ completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` chan
   $\lVert p - g\rVert \le \mathrm{xy\_tol}$, re-armed on every `setPlan`. Follower: the core latch
   `xy_latched`, set when $\lVert p - g\rVert \le$ `goal_tolerance` and cleared only by a `goal_seq`
   change or reset. XY reached never disagrees with Nav2. Inside a rollout, step 0 uses the caller's
-  value and later steps emulate the Gen A/B latch $\lVert p - g\rVert \le \mathrm{xy\_tol}$ [Spec, M1].
+  value and later steps emulate the Gen A/B latch $\lVert p - g\rVert \le \mathrm{xy\_tol}$ [Spec].
 - **Settled.**
 
   $$
@@ -1540,7 +1539,7 @@ completion, on a parameter rebuild, and when $\Delta t > 2/f$. A `goal_seq` chan
   It is `TrackerOutput::settled`, the only entry to ROTATE_TO_HEADING and the follower's open-curve
   success test. "Cap binds" means $\gamma_{\mathrm{col}} < \min(1, \gamma_{\mathrm{lim}}, \gamma_{\mathrm{cl}}, \gamma_{\mathrm{ap}})$
   [Spec]. The along-track clause $\sigma_{\mathrm{base}} \le \sigma_{\mathrm{stop}}$ applies to
-  Ackermann only [Design, M1]: the other laws converge laterally under the terminal field, so they
+  Ackermann only [Design]: the other laws converge laterally under the terminal field, so they
   settle within $\sigma_{\mathrm{stop}}$ of the goal itself, whereas a car-like base cannot remove a
   lateral offset without reversing. *Rationale*: a robot that rotates as soon as it enters xy_tol stops at the tolerance edge,
   where one outward localisation correction undoes XY reached; Nav2 re-arms its checker on every
@@ -1570,7 +1569,7 @@ $F_{\mathrm{trk}}$ is evaluated only when $\lVert F_{\mathrm{trk}}\rVert \ge 0.0
 no entry and an active rotation keeps its last target [Spec]. The norm is taken before speed shaping,
 so a binding collision cap never changes the decision. Rotation phases and STOPPED evaluate
 $F_{\mathrm{trk}}$ for the phase the robot will track next (FINAL_APPROACH if its entry holds, else
-FOLLOW), so entry and exit measure the same angle [Spec, M1].
+FOLLOW), so entry and exit measure the same angle [Spec].
 
 **Why $\pi/2$ and $\pi/4$, measured at the tracked point** [Design]. Under FL, $v = \mathbf h^\top F$
 reaches 0 at $\lvert e\rvert = \pi/2$; below that FL turns while advancing, so the phase is needed only
@@ -1606,9 +1605,9 @@ never kBlocked; this cycle's target is 0, and ROTATE_TO_HEADING or goal hold sta
 rollout checks the swept rotation.
 
 **Backstop.** `allow_reversing` (false) clamps the drive-direction speed to $q\,v \ge 0$, after the
-kinematic box, for unicycle and Ackermann drives (an omni body $v_x < 0$ is legitimate) [Spec, M1].
+kinematic box, for unicycle and Ackermann drives (an omni body $v_x < 0$ is legitimate) [Spec].
 With `allow_reversing` the segment's $q$ is the drive direction, so the clamp never acts in a
-reverse segment [Design, M7].
+reverse segment [Design].
 
 (sec-phases-follower)=
 
@@ -1624,9 +1623,9 @@ reverse segment [Design, M7].
 
 (sec-segments)=
 
-### 9.4 Plan segments and stops at cusps [Design, M7]
+### 9.4 Plan segments and stops at cusps [Design]
 
-Plugin only, with `allow_reversing` (docs/design/m7_reversing.md).
+Plugin only, with `allow_reversing` (docs/design/reversing.md).
 
 - **Segments** (`segmentPlan`, once per raw plan, plan frame). The cusps of {ref}`sec-conditioning`
   split the raw plan; each cusp is moved to the raw pose between its neighbouring chord vertices
@@ -1706,7 +1705,7 @@ radius $r_{\mathrm{circ}} + \mathrm{res}$ leaves the grid.
 $\gamma_{\mathrm{col}} = 1$, zero-order hold at the control period, time advancing by $\Delta t$ per
 step, and moving curve frames extrapolated with the input frame twist. The first step uses the
 cycle's measured $\Delta t$, so reusing it as the final command is exact; later steps hold each
-command for the nominal period $1/f$ [Spec, M1]. Each step integrates the
+command for the nominal period $1/f$ [Spec]. Each step integrates the
 nominal plant exactly (no slip) [Derived]:
 
 $$
@@ -1724,7 +1723,7 @@ goes off-grid, or at STOPPED, except during a cancel: while `input.cancel` is se
 the STOPPED ramp until the command is below 0.01 m/s and 0.01 rad/s. A settled step is integrated
 before the rollout ends; settled ends a rollout only outside rotation phases, so ROTATE_TO_HEADING
 still checks its swept rotation; a cancel ramp may run past the horizon, by at most 10 s
-[Spec, M1].
+[Spec].
 
 $$
 s_{\mathrm{free}} = \begin{cases}
@@ -1763,9 +1762,9 @@ the cap and kBlocked except the current-pose test.
   $v_{\mathrm{cap}} < v_{\mathrm{stop}}$); or, in a rotation phase, when the rollout collides before
   leaving the rotation phase it started in (the remaining swept rotation collides). Never set in a
   translation phase while settled, holding the goal, or with XY reached and the cap binding
-  [Spec, M1].
+  [Spec].
 - **Clear** (translation) only when $s_{\mathrm{free}} \ge m_s + v_{\mathrm{stop}}^2/(2 a_{\mathrm{dec}}) + h_b$,
-  i.e. $h_b$ above the set threshold [Design, M1]; (rotation) when the swept remaining rotation is
+  i.e. $h_b$ above the set threshold [Design]; (rotation) when the swept remaining rotation is
   free. For Ackermann $v_{\mathrm{stop}} = v_{\mathrm{ack}}$, and $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ can
   exceed $h_b$ (0.09 m at $v_{\mathrm{ack}} = 0.3$, $a_{\mathrm{dec}} = 0.5$); a release at $m_s + h_b$
   would then sit below the set threshold and the flag would toggle every cycle.
@@ -1773,7 +1772,7 @@ the cap and kBlocked except the current-pose test.
   ($v_{\mathrm{stop}}^2/(2a_{\mathrm{dec}}) = 0.2$ mm), so one cell of sensor flicker would toggle the
   flag, refresh the server's patience timer every other cycle and let the robot creep;
   $h_b = \max(2\,\mathrm{res}, 0.05)$ is a real band.
-- **CBF hold** [Design, M7]: with `obstacle_mode: cbf`, also set in a translation phase (same
+- **CBF hold** [Design]: with `obstacle_mode: cbf`, also set in a translation phase (same
   exclusions) when the filter binds at the current pose with $\lVert F^\star\rVert < 0.05\lVert F\rVert$, kept
   while below 0.10 ({ref}`sec-cbf`); with `use_collision_detection: false` it is kept beside the
   current-pose test.
@@ -1797,7 +1796,7 @@ $\Delta t = 1/f$, $W, H_c$ = costmap width and height in metres.
 | `obstacle_lookahead` | $\max(1.0,\ v_r T_h)$ | 1.0 |
 | `final_approach_distance` | FL: $\max(2d,\ \mathrm{xy\_tol} + d)$; otherwise xy_tol | 0.45 (xy_tol 0.25) |
 
-Ackermann [Design, M7] ({ref}`sec-contour-ackermann`): $\lambda = \max(\cdot,\ R_{\min} + w_{\mathrm{lat}} + 0.05)$
+Ackermann [Design] ({ref}`sec-contour-ackermann`): $\lambda = \max(\cdot,\ R_{\min} + w_{\mathrm{lat}} + 0.05)$
 with $d = \lvert x_r\rvert$, $D_{\mathrm{in}} = \lambda + \max(0.15, R_{\min})$, $D_{\mathrm{in}}' = D_{\mathrm{in}} + 0.2$,
 `obstacle_lookahead` $\max(1.0,\ v_r T_h,\ D_{\mathrm{in}}' + 0.1)$; TB3 with $R_{\min} = 0.5$: 0.77, 1.27,
 1.47, 1.57.
@@ -1813,7 +1812,7 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | not $\lambda < D_{\mathrm{in}} \le D_{\mathrm{in}}'$ | blend order; equality is the hard switch |
 | $\lambda - d < r_{\mathrm{insc}}$ | with $p_c$ on the $\lambda$-set the base is at least $\lambda - d$ away; below $r_{\mathrm{insc}}$ the circulation itself collides |
 | invalid (type, law) pair | {ref}`sec-laws-points` |
-| Ackermann with contour and $\lambda < R_{\min} + 0.05$ [Design, M7] | the car cannot follow the circulation of a point ({ref}`sec-contour-ackermann`) |
+| Ackermann with contour and $\lambda < R_{\min} + 0.05$ [Design] | the car cannot follow the circulation of a point ({ref}`sec-contour-ackermann`) |
 | Ackermann with $R_{\min} \le 0$ | the curvature clamp needs $R_{\min}$ |
 | $\sigma_b + d + 0.1 > \tfrac12\min(W, H_c)$, or $>$ `window_limit` when set (Gen A/B prune_distance) | the goal must enter the window before braking must start |
 | FL with $d \le 0$ [Spec] | $M(\psi)$ divides by $d$; the plan omits this rule (`upstream_audit.md`, item O3) |
@@ -1833,13 +1832,13 @@ The auto values pass every rule: $\lambda - d \ge r_{\mathrm{circ}} + 0.05 > r_{
 | $T_h v_{\max} < v_{\max}^2/(2 a_{\mathrm{dec}}) + v_{\max}(2/f + 0.1) + 0.1$, or $T_h v_{\max} > \tfrac12\min(W, H_c) - r_{\mathrm{circ}}$ | the horizon must cover the stopping distance plus two cycles and 0.1 s of latency plus 0.1 m, and stay in the window |
 | Ackermann: $R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1$ | the field's integral curves need more curvature than the car has |
 | $v_r (c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}$ | yaw rate needed to follow the integral curves at $v_r$ |
-| cbf [Design, M7]: $\gamma_b v_r > a_{\mathrm{dec}}$; $\gamma_b\Delta t \ge 1$ | a head-on approach asks for more deceleration than the limiter allows; the barrier can cross 0 within a cycle ({ref}`sec-cbf`) |
+| cbf [Design]: $\gamma_b v_r > a_{\mathrm{dec}}$; $\gamma_b\Delta t \ge 1$ | a head-on approach asks for more deceleration than the limiter allows; the barrier can cross 0 within a cycle ({ref}`sec-cbf`) |
 | Ackermann with cbf [Design, 0.3.0]: $x_r + \delta_{\mathrm{safe}} + R_{\min} + v_r/\gamma_b > \tfrac12\min(W, H_c)$; $m < v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ | a face straight ahead enters the window inside the turning margin; the stop from the band speed at the hold can use more than the margin ({ref}`sec-cbf`) |
-| Ackermann with contour [Design, M7]: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$; $D_{\mathrm{in}} < \lambda + R_{\min}$; $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length` $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ | curvature headroom, turn-in band, gate before the band, watchdog ({ref}`sec-contour-ackermann`) |
+| Ackermann with contour [Design]: $\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05$; $D_{\mathrm{in}} < \lambda + R_{\min}$; $\ell_{\mathrm{look}} < D_{\mathrm{in}}'$ (`path_blocked`); `obstacle_max_contour_length` $< D_{\mathrm{in}}' - \lambda + \pi\lambda$ | curvature headroom, turn-in band, gate before the band, watchdog ({ref}`sec-contour-ackermann`) |
 
 At configure, $\kappa_{\mathrm{path}} := 0$; the per-plan checks below use the window's value [Spec].
 
-**Runtime, once per plan.** An unsmoothed plan (criterion defined with the controller in M2);
+**Runtime, once per plan.** An unsmoothed plan (the criterion is the controller's);
 FL with $\kappa_{\mathrm{path}}\, d > 1$; the goal entering the window with $\sigma_{\mathrm{end}} < \sigma_b$.
 
 **Footprint- and costmap-dependent rules** reject at configure (plugin) using the geometry captured
@@ -1849,8 +1848,8 @@ then, and only warn after a later change; the follower warns once.
 
 ## 12 Test oracles
 
-These become the gtests of M1. Items marked (M2) or (M5) belong to the controller or follower
-packages; they are listed because they test math defined here.
+These are the core's gtests. O14 belongs to the controller and O23 to the follower package; they
+are listed because they test math defined here.
 
 **Default test configuration (TC)**, unless an oracle says otherwise: atan gain, $k_f = 2$, $v_r = 0.4$,
 $d = 0.2$, $f = 20$ Hz, $v_{\max} = v_{y,\max} = 0.5$, $\omega_{\max} = 1.5$,
@@ -1903,7 +1902,7 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   formulas of {ref}`sec-builtins` within $10^{-12}$; `rounded_rectangle` and `regular_polygon` start at
   the $+x$ side midpoint, are continuous (max step over $2\cdot10^5$ samples below $2L/(2\cdot10^5)$)
   and have the stated $L$ ($10^{-9}$). Superellipse $n \in \{2, 4, 8\}$: speed $\ge \rho$ ($10^{-9}$).
-- **O14 Cusp decimation (M2).** NavFn-style tails (half-cell spacing toward the rounded goal cell, then
+- **O14 Cusp decimation.** NavFn-style tails (half-cell spacing toward the rounded goal cell, then
   `smoothApproachToGoal`'s replace-or-append rule; 8 goal offsets of ±0.5 cell × 16 headings ×
   approach lengths 1.0, 1.0125, 1.025, 1.0375 m; res 0.05 and 0.10): no cusp. A real reversal longer
   than $2\ell_c$ is flagged in every alignment (0.3 m at res 0.05; 0.45 m at res 0.10).
@@ -1945,7 +1944,7 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   radius 1 m with $\delta = 0.1\, n$ (worst case, away from the curve), integrated with step
   $10^{-3}$ s: after 20 s,
   $D \le \tan(\pi/2 \cdot 0.25)/k_f + 10^{-3} = 0.2081$ m.
-- **O23 FrameTwistEstimator (M5).** A constant twist $(0.1, 0)$ m/s, 0.3 rad/s sampled at 20 Hz with
+- **O23 FrameTwistEstimator.** A constant twist $(0.1, 0)$ m/s, 0.3 rad/s sampled at 20 Hz with
   yaw starting at 3.1 rad: the estimate equals the twist within $10^{-9}$ after settling, including
   across the $\pm\pi$ crossing, with no spike.
 
@@ -1997,7 +1996,7 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
 - **O56 Dead end** (`path_blocked`). A straight path into a 1.2 m corridor closed by a wall across it,
   and the O38 wall: no episode starts, the robot stops $\ge m_s - \mathrm{res}$ short of the wall
   (and within $3 m_s$), never collides, and kBlocked, once set, stays set.
-- **O57 Ackermann** [Design, M7] ($R_{\min} \in \{0.5, 1\}$, a 0.7 × 0.4 m body with the rear axle
+- **O57 Ackermann** [Design] ($R_{\min} \in \{0.5, 1\}$, a 0.7 × 0.4 m body with the rear axle
   0.2 m behind base_link, auto values). Discs of radius 0.15 and 0.3 m on a straight path, centred
   and 0.1 m off it: one episode with a constant side, the rear axle keeps $\lambda - \mathrm{res}$ from
   the disc's cells, no collision, never kHeadingInfeasible, the car passes beside the disc (on the
@@ -2008,7 +2007,7 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   (inside $D_{\mathrm{in}}$): passed without kHeadingInfeasible or collision. $\lambda < R_{\min} + 0.05$:
   ConfigError.
 
-- **O58 CBF** [Design, M7] (TC with `obstacle_mode: cbf`, $m = 0.05$, $\gamma_b = 2$, $k = 3$;
+- **O58 CBF** [Design] (TC with `obstacle_mode: cbf`, $m = 0.05$, $\gamma_b = 2$, $k = 3$;
   $\delta_{\mathrm{safe}}$ = 0.47 FL, 0.27 omni and HT; $h$ measured by brute force to the site centres at
   the evaluation point). (a) A 0.15 m disc 0.1, 0.2 and 0.3 m off a straight path, FL, HT and omni:
   settled at the goal, never kBlocked, the filter binds, $\min h \ge -\mathrm{res}$, $\lvert D\rvert < 0.02$
@@ -2097,7 +2096,7 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   ASan/TSan: after 10 warm-up cycles, 1000 steps with polyline and built-in curves, a fixed grid,
   contour active and the rollout on, including HT (FieldProbe path): zero allocations.
 
-**Scenario tests** of plan §3.5 not repeated above (perpendicular wall, superellipse runs, skid slip,
+**Scenario tests** not repeated above (perpendicular wall, superellipse runs, skid slip,
 upstream regressions `UpstreamRegression.U08_ShortPathIndexError` etc.) use the assertions stated
 there and the predicates defined in this document.
 
@@ -2119,7 +2118,7 @@ there and the predicates defined in this document.
 - **The obstacle contour has no proof.** The latch removes the trap basin of {ref}`sec-contour-trap`, but
   gaps narrower than about $2\lambda$ act as closed, obstacles with no velocity information are treated
   as static, and the watchdog bounds every episode. Ackermann has no contour in 0.x.
-- **The CBF mode does not circulate** [Design, M7]. Faces across the path, centred discs and gaps
+- **The CBF mode does not circulate** [Design]. Faces across the path, centred discs and gaps
   narrower than $2\delta_{\mathrm{safe}}$ stop the robot (hold, kBlocked); the guarantee is exact only for FL
   and holonomic in continuous time, approximate under ZOH, the limiter and HT; FL's barrier disc is
   centred on $p_c$, so lateral clearances exceed the footprint's by up to $d$. Ackermann
@@ -2139,7 +2138,7 @@ there and the predicates defined in this document.
 - **Cusps and reversing** are rejected unless `allow_reversing` ({ref}`sec-segments`); reversals
   shorter than $\ell_c$ are never stops and are followed in the segment's direction with a
   deviation below $\ell_c$. A plan without headings alternates its direction at cusps blindly
-  [Design, M7]; an absolute Nav2 speed limit is a fraction of $v_r$, so it scales $v_r^{-}$ by the
+  [Design]; an absolute Nav2 speed limit is a fraction of $v_r$, so it scales $v_r^{-}$ by the
   same fraction in reverse [Design, 0.3.0]. Without
   headings only a plan that doubles back for more than $2\ell_c$ reverses: a headingless route
   out to a waypoint and back along the same line is one, and a 177°+ corner may be one
@@ -2152,10 +2151,10 @@ there and the predicates defined in this document.
 
 (sec-3d)=
 
-## 14 3D core [Design, M7, experimental]
+## 14 3D core [Design, experimental]
 
 The equations of §2–§5 hold in $\mathbb R^n$. Only the wedge and hairpin tangents of §2.3 use the
-planar rotation $J$. This section restates the 3D core ({doc}`m7_3d`) where it differs. Symbols
+planar rotation $J$. This section restates the 3D core ({doc}`core_3d`) where it differs. Symbols
 are as in §1, with $x, T, n, \Phi \in \mathbb R^3$.
 
 (sec-3d-geometry)=
@@ -2318,7 +2317,7 @@ rotate phases or rollouts. Obstacles enter only through the CBF filter of §14.8
 
 A curve may live in a frame $\mathcal F$ given by `CurveFrame3`
 $\{T_{\mathrm{eval}\leftarrow\mathcal F} = (R, c),\ \xi = (v_{\mathcal F}, \omega_{\mathcal F})\ \text{in}\ \mathcal F,\ \text{moving}\}$,
-with $\dot R = R[\omega_{\mathcal F}]_\times$ and $\dot c = R v_{\mathcal F}$ ({doc}`m7_3d`,
+with $\dot R = R[\omega_{\mathcal F}]_\times$ and $\dot c = R v_{\mathcal F}$ ({doc}`core_3d`,
 "Moving frames"). The search runs at $x_{\mathcal F} = R^\top(x - c)$ with the hint and
 $T_{\mathrm{last}}$ kept in $\mathcal F$; $x^\star$, $T$, $n$ are mapped back by $(R, c)$ and
 $D$, $s^\star$, $\sigma$ are invariant. The rigid-body velocity of a curve point is
@@ -2357,7 +2356,7 @@ $$
 ### 14.8 Obstacles [Design, 0.3.0]
 
 Static obstacles in the evaluation frame and a spherical body of radius $r_b$ = `body_radius`
-centred at $p$ ({doc}`m7_3d`, "Obstacles"). `obstacle_mode` is none or cbf; contour (§6.4) is
+centred at $p$ ({doc}`core_3d`, "Obstacles"). `obstacle_mode` is none or cbf; contour (§6.4) is
 planar only, so it is a ConfigError.
 
 - **Primitives** (convex solids). The signed distance $D$ is exact (negative inside),
@@ -2434,8 +2433,8 @@ Every RViz/Foxglove marker in {doc}`../visualization` is drawn from `FieldSample
 | heading target | ROTATE_TO_FIELD: $\angle F_{\mathrm{trk}}$ (+π if `drive_backward`); ROTATE_TO_HEADING: the goal yaw; HT: $\psi_d$; the arc spans $\operatorname{wrap}(\psi_{\mathrm{tgt}} - \psi)$ |
 | prediction | rollout poses from `StepScratch`, the first colliding pose, $s_{\mathrm{free}}$ |
 | contour | gate open, episode active, $\sigma_c$, $x_o^\star$, $D_o$, $\theta$, `travelled_m`, `elapsed_s`, the blocked gate samples, $K$'s cells; the $\lambda$, $D_{\mathrm{in}}$, $D_{\mathrm{in}}'$ rings are centred at $x_o^\star$ [Spec]; the side arrow is $\sigma_c J n_o$ at $x_{\mathrm{eval}}$ |
-| cbf [Design, M7] | filter on, binding, hold, $\delta_{\mathrm{safe}}$, $\min h_j$, $\lVert F^\star\rVert/\lVert F\rVert$, $F$ before the filter, and per constraint $x_{o,j}$, $n_j$, $h_j$, binding, the Ackermann turning margin $\mu_j$ [Design, 0.3.0] (`FieldSample::cbf`); drawn in the `contour` namespace in cbf mode: the $\delta_{\mathrm{safe}}$ ring centred at $x_{\mathrm{eval}}$, the binding normals, the correction $F^\star - F$ |
-| `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. `Tracker::probe()` shapes with the speed limit $\gamma_{\mathrm{lim}}$ only; the cycle's collision cap is not stored [Spec, M1]. |
+| cbf [Design] | filter on, binding, hold, $\delta_{\mathrm{safe}}$, $\min h_j$, $\lVert F^\star\rVert/\lVert F\rVert$, $F$ before the filter, and per constraint $x_{o,j}$, $n_j$, $h_j$, binding, the Ackermann turning margin $\mu_j$ [Design, 0.3.0] (`FieldSample::cbf`); drawn in the `contour` namespace in cbf mode: the $\delta_{\mathrm{safe}}$ ring centred at $x_{\mathrm{eval}}$, the binding normals, the correction $F^\star - F$ |
+| `field_grid` arrows | $F$ at each grid node through the `FieldProbe` (frozen hint, $K$ and gate), length $\propto\lVert F\rVert$, colour by $D$. Nodes far from the robot show the field of this cycle's search state, which is what the controller would use from there only approximately. `Tracker::probe()` shapes with the speed limit $\gamma_{\mathrm{lim}}$ only; the cycle's collision cap is not stored [Spec]. |
 | streamlines | RK4 integration of $\dot x = F(x)$ at the frozen $t$ with step `field_grid_resolution`/2 [Spec] |
 
 (sec-math-constants)=
@@ -2473,8 +2472,8 @@ Computed with `python3 -I` (pure Python, double precision) while writing this do
 
 ## Appendix C Details fixed by this document
 
-The plan leaves these open; they are [Spec] above. All seventeen were reviewed and **confirmed on
-2026-10-13** before M1; item 13 is implemented as `TrackerState::holding`. Change them only together
+The thesis leaves these open; they are [Spec] above. All seventeen were **confirmed on
+2026-10-13**, before the core was written; item 13 is implemented as `TrackerState::holding`. Change them only together
 with the code and tests that depend on them.
 
 1. Closest-point tie tolerance $10^{-9}$ m, tie-breaking toward the hint, and toward the smallest

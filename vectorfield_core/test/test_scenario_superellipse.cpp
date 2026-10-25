@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Superellipse runs of plan §3.5 (math_spec §2.7 polar superellipse): built-in superellipse with
+// Superellipse runs (math_spec §2.7 polar superellipse): built-in superellipse with
 // a = 2, b = 1.5 and n in {2, 4, 8} (perimeters 11.1, 12.3, 13.1 m; peak curvature 0.89, 1.51,
 // 3.18 1/m), TC with FL, started on the curve along its tangent: one lap within 1.5× its time at
 // v_r, never STOPPED or non-finite, and after a 5 s transient the distance at the law's point

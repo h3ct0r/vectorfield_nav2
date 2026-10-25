@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The CBF filter and its sites (math_spec §6.7 [Design, M7]).
+// The CBF filter and its sites (math_spec §6.7 [Design]).
 
 #include <gtest/gtest.h>
 

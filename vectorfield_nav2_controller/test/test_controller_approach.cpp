@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: goals in free space. The straight approach, goals
-// behind the robot, the one-pose rotate goal (plan §5.3), the final approach to a rotated or
+// Layer 2, through the server harness: goals in free space. The straight approach, goals
+// behind the robot, the one-pose rotate goal, the final approach to a rotated or
 // lateral goal for each tracking law (settled before ROTATE_TO_HEADING, math_spec §9.1), and a
-// real cusp rejected as InvalidPath (plan §5.1).
+// real cusp rejected as InvalidPath.
 
 #include <gtest/gtest.h>
 

@@ -4,7 +4,7 @@ The ROS 2 layer shared by `vectorfield_nav2_controller`, `vectorfield_curve_foll
 `vectorfield_sim`. It connects the ROS-free `vectorfield_core` library to Nav2 on every supported
 distro (Humble, Jazzy, Lyrical; Rolling nightly).
 
-**Status:** complete (M2). It is a library for those packages and has no node of its own.
+**Status:** complete. It is a library for those packages and has no node of its own.
 
 ## Features
 

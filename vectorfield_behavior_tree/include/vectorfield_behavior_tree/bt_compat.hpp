@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief BT.CPP and nav2_behavior_tree compatibility: the only distro switch of this package
-/// (docs/design/m7_follow_curve_bt.md, "Distro differences").
+/// (docs/design/follow_curve_bt.md, "Distro differences").
 ///
 /// | | Humble | Jazzy | Lyrical, Rolling |
 /// |---|---|---|---|

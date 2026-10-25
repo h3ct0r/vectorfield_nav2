@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Polyline curves with semi-infinite end rays, wedge tangents and the two search
-/// policies (plan §3.2; math_spec §2.2–§2.4).
+/// policies (math_spec §2.2–§2.4).
 ///
-/// Implemented in src/polyline_curve.cpp (M1 wave 2, polyline). The public API is binding;
-/// private members are the implementer's choice.
+/// Implemented in src/polyline_curve.cpp.
 
 #ifndef VECTORFIELD_CORE__POLYLINE_CURVE_HPP_
 #define VECTORFIELD_CORE__POLYLINE_CURVE_HPP_

@@ -4,7 +4,7 @@ Cross-package integration and launch tests for vectorfield_nav2. Tests that need
 packages live here, so no package has to test-depend on a package above it. This package is
 never released.
 
-**Status:** the controller tests (M3) and the curve follower tests (M5) are implemented.
+**Status:** the controller tests and the curve follower tests are implemented.
 
 ## Tests
 

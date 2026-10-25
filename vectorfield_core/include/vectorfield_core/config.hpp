@@ -16,7 +16,7 @@
 /// @brief Configuration of the core: enums, `CoreConfig`, `CurveOptions`, auto values and the
 /// cross-parameter validator.
 ///
-/// `CoreConfig` mirrors the parameter groups of plan §5.4 (Field, Motion, Phases, Obstacles,
+/// `CoreConfig` mirrors the controller's parameter groups (Field, Motion, Phases, Obstacles,
 /// Safety) field by field, with the same names and defaults, plus the node-derived fields
 /// (controller frequency, footprint) and the follower's goal-scoped fields (direction,
 /// assumption3_margin). The vectorfield_ros binding tables (`kCommonCoreParams`,
@@ -84,7 +84,7 @@ enum class MotionModel : std::uint8_t
 enum class TrackingLaw : std::uint8_t
 {
   /// "auto": feedback_linearization for diff/skid, holonomic for omni, heading_tracking for
-  /// Ackermann (plan §3.1).
+  /// Ackermann.
   kAuto = 0,
   /// "feedback_linearization" (thesis eq. 2.1; math_spec §7.3).
   kFeedbackLinearization = 1,
@@ -113,7 +113,7 @@ enum class ObstacleMode : std::uint8_t
   /// "contour": circulate around blocking obstacles.
   kContour = 1,
   /// "cbf": a control-barrier-function filter keeps a margin from every obstacle (math_spec §6.7
-  /// [Design, M7]).
+  /// [Design]).
   kCbf = 2,
 };
 
@@ -128,7 +128,7 @@ enum class ObstacleActivation : std::uint8_t
 /// @}
 
 /// @name Enum ↔ parameter string
-/// The strings are the parameter values of plan §5.4 ("atan", "skid_steer", ...).
+/// The strings are the parameter values ("atan", "skid_steer", ...).
 /// `fromString` returns false and leaves `*out` unchanged for an unknown string.
 /// @{
 const char * toString(GainType value) noexcept;
@@ -151,7 +151,7 @@ inline constexpr double kAutoValue = -1.0;
 /// @brief True iff `value` selects the auto value (it is negative). NaN is not auto.
 inline bool isAuto(double value) noexcept { return value < 0.0; }
 
-/// @brief Field group of plan §5.4, plus the follower's goal-scoped direction and
+/// @brief Field parameter group, plus the follower's goal-scoped direction and
 /// Assumption-3 margin.
 struct FieldConfig
 {
@@ -169,7 +169,7 @@ struct FieldConfig
   double assumption3_margin{0.1};
 };
 
-/// @brief Motion group of plan §5.4.
+/// @brief Motion parameter group.
 struct MotionConfig
 {
   /// `motion_model` (read-only parameter).
@@ -223,7 +223,7 @@ struct MotionConfig
   double skid_icr_offset{0.0};
 };
 
-/// @brief Phases group of plan §5.4.
+/// @brief Phases parameter group.
 struct PhaseConfig
 {
   /// `use_rotate_to_field`.
@@ -245,11 +245,11 @@ struct PhaseConfig
   /// `cancel_deceleration` \f$a_{\mathrm{can}}\f$ (m/s²).
   double cancel_deceleration{1.0};
   /// `cusp_tolerance` (m): settle radius \f$\sigma_{\mathrm{stop}}\f$ of an intermediate stop
-  /// at a cusp; its XY tolerance is twice that (plugin only; math_spec §9.4 [Design, M7]).
+  /// at a cusp; its XY tolerance is twice that (plugin only; math_spec §9.4 [Design]).
   double cusp_tolerance{0.05};
 };
 
-/// @brief Obstacles group of plan §5.4.
+/// @brief Obstacles parameter group.
 struct ObstacleConfig
 {
   /// `obstacle_mode` (demos: contour).
@@ -293,7 +293,7 @@ struct ObstacleConfig
   int cbf_sites{3};
 };
 
-/// @brief Safety group of plan §5.4.
+/// @brief Safety parameter group.
 struct SafetyConfig
 {
   /// `use_collision_detection`.
@@ -332,7 +332,6 @@ struct FootprintRadii
 };
 
 /// @brief Node-derived configuration: set by the ROS layer after the parameter tables
-/// (plan §4, "Node-derived fields").
 ///
 /// The defaults are nav2_bringup's simulated robot: 20 Hz and `robot_radius` 0.22 m.
 struct NodeConfig
@@ -346,7 +345,7 @@ struct NodeConfig
 
 /// @brief Complete configuration of a `Tracker`.
 ///
-/// Default-constructed, it equals the plan §5.4 defaults with the TB3 (nav2_bringup) footprint and
+/// Default-constructed, it equals the parameter defaults with the TB3 (nav2_bringup) footprint and
 /// passes validateConfig() with no error and no warning.
 struct CoreConfig
 {
@@ -364,7 +363,7 @@ struct CoreConfig
   NodeConfig node;
 };
 
-/// @brief Curve-intake options of the follower (plan §6 parameters), validated by `makeCurve`.
+/// @brief Curve-intake options of the follower, validated by `makeCurve`.
 struct CurveOptions
 {
   /// `max_curve_points`: maximum vertex count after conditioning.
@@ -381,7 +380,7 @@ struct CurveOptions
   int global_search_samples{400};
 };
 
-/// @brief Costmap geometry for the costmap-dependent rules (plan §4 "CostmapInfo").
+/// @brief Costmap geometry for the costmap-dependent rules.
 struct CostmapInfo
 {
   /// Width \f$W\f$ (m).
@@ -439,7 +438,7 @@ inline constexpr std::string_view kContourBelowInscribed = "contour_distance_bel
 /// Invalid (motion_model, tracking_law) pair.
 inline constexpr std::string_view kInvalidLaw = "invalid_tracking_law";
 /// Ackermann with contour: \f$\lambda < R_{\min} + 0.05\f$, a circulation the car cannot follow
-/// (math_spec §6.6 [Design, M7]).
+/// (math_spec §6.6 [Design]).
 inline constexpr std::string_view kAckermannContourRadius =
   "ackermann_contour_distance_below_turning_radius";
 /// Ackermann with \f$R_{\min} \le 0\f$.
@@ -479,19 +478,19 @@ inline constexpr std::string_view kAckermannCurvature = "ackermann_curvature";
 /// \f$v_r(c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}\f$.
 inline constexpr std::string_view kYawRateForCurvature = "yaw_rate_for_curvature";
 /// Ackermann with contour: \f$\lambda < R_{\min} + w_{\mathrm{lat}} + 0.05\f$, little curvature
-/// left for corrections during a circulation (math_spec §6.6 [Design, M7]).
+/// left for corrections during a circulation (math_spec §6.6 [Design]).
 inline constexpr std::string_view kAckermannContourCurvature = "ackermann_contour_curvature";
 /// Ackermann with contour: \f$D_{\mathrm{in}} < \lambda + R_{\min}\f$, the turn-in band is shorter
-/// than a quarter turn at \f$R_{\min}\f$ (math_spec §6.6 [Design, M7]).
+/// than a quarter turn at \f$R_{\min}\f$ (math_spec §6.6 [Design]).
 inline constexpr std::string_view kAckermannContourTurnIn = "ackermann_contour_turn_in";
 /// Ackermann with contour (`path_blocked`): \f$\ell_{\mathrm{look}} < D'_{\mathrm{in}}\f$, the gate
-/// can open after the car is inside the turn-in band (math_spec §6.6 [Design, M7]).
+/// can open after the car is inside the turn-in band (math_spec §6.6 [Design]).
 inline constexpr std::string_view kAckermannContourLookahead = "ackermann_contour_lookahead";
 /// Ackermann with contour: `obstacle_max_contour_length` \f$< D'_{\mathrm{in}} - \lambda +
-/// \pi\lambda\f$, the watchdog can trip on a plain half circulation (math_spec §6.6 [Design, M7]).
+/// \pi\lambda\f$, the watchdog can trip on a plain half circulation (math_spec §6.6 [Design]).
 inline constexpr std::string_view kAckermannContourWatchdog = "ackermann_contour_watchdog";
 /// CBF: \f$\gamma_b v_r > a_{\mathrm{dec}}\f$, a head-on approach asks for more deceleration
-/// than the limiter allows (math_spec §6.7 [Design, M7]).
+/// than the limiter allows (math_spec §6.7 [Design]).
 inline constexpr std::string_view kCbfGainDeceleration = "cbf_gain_deceleration";
 /// CBF: \f$\gamma_b \Delta t \ge 1\f$, the barrier can cross 0 within one cycle (math_spec §6.7).
 inline constexpr std::string_view kCbfGainDiscrete = "cbf_gain_discrete";
@@ -524,7 +523,7 @@ inline constexpr std::string_view kInvalidCurveOptions = "invalid_curve_options"
 /// @}
 }  // namespace issue
 
-/// @brief Valid (motion_model, tracking_law) pairs (plan §3.1; math_spec §7.1): diff and skid
+/// @brief Valid (motion_model, tracking_law) pairs (math_spec §7.1): diff and skid
 /// with feedback_linearization or heading_tracking; omni with holonomic; Ackermann with
 /// heading_tracking. `kAuto` is valid for every model.
 bool isValidCombination(MotionModel model, TrackingLaw law) noexcept;
@@ -560,9 +559,10 @@ double evaluationOffset(const CoreConfig & config) noexcept;
 /// 0.05\big)\f$ with \f$d\f$ = evaluationOffset() (TB3 with FL: 0.47).
 double autoContourDistance(const FootprintRadii & radii, double evaluation_offset) noexcept;
 
-/// @brief Ackermann auto contour distance (math_spec §6.6 [Design, M7]): \f$\max(\lambda_{\mathrm{auto}},
-/// R_{\min} + w_{\mathrm{lat}} + 0.05)\f$ with \f$\lambda_{\mathrm{auto}}\f$ = autoContourDistance()
-/// at \f$d = \lvert x_r\rvert\f$ (TB3 footprint, \f$R_{\min}\f$ 0.5: 0.77).
+/// @brief Ackermann auto contour distance (math_spec §6.6 [Design]):
+/// \f$\max(\lambda_{\mathrm{auto}}, R_{\min} + w_{\mathrm{lat}} + 0.05)\f$ with
+/// \f$\lambda_{\mathrm{auto}}\f$ = autoContourDistance() at \f$d = \lvert x_r\rvert\f$ (TB3
+/// footprint, \f$R_{\min}\f$ 0.5: 0.77).
 double ackermannAutoContourDistance(
   const FootprintRadii & radii, double evaluation_offset, double min_turning_radius) noexcept;
 
@@ -570,7 +570,7 @@ double ackermannAutoContourDistance(
 ///
 /// Fills `tracking_law` (resolveTrackingLaw), \f$\lambda\f$, \f$D_{\mathrm{in}} = \lambda +
 /// 0.15\f$, \f$D'_{\mathrm{in}} = \lambda + 0.35\f$ and `obstacle_lookahead` \f$= \max(1.0, v_r
-/// T_h)\f$, each only when auto (math_spec §11). Ackermann (math_spec §6.6 [Design, M7]):
+/// T_h)\f$, each only when auto (math_spec §11). Ackermann (math_spec §6.6 [Design]):
 /// \f$\lambda\f$ = ackermannAutoContourDistance(), \f$D_{\mathrm{in}} = \lambda + \max(0.15,
 /// R_{\min})\f$, \f$D'_{\mathrm{in}} = D_{\mathrm{in}} + 0.2\f$ and \f$\ell_{\mathrm{look}} =
 /// \max(1.0,\ v_r T_h,\ D'_{\mathrm{in}} + 0.1)\f$. `max_reverse_vel` = reverseSpeedLimit()
@@ -621,7 +621,7 @@ ValidationReport validateConfig(
 /// \f$R_{\min}(c_G k_f + \kappa_{\mathrm{path}}) > 1\f$ (kAckermannCurvature);
 /// \f$v_r(c_G k_f + \kappa_{\mathrm{path}}) > \omega_{\max}\f$ (kYawRateForCurvature).
 /// Warnings only. The unsmoothed-plan and \f$\sigma_{\mathrm{end}} < \sigma_b\f$ checks need
-/// the plan itself and live in the controller (M2).
+/// the plan itself and live in the controller.
 /// @param config Configuration (auto values allowed).
 /// @param kappa_path \f$\kappa_{\mathrm{path}}\f$ of the conditioned window (conditioning.hpp
 /// `kappaPath`).

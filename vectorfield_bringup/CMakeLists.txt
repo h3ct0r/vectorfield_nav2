@@ -45,8 +45,7 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install the resource directories that exist. The placeholder README.md files
-# describe content that arrives in later milestones and are not installed.
+# Install the resource directories that exist; their README.md files are not installed.
 foreach(_vf_dir IN ITEMS launch config behavior_trees maps rviz foxglove plotjuggler)
   if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${_vf_dir}")
     install(

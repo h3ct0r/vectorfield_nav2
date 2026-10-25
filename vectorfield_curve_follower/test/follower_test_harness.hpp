@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The in-process harness of the follower tests (plan §9, layer 2b): the CurveFollower on
+// The in-process harness of the follower tests: the CurveFollower on
 // simulated time with a kinematic robot that closes the loop through odometry and TF.
 //
 // The test thread drives everything in lock step, one control period per tick: the robot

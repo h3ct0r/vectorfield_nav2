@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief Topic names of the visualization and diagnostics outputs, and the `<ns>` rule
-/// (plan §4 "Topics", §4.1; nav2_api_matrix.md §4.10). A stable surface (plan §9): frozen once
+/// (nav2_api_matrix.md §4.10). A stable surface: frozen once
 /// released.
 ///
 /// - **Plugin:** `<ns>/markers`, `<ns>/field_grid`, `<ns>/predicted_path`, `<ns>/window`,

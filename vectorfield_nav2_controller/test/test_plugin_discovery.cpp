@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // The plugin is discoverable by its type string through pluginlib, as controller_server loads it
-// (plan §5.3 "Plugin XML"), and it overrides every pure virtual of this distro's
+//, and it overrides every pure virtual of this distro's
 // nav2_core::Controller. Nothing is configured here (layer 2 does that through the harness).
 
 #include <gtest/gtest.h>

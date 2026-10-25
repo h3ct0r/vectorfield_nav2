@@ -93,9 +93,9 @@ configure_file(
   @ONLY
 )
 
-# Every planned M1 source is listed explicitly (no glob), so a missing file fails the configure
-# step. Modules of later waves start as stubs that name their owner. src/d3/ is the experimental
-# 3D core (namespace vectorfield_core::d3, docs/design/m7_3d.md): the same library, so it shares
+# Every source is listed explicitly (no glob), so a missing file fails the configure
+# step. src/d3/ is the experimental
+# 3D core (namespace vectorfield_core::d3, docs/design/core_3d.md): the same library, so it shares
 # the folded muParser objects and the internal expression hardening without a second export.
 add_library(vectorfield_core
   src/builtin_curves.cpp
@@ -144,7 +144,7 @@ vf_core_set_warnings(vectorfield_core)
 # Vendored muParser (plan section 3.2) is an OBJECT library folded into vectorfield_core through
 # $<TARGET_OBJECTS>. That adds no link edge, so there is nothing extra to export, and hidden
 # visibility keeps mu:: symbols from clashing with a system libmuparser in the same process.
-# M1 vendors third_party/muparser and lists its six src/*.cpp files here.
+# The vendored third_party/muparser's six src/*.cpp files.
 set(VF_MUPARSER_SOURCES
   third_party/muparser/src/muParser.cpp
   third_party/muparser/src/muParserBase.cpp

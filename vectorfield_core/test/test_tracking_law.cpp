@@ -451,7 +451,7 @@ TEST(LawHeadingTracking, SpeedAndFeedbackWithoutProbes)
 }
 
 // The hold threshold is LawInput::hold_speed = 0.05 v_r gamma_lim: a low external speed limit
-// never freezes psi_d (math_spec §7.4, threshold confirmed M1).
+// never freezes psi_d (math_spec §7.4).
 TEST(LawHeadingTracking, HoldRule)
 {
   std::vector<ProbeCall> calls;

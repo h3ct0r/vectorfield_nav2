@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief GoalSupervisor: the per-cycle verdict of a FollowCurve goal from its inputs' health and
-/// the Tracker's status (plan §6 "Failure modes"). Pure: times are passed in, no clock, no I/O.
+/// the Tracker's status. Pure: times are passed in, no clock, no I/O.
 ///
-/// **Precedence**, highest first (plan §6):
+/// **Precedence**, highest first:
 /// 1. deactivation (abort UNKNOWN, zero now), then cancel (kCancel);
 /// 2. a Nav2 action became active (abort NAV2_ACTIVE, one zero now); an invalid configuration
 ///    or kNonFinite (abort UNKNOWN, zero now); `max_duration` (abort TIMEOUT, decelerate);
@@ -196,7 +196,7 @@ private:
   double anchor_time_{0.0};
 };
 
-/// @brief Linear and angular stop thresholds of a cancel (plan §6: 0.01 m/s and 0.01 rad/s).
+/// @brief Linear and angular stop thresholds of a cancel (0.01 m/s and 0.01 rad/s).
 inline constexpr double kStopLinearThreshold = 0.01;
 /// @copydoc kStopLinearThreshold
 inline constexpr double kStopAngularThreshold = 0.01;

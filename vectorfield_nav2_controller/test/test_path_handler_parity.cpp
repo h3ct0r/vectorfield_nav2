@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Parity of LegacyPathHandler with Nav2's FeasiblePathHandler (plan §5.1 "Parity gtest"; gating on
+// Parity of LegacyPathHandler with Nav2's FeasiblePathHandler (gating on
 // Gen C, compiled out elsewhere). Both handlers get the same explicit parameters, the harness's
 // costmap (configured, fixed origin, not rolling) and its TF buffer (the only one), and are driven
 // in lockstep over multi-cycle robot-pose sequences: straight (with a jump past the search range),

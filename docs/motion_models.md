@@ -72,7 +72,7 @@ before its end (a reversal back toward the start) ends there. On Lyrical,
 `SimpleGoalChecker`'s `path_length_tolerance` with the path handler's
 `enforce_path_inversion: true` prevents that. The overlay `config/scenario/reversing.yaml` sets
 up Smac Hybrid-A* with Reeds–Shepp primitives ({doc}`tutorials/scenarios`). Details:
-{doc}`design/m7_reversing`.
+{doc}`design/reversing`.
 
 (skid-slip)=
 

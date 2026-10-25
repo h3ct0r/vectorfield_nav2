@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Pure generators of test plans, shared by the plan-processing unit tests and the
-/// layer-2 harness tests (plan §5.1 "Pure unit test", §9 layer 2 "NavFn tails").
+/// layer-2 harness tests.
 ///
-/// Implemented in test/support/plan_generators.cpp (M2 wave 2, path). No ROS runtime needed;
+/// Implemented in test/support/plan_generators.cpp. No ROS runtime needed;
 /// toPathMsg() only builds a message.
 
 #ifndef VECTORFIELD_NAV2_CONTROLLER__TEST__SUPPORT__PLAN_GENERATORS_HPP_

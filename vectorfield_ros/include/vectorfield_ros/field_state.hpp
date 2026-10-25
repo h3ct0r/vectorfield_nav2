@@ -14,11 +14,11 @@
 
 /// @file
 /// @brief `vectorfield_msgs/FieldState` from one Tracker cycle, and the compile-time proof that
-/// the message constants equal the core's Phase and Status values (plan §4.1, §7).
+/// the message constants equal the core's Phase and Status values.
 ///
-/// The static_asserts below are the contract: FieldState.msg is frozen at M2, and the core
+/// The static_asserts below are the contract: FieldState.msg is frozen, and the core
 /// promises never to renumber Phase or Status (status.hpp). toFieldState() is implemented in
-/// src/field_state.cpp (M2 wave 2, ros-viz).
+/// src/field_state.cpp.
 
 #ifndef VECTORFIELD_ROS__FIELD_STATE_HPP_
 #define VECTORFIELD_ROS__FIELD_STATE_HPP_

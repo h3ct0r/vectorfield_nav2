@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Field evaluation: closest point plus DistanceField::evaluate, the per-call cost of every field
-// query (plan §3.5 target: < 5 µs on a 2000-point polyline).
+// query (target: < 5 µs on a 2000-point polyline).
 //
 // The evaluation point walks along the curve 1 cm per call, 0.1 m off it, and the hint is carried
 // from call to call the way the Tracker carries it, so the hinted search sees the access pattern

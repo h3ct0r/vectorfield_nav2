@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Node-level parameter handling: node-derived fields, validateParams(), validateFromNode() and
-// the CrossValidator (plan §4). The binding table itself is in core_params_table.cpp.
+// the CrossValidator. The binding table itself is in core_params_table.cpp.
 
 #include <cstdint>
 #include <exception>

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Obstacle scenarios of plan §3.5 not covered by the O3x oracles (math_spec §6.3–§6.4): a
+// Obstacle scenarios not covered by the O3x oracles (math_spec §6.3–§6.4): a
 // perpendicular wall is bypassed (the latch removes the perpendicular-wall trap), and a valid
 // path through a door never starts the contour (the `path_blocked` gate rationale). The too-long
 // wall is O38 (test_oracle_contour_tracking.cpp); the box with a parallel wall is O34.
@@ -71,8 +71,8 @@ TEST(ScenarioObstacles, PerpendicularWallBypassed)
   EXPECT_TRUE(cs.back().out.settled);
 }
 
-// Door passage (math_spec §6.4 gate rationale; plan §11 "corridor_door: zero contour
-// activations"): a straight path through a 0.9 m door (jambs 0.45 m from the path, 0.23 m of
+// Door passage (math_spec §6.4 gate rationale; corridor_door: zero contour
+// activations): a straight path through a 0.9 m door (jambs 0.45 m from the path, 0.23 m of
 // footprint clearance): the gate never opens, no episode starts, no kBlocked, and the goal beyond
 // the door is reached. Timeout 30 s.
 TEST(ScenarioObstacles, DoorPassageNeverStartsContour)

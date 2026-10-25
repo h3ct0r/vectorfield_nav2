@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: RotationShimController with our plugin as its
-// primary (plan §5.3; nav2_api_matrix.md §10). Without explicit parameters it configures,
+// Layer 2, through the server harness: RotationShimController with our plugin as its
+// primary (nav2_api_matrix.md §10). Without explicit parameters it configures,
 // activates, publishes under `<ns>` and runs a goal; with obstacle_mode contour our configure()
 // warns once, except on Jazzy (and Kilted) with rotate_to_heading_once.
 

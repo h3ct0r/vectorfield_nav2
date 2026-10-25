@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: the footprint against walls. In-place rotations
-// beside a wall (the rollout checks the swept rotation; kBlocked holds while blocked, plan §5.2
-// step 6), a footprint changed mid-run through setRobotFootprintPolygon (the transactional rebuild
-// of plan §4: auto λ and the prediction follow it, an explicit λ that now breaks its rule stops the
-// robot), and the goal veto (a binding cap inside xy_tol settles the robot, math_spec §9.2
+// Layer 2, through the server harness: the footprint against walls. In-place rotations beside a
+// wall (the rollout checks the swept rotation; kBlocked holds while blocked), a footprint changed
+// mid-run through setRobotFootprintPolygon (the transactional rebuild: auto λ and the prediction
+// follow it, an explicit λ that now breaks its rule stops the robot), and the goal veto (a binding cap inside xy_tol settles the robot, math_spec §9.2
 // "Precedence").
 
 #include <gtest/gtest.h>

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /// @file
-/// @brief Shipped-configuration validation (plan §5.4 "Tests"): every installed
+/// @brief Shipped-configuration validation: every installed
 /// `vectorfield_bringup/config/controller/*.yaml`, loaded with `--params-file` into a node named
 /// controller_server, passes vectorfield_ros::validateFromNode() with the stock 3 × 3 m / 0.05 m
 /// local costmap (or the local costmap size the file sets: the Ackermann files use 4 × 4 m for the

@@ -7,7 +7,7 @@ Rezende, Gonçalves and Pimenta, *Constructive Time-Varying Vector Fields for Ro
 speed; near the goal a terminal field brakes the robot onto it. All control logic is in the
 ROS-free `vectorfield_core`, which the curve follower and the Python tools share.
 
-**Status:** complete (M2, with the demos and system tests of M3). Humble, Jazzy and Lyrical;
+**Status:** complete, with demos and system tests. Humble, Jazzy and Lyrical;
 Rolling nightly.
 
 ## Features

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The ROS ↔ core conversions (plan §4 "Conversions"): poses, twists, quaternions, paths,
+// The ROS ↔ core conversions: poses, twists, quaternions, paths,
 // Curve.msg ↔ CurveSpec, costmaps → OccupancyGrid, CostmapInfo, footprints and goal tolerances.
 
 #include <gtest/gtest.h>

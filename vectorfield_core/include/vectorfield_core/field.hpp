@@ -16,8 +16,7 @@
 /// @brief The path field: static, time-varying and terminal (math_spec §4–§5), speed shaping
 /// (§8.2) and `FieldSample`, the per-cycle record of every field quantity (Appendix A).
 ///
-/// Implemented in src/field.cpp (M1 wave 2, field/laws/limiter). The public API is binding;
-/// private members are the implementer's choice.
+/// Implemented in src/field.cpp.
 
 #ifndef VECTORFIELD_CORE__FIELD_HPP_
 #define VECTORFIELD_CORE__FIELD_HPP_
@@ -71,7 +70,7 @@ struct ContourSample
 /// @brief Most obstacle sites the CBF filter constrains (`cbf_sites`, math_spec §6.7).
 inline constexpr int kCbfMaxSites = 3;
 
-/// @brief CBF-filter quantities of one evaluation (math_spec §6.7 [Design, M7]; Appendix A
+/// @brief CBF-filter quantities of one evaluation (math_spec §6.7 [Design]; Appendix A
 /// "cbf"). Points and vectors are in the evaluation frame.
 struct CbfSample
 {

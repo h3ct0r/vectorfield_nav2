@@ -14,11 +14,11 @@
 
 /// @file
 /// @brief `vectorfield_curve_follower::CurveFollower`: the lifecycle component with the
-/// `follow_curve` action server (plan §6).
+/// `follow_curve` action server.
 ///
 /// Implemented in src/curve_follower.cpp, which also registers the component
 /// (`RCLCPP_COMPONENTS_REGISTER_NODE`). The node name defaults to `curve_follower`. The action,
-/// topic and parameter names are stable surfaces (plan §9).
+/// topic and parameter names are stable surfaces.
 ///
 /// **Interfaces** (all relative names, so the node runs in a namespace):
 /// - action server `follow_curve` (`vectorfield_msgs/action/FollowCurve`);

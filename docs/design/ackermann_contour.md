@@ -1,9 +1,9 @@
-# M7: obstacle contouring for Ackermann bases
+# Obstacle contouring for Ackermann bases
 
-`obstacle_mode: contour` is accepted with `motion_model: ackermann`. Until M7 it was a ConfigError
+`obstacle_mode: contour` is accepted with `motion_model: ackermann`. Before 0.2.0 it was a ConfigError
 (`ackermann_contour_unsupported`), because the auto distances of §11 ask a car for curvature
 $1/\lambda \approx 2$–3 m⁻¹ and for a quarter turn within 0.2 m. The changes to {doc}`math_spec`
-are tagged [Design, M7] in §6.5, §6.6 (new), §7.5, §11 and §12.5 (O57). Every other motion model
+are tagged [Design] in §6.5, §6.6 (new), §7.5, §11 and §12.5 (O57). Every other motion model
 is unchanged.
 
 **Feasibility and λ.** The contour holds the evaluation point on the level set $D_o = \lambda$ of

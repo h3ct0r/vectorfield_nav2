@@ -19,8 +19,8 @@
 /// \f$R(\psi) = \cos\psi\, I + \sin\psi\, J\f$, \f$\mathbf h(\psi) = (\cos\psi, \sin\psi)^\top\f$,
 /// \f$a \times b = a_x b_y - a_y b_x\f$, \f$\operatorname{wrap}(a) \in (-\pi, \pi]\f$,
 /// \f$\operatorname{clamp}(a, l, u) = \min(u, \max(l, a))\f$ and \f$\operatorname{sgn}(0) = 0\f$.
-/// Units are SI and angles are radians. Everything is 2D (plan §3.1); the 3D milestone (M7)
-/// adds its own types.
+/// Units are SI and angles are radians. Everything is 2D; the 3D core (namespace d3)
+/// has its own types.
 ///
 /// All types here are fixed-size and trivially destructible, so they may appear in
 /// `TrackerState`. Eigen types are not trivially copyable: copy member-wise, never `memcpy`.

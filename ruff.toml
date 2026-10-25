@@ -21,7 +21,6 @@ extend-exclude = [
   "**/third_party/**",
   "install",
   "log",
-  ".research",
 ]
 
 [format]

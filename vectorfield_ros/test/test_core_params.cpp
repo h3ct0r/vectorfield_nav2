@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Node-level parameter handling (plan §4 "Shared validation", "Cross-validator"; §5.4 "Tests"):
+// Node-level parameter handling:
 // setNodeDerivedFields(), controllerFrequencyOf(), validateParams(), validateFromNode() and the
 // CrossValidator.
 

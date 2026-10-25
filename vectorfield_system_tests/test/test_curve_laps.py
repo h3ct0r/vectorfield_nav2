@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Curve follower laps on vectorfield_sim (M5 exit criteria), for ``VF_TEST_MOTION_MODEL``.
+"""Curve follower laps on vectorfield_sim, for ``VF_TEST_MOTION_MODEL``.
 
 curve_follower_demo on ``open_10x10``. Each closed curve is approached as send_curve.py does
 (NavigateToPose to its closest point, facing along the tangent), then followed for 3 laps at

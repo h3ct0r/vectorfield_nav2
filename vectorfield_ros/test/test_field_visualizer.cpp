@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// FieldVisualizer (plan §4.1; §9 layer 2 "visualization"): with a subscriber, `markers` is
+// FieldVisualizer (§9 layer 2 "visualization"): with a subscriber, `markers` is
 // published every cycle and `field_grid` at `field_grid_rate`; with no subscriber the builder is
 // never called; `visualize: false` publishes nothing; clear() and on_deactivate() send DELETEALL.
 

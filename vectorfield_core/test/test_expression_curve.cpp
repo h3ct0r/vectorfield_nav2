@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ExpressionCurve on muParser: hardening (plan §3.2, §6), oracle O12 of math_spec §12.1 and the
+// ExpressionCurve on muParser: hardening, oracle O12 of math_spec §12.1 and the
 // upstream regressions U01–U03 (docs/design/upstream_audit.md).
 
 #include <gtest/gtest.h>

@@ -175,7 +175,7 @@ the $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the side arrow an
 
 A car cannot turn tighter than `min_turning_radius` $R_{\min}$ and cannot rotate in place, so the
 contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
-{doc}`design/m7_ackermann_contour`):
+{doc}`design/ackermann_contour`):
 
 - **Larger distances.** The field is evaluated at the rear axle (`reference_point_offset`). Around
   a convex obstacle corner the circulation is a circle of radius about $\lambda$, so the auto values
@@ -211,7 +211,7 @@ contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
 ## CBF mode
 
 With `obstacle_mode: cbf`, a control-barrier-function filter acts on the path field every cycle
-({ref}`sec-cbf`, {doc}`design/m7_cbf`). It has no episodes, no gate and no side to choose. The
+({ref}`sec-cbf`, {doc}`design/cbf`). It has no episodes, no gate and no side to choose. The
 barrier is $h = D_o - \delta_{\mathrm{safe}}$. $D_o$ is the obstacle distance at the point where
 the law evaluates the field: the control point for feedback linearization, base_link for
 holonomic and heading tracking. $\delta_{\mathrm{safe}}$ is the radius of the smallest disc

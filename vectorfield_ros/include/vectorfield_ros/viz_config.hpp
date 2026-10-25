@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /// @file
-/// @brief Visualization parameters (the Visualization group of plan §5.4).
+/// @brief Visualization parameters (the Visualization parameter group).
 ///
 /// These keys live in `vectorfield_common_params` but have no vectorfield_core field: they are
 /// the ROS-only allow-list of the parameter-coverage test (core_params.hpp,
@@ -59,7 +59,7 @@ constexpr bool fromString(std::string_view text, FieldGridStyle * out) noexcept
   return false;
 }
 
-/// @brief Visualization settings (plan §4.1, §5.4). Defaults equal the parameter defaults.
+/// @brief Visualization settings. Defaults equal the parameter defaults.
 struct VizConfig
 {
   /// `visualize`: master switch. Even when true, each topic is built and published only while it

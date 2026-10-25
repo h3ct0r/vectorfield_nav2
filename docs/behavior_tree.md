@@ -4,7 +4,7 @@
 goals to the curve follower's `follow_curve` action ({doc}`curve_follower`). A tree can drive to
 a curve with Nav2's planner and controller, follow the curve, and recover when the follower
 gives up, all inside `bt_navigator`. The package also ships `bt_runner`, a small executor that
-ticks a tree from a file without `bt_navigator`. {doc}`design/m7_follow_curve_bt` records the
+ticks a tree from a file without `bt_navigator`. {doc}`design/follow_curve_bt` records the
 design and the per-distro differences.
 
 ## The node

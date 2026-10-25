@@ -52,7 +52,7 @@ def describe(samples, limit=5):
 
 
 def check_goal(test, nav, episode, goal, motion_model):
-    """Assert that a goal on a free path succeeded cleanly (M3 exit criteria)."""
+    """Assert that a goal on a free path succeeded cleanly."""
     x, y, _ = goal
     label = f'goal ({x:.2f}, {y:.2f})'
     duration = episode.end - episode.start

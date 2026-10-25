@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Closed-loop kinematic simulation of a Tracker: zero-order hold, exact integration,
-/// optional slip and bounded disturbance (plan §3.2, §8; used by tests and the Python tools).
+/// optional slip and bounded disturbance (used by tests and the Python tools).
 ///
-/// Implemented in src/simulator.cpp (M1 wave 3, tracker). Not a hot path: it records every step
+/// Implemented in src/simulator.cpp. Not a hot path: it records every step
 /// and may allocate.
 
 #ifndef VECTORFIELD_CORE__SIMULATOR_HPP_

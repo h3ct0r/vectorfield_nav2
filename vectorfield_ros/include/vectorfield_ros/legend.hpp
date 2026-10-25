@@ -14,13 +14,13 @@
 
 /// @file
 /// @brief The visualization legend: marker namespaces, their stable ids and their colours
-/// (plan §4.1). **The single source of truth** shared by MarkerBuilder, the RViz/Foxglove configs
-/// of vectorfield_bringup (M3) and docs/visualization.md (M6); change them together.
+///. **The single source of truth** shared by MarkerBuilder, the RViz/Foxglove configs
+/// of vectorfield_bringup and docs/visualization.md; change them together.
 ///
 /// Every `<ns>/markers` message contains exactly one marker per (namespace, id) listed here:
 /// `ADD` when it applies this cycle, `DELETE` otherwise. The output is therefore a pure function
 /// of the cycle and never leaves stale markers behind; a `DELETEALL` is sent only on goal end,
-/// reset and deactivation. The total is kMarkerCount (≤ 80, plan §9 layer 2).
+/// reset and deactivation. The total is kMarkerCount (≤ 80).
 ///
 /// Header-only data; constexpr everywhere.
 
@@ -115,7 +115,7 @@ constexpr Rgba phaseColor(vectorfield_core::Phase phase) noexcept
   return kSlate;
 }
 
-/// @name Colours per namespace (plan §4.1 table)
+/// @name Colours per namespace
 /// @{
 /// footprint: normal.
 inline constexpr Rgba kFootprintNormal = kGreen;
@@ -345,7 +345,7 @@ constexpr std::size_t markerCount() noexcept
 /// @brief kMarkerCount = markerCount().
 inline constexpr std::size_t kMarkerCount = markerCount();
 
-static_assert(kMarkerCount <= 80, "plan §9: at most 80 markers besides the field grid");
+static_assert(kMarkerCount <= 80, "at most 80 markers besides the field grid");
 static_assert(
   static_cast<std::size_t>(Ns::kCurveInfo) + 1 == kNamespaceCount, "Ns and kNamespaces differ");
 

@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief Shared helpers of the closed-loop oracle, scenario and upstream-regression tests
-/// (math_spec §12; plan §3.5). Written from the specification and the public headers only.
+/// (math_spec §12). Written from the specification and the public headers only.
 ///
 /// Contents:
 /// - the default test configuration TC of math_spec §12 (tcConfig() and friends);
@@ -545,7 +545,7 @@ inline double travelToContact(
 }
 
 // ------------------------------------------------------------------------------------------------
-// Plugin-style window (math_spec §2.8 "Plugin window"; plan §5.1–§5.2)
+// Plugin-style window (math_spec §2.8 "Plugin window")
 // ------------------------------------------------------------------------------------------------
 
 /// @brief A raw plan re-pruned around the robot every cycle, Gen A/B style: the start index is

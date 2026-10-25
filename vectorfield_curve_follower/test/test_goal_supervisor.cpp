@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// GoalSupervisor (plan §6): the precedence table (cancel/deactivation > kBlocked and the progress
+// GoalSupervisor: the precedence table (cancel/deactivation > kBlocked and the progress
 // watchdog > the Assumption-3 timer, paused while kBlocked), the timers of the holds, and the
 // deceleration ramp.
 

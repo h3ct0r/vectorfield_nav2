@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The follower's parameter tables (plan §4 "Binding tables", §9 layer 2b): default parity and
+// The follower's parameter tables: default parity and
 // coverage over the union of the tables the follower owns (kCommonCoreParams and
 // kFollowerCoreParams) and its ROS-only allow-list, on the gpl structs and on a configured
 // CurveFollower. Parameters that libraries declare on the node (use_sim_time, the TwistPublisher's

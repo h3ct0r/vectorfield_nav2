@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// One control cycle: Tracker::step with the plugin's setup (plan §3.5 target: < 1 ms for a
+// One control cycle: Tracker::step with the plugin's setup (target: < 1 ms for a
 // 100-vertex window, the 1.5 s collision horizon and contour on). The episode start, which adds
 // the two side-probe rollouts, is reported separately.
 //

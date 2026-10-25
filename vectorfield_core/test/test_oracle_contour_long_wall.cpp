@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Contour oracle O35 with a long parallel wall (math_spec §6.4, §12.5; design-review request):
+// Contour oracle O35 with a long parallel wall (math_spec §6.4, §12.5):
 // the wall runs alongside the whole approach instead of only beside the box.
 
 #include <gtest/gtest.h>

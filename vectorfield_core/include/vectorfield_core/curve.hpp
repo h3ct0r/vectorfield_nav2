@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /// @file
-/// @brief The abstract curve interface (plan §3.2; math_spec §2).
+/// @brief The abstract curve interface (math_spec §2).
 ///
 /// Implementations: PolylineCurve (polyline_curve.hpp), ParametricCurve (parametric_curve.hpp)
 /// and, through makeCurve() (curve_spec.hpp), the built-in shapes and ExpressionCurve, which are
@@ -38,7 +38,7 @@ struct CurveSpec;
 ///
 /// **Frames.** Every input and output is in the curve frame \f$\mathcal F\f$. The Tracker maps
 /// the evaluation point in with `CurveFrame::T_eval_curve` and maps \f$x^\star\f$, \f$T\f$,
-/// \f$n\f$ and \f$\partial r/\partial t\f$ back (plan §3.1).
+/// \f$n\f$ and \f$\partial r/\partial t\f$ back.
 ///
 /// **Open curves are borderless.** They are extended at both ends by semi-infinite rays along
 /// the end tangents (math_spec §2.1 [Design]): closestPoint() may return a foot on a ray,

@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Tracking laws: holonomic, feedback linearisation, heading tracking (with the
-/// \f$\dot\psi_d\f$ probes), Ackermann rules and the rotate law (plan §3.2; math_spec §7).
+/// \f$\dot\psi_d\f$ probes), Ackermann rules and the rotate law (math_spec §7).
 ///
-/// Implemented in src/tracking_law.cpp (M1 wave 2, field/laws/limiter). The public API is
-/// binding; private members are the implementer's choice. The enum `TrackingLaw` (config.hpp)
+/// Implemented in src/tracking_law.cpp. The enum `TrackingLaw` (config.hpp)
 /// names the law; the class that runs it is ControlLaw.
 
 #ifndef VECTORFIELD_CORE__TRACKING_LAW_HPP_
@@ -34,7 +33,7 @@
 namespace vectorfield_core
 {
 
-/// @brief What a field probe returns at a point (plan §3.2 TrackingLaw; math_spec §7.4).
+/// @brief What a field probe returns at a point (math_spec §7.4).
 ///
 /// Computed by the Tracker with this cycle's frozen hint, K and gate, so a probe sees exactly the
 /// field the controller uses (also for the `field_grid` visualisation).
@@ -124,14 +123,14 @@ struct LawInput
   double vertex_spacing{0.0};
   /// The field is time-varying: \f$\partial_t\psi_d\f$ is probed (math_spec §7.4).
   bool time_varying{false};
-  /// A contour episode is active (math_spec §6.6 [Design, M7]). Ackermann only: the speed factor
+  /// A contour episode is active (math_spec §6.6 [Design]). Ackermann only: the speed factor
   /// \f$\cos e\f$ is floored at kContourTurnSpeedFactor and \f$\lvert e\rvert > \pi/2\f$ does not
   /// set kHeadingInfeasible, so the car keeps turning at \f$R_{\min}\f$ toward the field.
   bool contour_episode{false};
 };
 
 /// @brief Floor of heading tracking's speed factor \f$\cos e\f$ for Ackermann during a contour
-/// episode (math_spec §6.6 [Design, M7]).
+/// episode (math_spec §6.6 [Design]).
 inline constexpr double kContourTurnSpeedFactor = 0.5;
 
 /// @brief Output of a translation law, before the kinematic box.
@@ -244,7 +243,7 @@ public:
   const Kinematics & kinematics() const noexcept;
 
   /// @brief This law with the drive sign \f$q\f$ (−1: body \f$-x\f$) in place of the
-  /// configured one: a reverse plan segment (math_spec §9.4 [Design, M7]); for any model.
+  /// configured one: a reverse plan segment (math_spec §9.4 [Design]); for any model.
   ControlLaw withDriveSign(double q) const noexcept;
 
   /// @brief Translation law of a phase (FOLLOW or FINAL_APPROACH).

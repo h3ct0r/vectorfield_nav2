@@ -40,9 +40,7 @@ translated.
 Third-party code
 ================
 
-The following third-party code is adapted or bundled. Each entry states the
-milestone in which it enters the repository; entries marked "planned" are not
-yet present.
+The following third-party code is adapted or bundled.
 
 1. Nav2 FeasiblePathHandler (navigation2, nav2_controller)
    https://github.com/ros-navigation/navigation2
@@ -53,7 +51,6 @@ yet present.
    Use: ported as LegacyPathHandler in vectorfield_nav2_controller for the
    pre-Lyrical controller API (Humble, Jazzy), with attribution in the
    source files.
-   Status: planned for milestone M2.
 
 2. muParser
    https://github.com/beltoforion/muparser

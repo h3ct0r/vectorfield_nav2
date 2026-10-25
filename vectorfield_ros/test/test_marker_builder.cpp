@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// MarkerBuilder (plan §4.1; §9 layer 2 "visualization"): for every phase × status combination
+// MarkerBuilder (§9 layer 2 "visualization"): for every phase × status combination
 // exactly the legend's namespaces are present and the others are DELETEd, ids are stable, every
 // marker is in the control frame with the cycle stamp and finite coordinates, the colours match
 // the legend, and the other messages (field_grid, window, predicted_path, obstacle_distance,
@@ -94,7 +94,7 @@ std::set<std::string> present(const MarkerArray & a)
   return out;
 }
 
-/// @brief The legend's applicability rules (plan §4.1 table), evaluated on the cycle.
+/// @brief The legend's applicability rules, evaluated on the cycle.
 std::set<std::string> expectedNamespaces(const MarkerContext & c)
 {
   const vf::TrackerOutput & out = *c.output;

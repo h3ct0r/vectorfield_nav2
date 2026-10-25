@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The binding table kFollowerCoreParams (plan §4). As in vectorfield_ros' kCommonCoreParams, a
+// The binding table kFollowerCoreParams. As in vectorfield_ros' kCommonCoreParams, a
 // row is written once from the member name, so the parameter name, the gpl Params member and
 // the core member cannot drift apart.
 

@@ -14,15 +14,15 @@
 
 /// @file
 /// @brief LegacyPathHandler: the plan window of the Gen A/B controller API (Humble to Kilted),
-/// a port of Nav2's `nav2_controller::FeasiblePathHandler` from navigation2 `main` (plan §5.1;
-/// nav2_api_matrix.md §3.3).
+/// a port of Nav2's `nav2_controller::FeasiblePathHandler` from navigation2 `main`
+/// (nav2_api_matrix.md §3.3).
 ///
 /// Adapted from navigation2 (https://github.com/ros-navigation/navigation2),
 /// `nav2_controller/plugins/feasible_path_handler.{hpp,cpp}`, Apache-2.0:
 /// Copyright (c) 2022 Samsung Research America, \@artofnothingness Alexey Budyakov;
 /// Copyright (c) 2023 Dexory; Copyright (c) 2023 Open Navigation LLC. See NOTICE.
 ///
-/// Implemented in src/legacy_path_handler.cpp (M2 wave 2, path). A plain class, compiled on every
+/// Implemented in src/legacy_path_handler.cpp. A plain class, compiled on every
 /// distro (so the parity test can run it on Lyrical against the real FeasiblePathHandler); the
 /// plugin constructs it, and the gpl listener of its parameters, only under
 /// `#if !VF_HAS_PATH_HANDLER`. On Gen C the server's own path handler builds the window.
@@ -41,7 +41,7 @@
 namespace vectorfield_nav2_controller
 {
 
-/// @brief Configuration of LegacyPathHandler: the Legacy group of plan §5.4, declared by
+/// @brief Configuration of LegacyPathHandler: the Legacy parameter group, declared by
 /// `vectorfield_legacy_path_params` under the plugin prefix (Gen A/B only, read-only).
 struct LegacyPathConfig
 {
@@ -71,7 +71,7 @@ struct LegacyPathOutput
   geometry_msgs::msg::TransformStamped costmap_from_plan;
 };
 
-/// @brief The Gen A/B plan window (plan §5.1).
+/// @brief The Gen A/B plan window.
 ///
 /// Each cycle (computeWindow()), exactly like `main`'s FeasiblePathHandler:
 /// 1. an empty plan, or a one-pose plan with `reject_unit_path`, throws `InvalidPath`;

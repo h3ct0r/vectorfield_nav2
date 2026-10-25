@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Pure path-conditioning helpers: follower polylines and the plugin window
-/// (plan §5.1–§5.3; math_spec §2.8, sec-conditioning).
+/// (math_spec §2.8, sec-conditioning).
 ///
-/// Implemented in src/conditioning.cpp (M1 wave 2, polyline). Outputs go to caller-owned
+/// Implemented in src/conditioning.cpp. Outputs go to caller-owned
 /// `std::vector`s that are cleared and refilled: once their capacity suffices they never
 /// allocate, so the plugin's per-cycle helpers (dedupe, tailCondition, kappaPath, onePoseWindow)
 /// are allocation-free in steady state. Unless stated otherwise, an output vector must not
@@ -95,7 +95,7 @@ struct EndTangent
   bool valid{false};
 };
 
-/// @brief Plugin end tangent of a raw plan, in the plan frame (math_spec §2.8; plan §5.1).
+/// @brief Plugin end tangent of a raw plan, in the plan frame (math_spec §2.8).
 ///
 /// Walks back from the last pose \f$g\f$ to the first pose \f$p\f$ with \f$\lVert g - p\rVert \ge
 /// \ell_c\f$ and returns \f$\operatorname{unit}(g - p)\f$ with `found_chord`. Otherwise returns
@@ -212,7 +212,7 @@ std::array<Vec2, 2> onePoseWindow(const Vec2 & base, const Pose2 & last) noexcep
 /// @param closed Closed polyline.
 double kappaPath(Span<const Vec2> vertices, bool closed) noexcept;
 
-/// @brief One segment of a raw plan between cusps (math_spec §9.4 [Design, M7]).
+/// @brief One segment of a raw plan between cusps (math_spec §9.4 [Design]).
 struct PlanSegment
 {
   /// Raw index of the first pose (0, or the previous segment's cusp).
@@ -226,7 +226,7 @@ struct PlanSegment
 };
 
 /// @brief Splits a raw plan at its cusps and gives each segment a drive sign (math_spec §2.8,
-/// §9.4 [Design, M7]).
+/// §9.4 [Design]).
 ///
 /// Cusps come from findCusps(). With headings (planHasHeadings()), a segment's sign is that of
 /// \f$\sum_k (p_{k+1} - p_k)^\top \mathbf h(\psi_k)\f$ when its magnitude is at least half the

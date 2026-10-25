@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief Speed shaping terms, the kinematic box (uniform \f$c\f$ and the \f$\eta\f$-box) and the
-/// CommandLimiter (plan §3.4; math_spec §8).
+/// CommandLimiter (math_spec §8).
 ///
-/// Implemented in src/limiter.cpp (M1 wave 2, field/laws/limiter). The public API is binding;
-/// private members are the implementer's choice.
+/// Implemented in src/limiter.cpp.
 
 #ifndef VECTORFIELD_CORE__LIMITER_HPP_
 #define VECTORFIELD_CORE__LIMITER_HPP_

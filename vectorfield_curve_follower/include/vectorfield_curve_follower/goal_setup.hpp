@@ -13,8 +13,8 @@
 // limitations under the License.
 
 /// @file
-/// @brief Goal validation and the goal-scoped configuration of a FollowCurve goal (plan §6
-/// "Execution model"). Pure: no node; the caller passes the time and the configuration.
+/// @brief Goal validation and the goal-scoped configuration of a FollowCurve goal.
+/// Pure: no node; the caller passes the time and the configuration.
 ///
 /// An active action server never rejects a goal: execute calls prepareGoal() first and, on a
 /// rejection, terminates the goal before publishing anything. The checks, in order:
@@ -48,7 +48,7 @@ namespace vectorfield_curve_follower
 {
 
 /// @brief The configuration of one goal: a copy of the node's configuration with the goal's
-/// overrides (plan §6 "Goal-scoped configuration"): `desired_speed` when the goal's is > 0,
+/// overrides: `desired_speed` when the goal's is > 0,
 /// `direction` = −1 for `reverse_direction`, and ROTATE_TO_HEADING disabled (the follower has no
 /// goal heading).
 vectorfield_core::CoreConfig goalScopedConfig(
@@ -112,7 +112,7 @@ std::optional<GoalRejection> prepareGoal(
   const vectorfield_msgs::action::FollowCurve::Goal & goal, const GoalSetupContext & context,
   PreparedGoal * out);
 
-/// @brief Whether a preempting goal keeps the TrackerState of the current one (plan §6): the
+/// @brief Whether a preempting goal keeps the TrackerState of the current one: the
 /// same CurveSpec (`t0` ignored for curves that do not vary in time), the same frame and frame
 /// motion, and the same `desired_speed` and `reverse_direction` overrides.
 bool keepsTrackerState(const PreparedGoal & current, const PreparedGoal & next);

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Conversions between ROS messages and vectorfield_core types (plan §4 "Conversions").
+// Conversions between ROS messages and vectorfield_core types.
 //
 // Costmap sizes in metres are cells × resolution in both toCostmapInfo() overloads (the extent
 // the grid covers), not Costmap2D::getSizeInMetersX(), which is half a cell short; so the plugin

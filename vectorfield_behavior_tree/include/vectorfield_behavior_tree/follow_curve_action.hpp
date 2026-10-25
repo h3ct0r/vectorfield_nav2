@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief FollowCurveAction: the Nav2 behaviour-tree node `FollowCurve`, a client of the curve
-/// follower's `follow_curve` action (docs/design/m7_follow_curve_bt.md, docs/behavior_tree.md).
+/// follower's `follow_curve` action (docs/design/follow_curve_bt.md, docs/behavior_tree.md).
 ///
 /// The goal comes either from the `curve` port (a `vectorfield_msgs/msg/Curve`, usually a
 /// blackboard entry) or from the `shape`, `parameters` and `frame_id` ports (a built-in closed

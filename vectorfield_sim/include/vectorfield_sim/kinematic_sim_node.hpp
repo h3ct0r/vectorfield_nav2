@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief The kinematic simulator node (rclcpp component `vectorfield_sim::KinematicSimNode`,
-/// executable `kinematic_sim`; plan §8).
+/// executable `kinematic_sim`).
 ///
 /// **Interface** (relative names resolve in the node's namespace):
 ///

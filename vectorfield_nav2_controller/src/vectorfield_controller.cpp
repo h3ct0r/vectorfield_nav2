@@ -53,9 +53,9 @@ namespace compat = vectorfield_ros::compat;
 namespace
 {
 
-/// A footprint vertex moving more than this is a footprint change (plan §4).
+/// A footprint vertex moving more than this is a footprint change.
 constexpr double kFootprintChangeTolerance = 1e-3;
-/// WindowScan margins behind and ahead of the evaluation offset d (plan §5.2 step 2).
+/// WindowScan margins behind and ahead of the evaluation offset d.
 constexpr double kWindowScanBehind = 0.3;
 constexpr double kWindowScanAhead = 0.5;
 /// Suffix of the primary controller's name under a Lyrical rotation shim.
@@ -146,7 +146,7 @@ struct VectorFieldController::Impl
   std::uint32_t entered_goal{0};
   /// @}
 
-  /// @name Plan segments (math_spec §9.4 [Design, M7]; control thread)
+  /// @name Plan segments (math_spec §9.4 [Design]; control thread)
   /// @{
   /// The last raw plan; segment windows are cut from it (`raw_poses` holds its poses).
   nav_msgs::msg::Path raw_plan;
@@ -222,7 +222,7 @@ struct VectorFieldController::Impl
     if (tracker) {
       const vf::CoreConfig & before = tracker->config();
       const vf::CoreConfig & after = next->config();
-      // An episode ends when the mode or λ changes; a law change restarts in FOLLOW (plan §4).
+      // An episode ends when the mode or λ changes; a law change restarts in FOLLOW.
       if (
         before.obstacles.obstacle_mode != after.obstacles.obstacle_mode ||
         before.obstacles.obstacle_contour_distance != after.obstacles.obstacle_contour_distance) {
@@ -247,7 +247,7 @@ struct VectorFieldController::Impl
     config_error.clear();
   }
 
-  /// The transactional rebuild (plan §4): builds into a temporary, swaps only on success.
+  /// The transactional rebuild: builds into a temporary, swaps only on success.
   void rebuild(const std::vector<geometry_msgs::msg::Point> & footprint, const char * cause)
   {
     vf::CoreConfig config;
@@ -481,7 +481,7 @@ void VectorFieldController::configure(
   s.install(std::make_unique<vf::Tracker>(config), s.seen_footprint);
   s.state = vf::Tracker::initialState();
 
-  // Registered after the listeners: rclcpp runs it first (plan §4).
+  // Registered after the listeners: rclcpp runs it first.
   std::vector<vr::ParamSetter> setters;
   vr::appendSetters(vr::kCommonCoreParams, &setters);
   Impl * impl = impl_.get();
@@ -500,7 +500,7 @@ void VectorFieldController::configure(
   s.edt.reserve(width, height);
   s.mask.reserve(static_cast<std::size_t>(width) * static_cast<std::size_t>(height));
 
-  // Rotation shim with contour (plan §5.3): supported only on Jazzy/Kilted with
+  // Rotation shim with contour: supported only on Jazzy/Kilted with
   // rotate_to_heading_once.
   const bool shim =
     endsWith(s.name, kShimPrimarySuffix) || node->has_parameter(s.name + kShimPrimarySuffix);
@@ -708,7 +708,7 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
   const vf::Tracker & tracker = *s.tracker;
   const vf::CoreConfig & config = tracker.config();
 
-  // Window conditioning (plan §5.2 step 1).
+  // Window conditioning.
   vr::toPoses(window, &s.window_poses);
   const vf::Pose2 base = vr::toPose2(pose.pose);
   const vf::Pose2 goal_pose = vr::toPose2(goal.pose);
@@ -778,7 +778,7 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
       goal_checker, s.xy_latch, pose, goal, velocity, window, tolerances.xy);
   }
 
-  // A footprint that already collides gets no command (plan §5.2 step 5).
+  // A footprint that already collides gets no command.
   if (
     obstacles && config.safety.use_collision_detection && !s.cancelling &&
     s.checker->collides(base, s.grid, s.edt)) {
@@ -804,7 +804,7 @@ geometry_msgs::msg::TwistStamped VectorFieldController::computeCommandImpl(
 
   const vf::TrackerOutput output = tracker.step(input, s.state, &s.state, s.scratch);
 
-  // Commit before acting (plan §3.1).
+  // Commit before acting.
   geometry_msgs::msg::TwistStamped command;
   command.header.frame_id = s.base_frame;
   command.header.stamp = pose.header.stamp;

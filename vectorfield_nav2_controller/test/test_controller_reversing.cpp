@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2, M7 reversing (math_spec §9.4, docs/design/m7_reversing.md): plans with a cusp under
+// Layer 2, reversing (math_spec §9.4, docs/design/reversing.md): plans with a cusp under
 // allow_reversing for each motion model, a cusp that jitters across replans, sharp forward
 // corners that are no cusps (math_spec §2.8, 0.2.1), and (Lyrical) the path handler's
 // enforce_path_inversion and enforce_path_rotation.
@@ -156,7 +156,7 @@ TEST_P(ReversingModels, StopsAtTheCuspThenReversesToTheGoal)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-  M7, ReversingModels,
+  Reversing, ReversingModels,
   ::testing::Values(
     std::make_tuple("differential", "feedback_linearization"),
     std::make_tuple("differential", "heading_tracking"), std::make_tuple("ackermann", "auto"),
@@ -189,7 +189,7 @@ TEST_P(HeadinglessReverse, APlanBehindTheRobotIsBackedUp)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-  M7, HeadinglessReverse, ::testing::Values("differential", "ackermann"),
+  Reversing, HeadinglessReverse, ::testing::Values("differential", "ackermann"),
   [](const ::testing::TestParamInfo<std::string> & case_info) { return case_info.param; });
 
 TEST(Reversing, ACuspThatJittersAcrossReplansDoesNotFlipTwice)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// LapCounter (plan §6 "Progress and laps"): wrap of s*/L, laps_completed, remaining_arc_length,
+// LapCounter: wrap of s*/L, laps_completed, remaining_arc_length,
 // ±5 cm dithering and a start 5 cm before s = 0.
 
 #include <gtest/gtest.h>

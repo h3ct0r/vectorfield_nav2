@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Allocation behaviour of the polyline hot path (plan §3.1 "Allocation"): closestPoint() and the
+// Allocation behaviour of the polyline hot path: closestPoint() and the
 // curve queries never allocate, assign() reuses capacity, and the plugin's per-cycle
 // conditioning helpers are allocation-free once their outputs have capacity.
 //

@@ -383,7 +383,7 @@ TEST(ConfigReject, InvalidModelLawPair)
 
 TEST(Config, AckermannContourAutoValues)
 {
-  // math_spec §6.6 [Design, M7]: lambda = max(auto, R_min + w_lat + 0.05), D_in = lambda + R_min,
+  // math_spec §6.6 [Design]: lambda = max(auto, R_min + w_lat + 0.05), D_in = lambda + R_min,
   // D'_in = D_in + 0.2, lookahead = max(1.0, v_r T_h, D'_in + 0.1). TC footprint: w_lat = 0.22.
   CoreConfig config = ackermann();
   config.obstacles.obstacle_mode = ObstacleMode::kContour;

@@ -123,7 +123,7 @@ TEST(Kinematics, FromConfigCopiesTheMotionGroup)
   EXPECT_DOUBLE_EQ(k.reference_point_offset, -0.3);
   EXPECT_DOUBLE_EQ(k.min_turning_radius, 0.8);
   EXPECT_DOUBLE_EQ(k.ackermann_min_speed, 0.07);
-  // Ackermann ignores the configured drive_backward; only plan segments reverse it (M7).
+  // Ackermann ignores the configured drive_backward; only plan segments reverse it.
   EXPECT_FALSE(k.drive_backward);
   EXPECT_TRUE(k.allow_reversing);
   config.motion.motion_model = MotionModel::kDifferential;

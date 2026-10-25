@@ -27,8 +27,7 @@ ignore:
 
 coverage:
   status:
-    # Informational until the core reaches its M1 target (>= 90% on
-    # vectorfield_core/src and include).
+    # Informational; the target is >= 90% on vectorfield_core/src and include.
     project:
       default:
         informational: true

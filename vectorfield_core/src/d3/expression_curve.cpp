@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // ExpressionCurve3: three muParser expressions with the shared hardening of
-// src/expression_parser.hpp (plan §3.2; math_spec §14.1).
+// src/expression_parser.hpp (math_spec §14.1).
 
 #include "expression_curve.hpp"
 

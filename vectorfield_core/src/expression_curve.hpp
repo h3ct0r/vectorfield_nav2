@@ -34,7 +34,7 @@ namespace vectorfield_core::detail
 // kMaxExpressionNameLength and isReservedExpressionName() are declared in expression_parser.hpp.
 
 /// @brief A curve \f$r(s, t) = (x(s, t), y(s, t))\f$ given by two muParser expressions in `s`,
-/// `t` and named parameters (plan §3.2, §6; upstream audit U01–U05).
+/// `t` and named parameters (upstream audit U01–U05).
 ///
 /// **Hardening** (from construction onward):
 /// - declared parameters are bound with `DefineConst`, so assigning to one is a parse error;

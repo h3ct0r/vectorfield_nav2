@@ -4,8 +4,8 @@ Launch files, Nav2 parameter overlays, maps and viewer configurations for runnin
 vectorfield_nav2 controller and curve follower in simulation, and for seeing in RViz what the
 robot is doing.
 
-**Status:** the controller demos, overlays, maps and viewer configurations (M3) and the curve
-follower demo with its scripts (M5) are implemented.
+**Status:** the controller demos, overlays, maps and viewer configurations and the curve
+follower demo with its scripts are implemented.
 
 ## Demos
 
@@ -57,7 +57,7 @@ form.
 | Path | Contents |
 |---|---|
 | `config/controller/` | Motion-model overlays: `differential`, `skid_steer`, `omnidirectional`, `ackermann` |
-| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the M5 follower), `follow_curve_bt` (bt_navigator runs `behavior_trees/follow_curve.xml`; with `curve_follower_demo`) |
+| `config/scenario/` | Scenario overlays: `kinematic_sim`, `loopback`, `demo_obstacles` (unmapped obstacles for `vectorfield_sim`, global obstacle layer off), `curve_follower` (local costmap for the curve follower), `follow_curve_bt` (bt_navigator runs `behavior_trees/follow_curve.xml`; with `curve_follower_demo`) |
 | `config/humble/` | `collision_monitor.yaml`, the only distro-specific file |
 | `config/examples/` | Templates to copy into your own `nav2_params.yaml` (`nav2_params_vectorfield_differential`, `_omnidirectional`, `_ackermann`), and the rotation-shim overlays `rotation_shim_humble_jazzy` and `rotation_shim_lyrical`; see the "Your robot" tutorial |
 | `behavior_trees/` | Trees with the `FollowCurve` node of `vectorfield_behavior_tree`: `follow_curve.xml` (approach with Nav2, then one lap of an ellipse) and `follow_curve_patrol.xml` (a patrol with a recovery); docs/behavior_tree.md |

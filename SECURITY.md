@@ -2,14 +2,15 @@
 
 ## Supported versions
 
-vectorfield_nav2 has not been released yet (milestone M0). Until 0.1.0, only the latest commit on `main` receives fixes.
+Fixes go to the latest release and to `main`.
 
 | Version | ROS 2 distributions | Supported |
 |---|---|---|
-| `main` (0.0.x, unreleased) | Humble, Jazzy, Lyrical; Rolling best effort | Yes |
+| The latest release, and `main` | Humble, Jazzy, Lyrical; Rolling best effort | Yes |
+| Older releases | — | No: upgrade to the latest |
 | Kilted builds | — | No (unsupported distribution) |
 
-After 0.1.0, fixes go to the latest release on each supported distribution (Humble, Jazzy, Lyrical) until that distribution reaches end of life. See the support policy in [CONTRIBUTING.md](CONTRIBUTING.md#support-policy).
+Fixes go to the latest release on each supported distribution (Humble, Jazzy, Lyrical) until that distribution reaches end of life. See the support policy in [CONTRIBUTING.md](CONTRIBUTING.md#support-policy).
 
 ## Reporting a vulnerability
 
@@ -24,15 +25,15 @@ Include the affected package and commit or version, the ROS 2 distribution, a de
 
 vectorfield_nav2 is a navigation controller, not a safety-rated component. Keep it behind Nav2's velocity smoother and collision monitor (on Humble, the separately launched collision monitor), as the shipped bringup does, and rely on certified hardware for safety functions.
 
-### The Nav2 controller plugin (planned for M2)
+### The Nav2 controller plugin
 
 The plugin receives plans, costmaps and parameters through Nav2's `controller_server`. It trusts those inputs exactly as much as Nav2 does. Parameter updates are validated before they are applied; rejected updates leave the previous configuration in place.
 
-### FollowCurve goals (planned for M5)
+### FollowCurve goals
 
 The `follow_curve` action server accepts curve definitions, including mathematical expressions, from any client on the ROS 2 graph. **Goal validation is the trust boundary.** Goals are accepted and then validated in full before any velocity command is published; an invalid goal ends with `INVALID_CURVE`, `INVALID_GOAL` or `UNSUPPORTED` and the robot does not move.
 
-Expressions are evaluated with the vendored [muParser](https://github.com/beltoforion/muparser), never with a general-purpose interpreter (the ROS 1 predecessor evaluated expressions received over a topic with Python's `eval()`). The parser is restricted as follows (implemented in M1, `vectorfield_core` `ExpressionCurve`):
+Expressions are evaluated with the vendored [muParser](https://github.com/beltoforion/muparser), never with a general-purpose interpreter (the ROS 1 predecessor evaluated expressions received over a topic with Python's `eval()`). The parser is restricted as follows (`vectorfield_core` `ExpressionCurve`):
 
 - `s` and `t` are the only variables, written immediately before each evaluation.
 - Declared parameters are bound as constants, so an expression that assigns to them fails to parse.
@@ -58,4 +59,4 @@ ROS 2 does not authenticate graph participants by default: anything that can rea
 
 ## Third-party code
 
-muParser is vendored unmodified at a pinned commit that includes the OSS-Fuzz fixes (planned for M1). Vulnerabilities in muParser itself should also be reported upstream; we will update the pinned copy.
+muParser is vendored unmodified at a pinned commit that includes the OSS-Fuzz fixes. Vulnerabilities in muParser itself should also be reported upstream; we will update the pinned copy.

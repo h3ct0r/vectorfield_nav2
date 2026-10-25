@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: goal checkers other than SimpleGoalChecker.
+// Layer 2, through the server harness: goal checkers other than SimpleGoalChecker.
 // Ackermann with PositionGoalChecker and failure_tolerance 0 (its identity orientation means "yaw
 // unchecked"; Humble computes once more on arrival, nav2_api_matrix.md §4.1) and AxisGoalChecker
 // final approaches (Lyrical and later). The rotation shim has its own binary: Jazzy's shim library

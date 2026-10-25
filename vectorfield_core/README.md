@@ -6,7 +6,7 @@ Pimenta (IEEE T-RO 38(2), 2022). The Nav2 controller plugin (`vectorfield_nav2_c
 curve follower (`vectorfield_curve_follower`) and the Python bindings (`vectorfield_py`) all
 call the same core code.
 
-**Status:** complete (M1); used by every other package. Version 0.x; the C++ API is
+**Status:** complete; used by every other package. Version 0.x; the C++ API is
 experimental until 1.0.
 
 ## Features

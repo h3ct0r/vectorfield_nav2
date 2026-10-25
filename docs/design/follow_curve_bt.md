@@ -1,4 +1,4 @@
-# M7: the FollowCurve behaviour-tree node
+# The FollowCurve behaviour-tree node
 
 A Nav2 behaviour-tree action node that sends `vectorfield_msgs/action/FollowCurve` goals, so a
 tree can approach a curve with Nav2 and then follow it. Facts read from the installed headers of

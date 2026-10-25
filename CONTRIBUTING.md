@@ -2,7 +2,7 @@
 
 Thank you for helping. This guide covers the development setup, style, tests, pull requests, releases and the support policy. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Security issues go through [SECURITY.md](SECURITY.md), not public issues.
 
-The project is at milestone M0 (scaffolding). The roadmap is in the [README](README.md#roadmap) and the [docs](https://h3ct0r.github.io/vectorfield_nav2/). For anything larger than a small fix, please open an issue first so the design can be agreed before you write code.
+The [documentation](https://h3ct0r.github.io/vectorfield_nav2/) describes the packages and their design. For anything larger than a small fix, please open an issue first so the design can be agreed before you write code.
 
 ## Development setup
 
@@ -36,7 +36,7 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 
 Presets: `dev`, `asan` (ASan + UBSan), `tsan`, `coverage` and `bench` (`-DVF_BUILD_BENCHMARKS=ON`). Preset build trees live under `vectorfield_core/build/` and are git-ignored.
 
-From M4 the Python package builds the same way on the host:
+The Python package builds the same way on the host:
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate

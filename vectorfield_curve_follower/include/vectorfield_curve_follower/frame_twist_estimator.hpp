@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief FrameTwistEstimator: pose and body twist of a moving curve frame from TF samples or
-/// from Odometry (plan §6 "Frames"). Pure: no node, no clock, no I/O.
+/// from Odometry. Pure: no node, no clock, no I/O.
 ///
 /// **TF source.** Each pair of accepted samples \f$(t_{k-1}, T_{k-1})\f$, \f$(t_k, T_k)\f$ of
 /// \f$T_{\mathrm{ref}\leftarrow\mathcal F}\f$ gives the body twist

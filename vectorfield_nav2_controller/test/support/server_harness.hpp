@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief In-process emulation of Nav2's controller_server for the plugin's layer-2 tests
-/// (plan §9 "Test layers", 2).
 ///
-/// Implemented in test/support/server_harness.cpp (M2 wave 2, harness). Together with that file,
-/// this is the **only test code with distro conditionals** (plan §2): it reproduces, per API
+/// Implemented in test/support/server_harness.cpp. Together with that file,
+/// this is the **only test code with distro conditionals**: it reproduces, per API
 /// generation, the order in which the server calls the plugin, the goal checker and (Gen C) the
 /// path handler, and what the server does with each exception. Test files use this API only and
 /// stay distro-free.

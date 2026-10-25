@@ -11,9 +11,9 @@ This is the per-distro Nav2 integration reference. `vectorfield_ros` (`compat.hp
 **Markers.**
 
 - No marker: re-read for this page.
-- `(R)`: checked against the cited primary source during the M0 research and review rounds (2026-10-12/13) but not re-read for this page.
+- `(R)`: checked against the cited primary source on 2026-10-12/13 but not re-read for this page.
 - `UNVERIFIED`: not checked against a primary source.
-- **Rule**: a project decision that follows from the facts. Rules bind milestones M2 to M5.
+- **Rule**: a project decision that follows from the facts. Rules bind the controller, the curve follower and their tests.
 
 **Citation forms.**
 
@@ -728,10 +728,10 @@ The TB3 loopback wrapper provides `robot_state_publisher` with the TB3 URDF, `ma
 | NavFn with start XY = goal XY returns a **one-pose** plan: start XY with the goal yaw. | A one-pose plan is valid input. | `jazzy:nav2_navfn_planner/src/navfn_planner.cpp#L171-L188`, `lyrical:…#L170-L188` |
 | NavFn's `smoothApproachToGoal` replaces the last pose if the goal is closer to the second-to-last pose; otherwise it appends the exact goal after the goal-cell pose. The result is a sub-cell hook of up to res/√2 in any direction. Paths step half a cell (`pathStep = 0.5`). | Cusp detection uses chord decimation that pops trailing vertices within ℓ_c of the goal. The end tangent comes from the raw plan, never from the window tail. | `jazzy:nav2_navfn_planner/src/navfn_planner.cpp#L311`, `#L350-L376`; `jazzy:nav2_navfn_planner/src/navfn.cpp#L141` |
 | Smac 2D and Hybrid return one pose when start and goal share a cell. Humble's Hybrid also requires the same orientation bin. | Same as NavFn. | `jazzy:nav2_smac_planner/src/smac_planner_2d.cpp#L261-L262`, `jazzy:nav2_smac_planner/src/smac_planner_hybrid.cpp#L427-L429`, `humble:nav2_smac_planner/src/smac_planner_hybrid.cpp#L338-L341`, `lyrical:nav2_smac_planner/include/nav2_smac_planner/smac_planner_hybrid_impl.hpp#L469` |
-| Smac Hybrid `motion_model_for_search` defaults to `DUBIN` (forward only). `REEDS_SHEPP` produces cusps. | The Ackermann overlay pins `DUBIN`. Cusps throw `InvalidPath` unless `allow_reversing` (M7: segments, `config/scenario/reversing.yaml` selects `REEDS_SHEPP`). | `humble:nav2_smac_planner/src/smac_planner_hybrid.cpp#L137`, `jazzy:…#L168`, `lyrical:nav2_smac_planner/include/nav2_smac_planner/smac_planner_hybrid_impl.hpp#L131` |
+| Smac Hybrid `motion_model_for_search` defaults to `DUBIN` (forward only). `REEDS_SHEPP` produces cusps. | The Ackermann overlay pins `DUBIN`. Cusps throw `InvalidPath` unless `allow_reversing` (segments, `config/scenario/reversing.yaml` selects `REEDS_SHEPP`). | `humble:nav2_smac_planner/src/smac_planner_hybrid.cpp#L137`, `jazzy:…#L168`, `lyrical:nav2_smac_planner/include/nav2_smac_planner/smac_planner_hybrid_impl.hpp#L131` |
 | Near the goal, the path handler leaves only the last 1 or 2 raw poses in the window (≥ 2 poses, erased behind the closest pose). | Tail conditioning inserts a virtual vertex ℓ_c behind the goal along the cached end tangent. | `lyrical:FPH#L185-L191`, `#L238` |
 | The window ends at the first pose outside the local costmap (3 × 3 m by default, so about 1.5 m ahead), before `prune_distance` 2.0. | `cap_at_curve_end` always brakes before the window end. | `lyrical:FPH#L226-L229`; `jazzy:PARAMS#L196-L198` |
-| `enforce_path_inversion` and `enforce_path_rotation` truncate the window at a constraint (`nav2_util::findFirstPathConstraint` on raw poses) while the goal stays the full plan's last pose; FPH moves past it within `inversion_xy_tolerance` / `inversion_yaw_tolerance` of the truncated pose. | M7: for a segmented plan or one with an in-place rotation the plugin builds its own window (LegacyPathHandler on the active segment or the whole plan), so the truncation never stops it (docs/design/m7_reversing.md). | `lyrical:FPH#L67-L76`, `#L112-L139`, `#L238-L245`; `lyrical:nav2_util/src/path_utils.cpp#L136-L231` |
+| `enforce_path_inversion` and `enforce_path_rotation` truncate the window at a constraint (`nav2_util::findFirstPathConstraint` on raw poses) while the goal stays the full plan's last pose; FPH moves past it within `inversion_xy_tolerance` / `inversion_yaw_tolerance` of the truncated pose. | For a segmented plan or one with an in-place rotation the plugin builds its own window (LegacyPathHandler on the active segment or the whole plan), so the truncation never stops it (docs/design/reversing.md). | `lyrical:FPH#L67-L76`, `#L112-L139`, `#L238-L245`; `lyrical:nav2_util/src/path_utils.cpp#L136-L231` |
 | Stock trees replan at about 1 Hz from the current robot pose. | Plan intake is cheap. A near-goal replan whose poses are all within ℓ_c keeps the previous end tangent. | (R) for the replan rate |
 | User paths sent straight to FollowPath can be sparse. | Warn once when a raw segment exceeds 0.25 m. | project rule |
 

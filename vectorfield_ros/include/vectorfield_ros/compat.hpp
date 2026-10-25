@@ -15,11 +15,11 @@
 /// @file
 /// @brief Nav2 distro compatibility: API-generation probes, node and action-server aliases, the
 /// `cmd_vel` publisher, TF factories, goal-checker helpers, controller exceptions and tf2 header
-/// fallbacks (plan §4; docs/design/nav2_api_matrix.md §2.3–§2.4).
+/// fallbacks (docs/design/nav2_api_matrix.md §2.3–§2.4).
 ///
 /// **The only distro switch of the ROS layer.** Besides this header, distro conditionals appear
 /// only in the controller's Gen C / Gen A–B signature blocks, behind `VF_CANCEL_RESET_OVERRIDE`,
-/// and in the controller's test server harness (plan §2). Code elsewhere uses the aliases and
+/// and in the controller's test server harness. Code elsewhere uses the aliases and
 /// constants below instead of `#if`.
 ///
 /// **API generations** (nav2_api_matrix.md §2.1):
@@ -198,7 +198,7 @@ inline constexpr const char * kApiGenerationName =
     : "Gen A (Humble: setPlan + 3-argument compute)";
 
 /// @brief The controller_server calls `Controller::reset()` on every goal exit (Jazzy and later).
-/// Humble never does; the plugin emulates it in setPlan() (plan §5.1, "Humble reset emulation").
+/// Humble never does; the plugin emulates it in setPlan() (Humble reset emulation).
 inline constexpr bool kServerCallsReset = VF_HAS_CONTROLLER_EXCEPTIONS != 0;
 
 /// @brief The controller_server keeps calling compute and polls `Controller::cancel()` until it
@@ -250,7 +250,7 @@ using NodeSharedPtr = LifecycleNode::SharedPtr;
 /// Forwards to `(node, name, execute, completion, timeout, spin_thread)` on Humble and Jazzy and
 /// to `(node, name, execute, /*goal_received*/ nullptr, completion, timeout, spin_thread)` on
 /// Lyrical and later. **No GoalReceivedCallback is ever passed:** the follower never rejects a
-/// goal; it validates in execute and terminates (plan §6). Humble and Jazzy accept every goal
+/// goal; it validates in execute and terminates. Humble and Jazzy accept every goal
 /// while the server is active.
 /// @tparam ActionT Action type, e.g. `vectorfield_msgs::action::FollowCurve`.
 /// @tparam NodeT Pointer-like node (shared_ptr or raw pointer to an rclcpp_lifecycle node).
@@ -565,7 +565,7 @@ private:
   bool latched_{false};
 };
 
-/// @brief "XY reached" as the server sees it (math_spec §9.1; plan §3.3): one call form for every
+/// @brief "XY reached" as the server sees it (math_spec §9.1): one call form for every
 /// distro, so the shared compute path has no `#if`.
 ///
 /// - **Gen C:** forwards `goal_checker->isGoalXYReached(pose.pose, global_goal.pose, velocity,
@@ -606,7 +606,7 @@ inline bool goal_xy_reached(
 /// @}
 
 /// @name Controller exceptions
-/// What the plugin throws (plan §5.2 step 6, nav2_api_matrix.md §3.6). On Humble these derive
+/// What the plugin throws (nav2_api_matrix.md §3.6). On Humble these derive
 /// from `nav2_core::PlannerException`, to which Humble's server applies `failure_tolerance`
 /// patience; on Jazzy and later they are the nav2_core types (NoValidControl: patience;
 /// InvalidPath and ControllerTFError: immediate abort).

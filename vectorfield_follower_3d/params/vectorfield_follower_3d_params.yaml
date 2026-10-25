@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Parameters of the 3D follower (experimental; docs/design/m7_3d_ros.md). generate_parameter_library
+# Parameters of the 3D follower (experimental; docs/design/follower_3d.md). generate_parameter_library
 # generates vectorfield_follower_3d/vectorfield_follower_3d_params.hpp from this file, and
 # docs/gen_params.py renders the parameter reference from it.
 #

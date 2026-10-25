@@ -17,7 +17,7 @@
 ///
 /// The numeric values are a stable surface: they equal the `PHASE_*` and `STATUS_*` constants of
 /// `vectorfield_msgs/msg/FieldState.msg`, and vectorfield_ros `static_assert`s the equality
-/// (plan §4.1). Never renumber them.
+///. Never renumber them.
 
 #ifndef VECTORFIELD_CORE__STATUS_HPP_
 #define VECTORFIELD_CORE__STATUS_HPP_
@@ -46,7 +46,7 @@ enum class Phase : std::uint8_t
 /// @brief Status bits of one control cycle. Values equal FieldState.msg `STATUS_*`.
 ///
 /// Bits are OR-ed into `TrackerOutput::status`. They never throw; the ROS layer maps them to
-/// Nav2 exceptions or action results after committing the state (plan §3.1, §5.2).
+/// Nav2 exceptions or action results after committing the state.
 struct Status final
 {
   Status() = delete;

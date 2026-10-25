@@ -1,9 +1,9 @@
-# M7: control-barrier-function obstacle mode
+# Control-barrier-function obstacle mode
 
 `obstacle_mode: cbf` is a third obstacle mode beside `none` and `contour`. Instead of switching to
 a circulation field, it changes the path field as little as possible so that the evaluation point
 keeps a safe distance from every obstacle: a CBF safety filter. The changes to {doc}`math_spec`
-are tagged [Design, M7] in §6.7 (new), §8.1, §10.4, §11, §12.5 (O58) and §13. The contour, the
+are tagged [Design] in §6.7 (new), §8.1, §10.4, §11, §12.5 (O58) and §13. The contour, the
 collision rollout, the braking cap and kBlocked are unchanged. The rollout is the safety backstop
 in every mode.
 

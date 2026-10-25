@@ -64,8 +64,8 @@ ROS-free core shared by every front end.
 :class: note
 
 0.4.1 is released. The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build
-farm; until they are out, build from source ({doc}`quickstart`). The {doc}`roadmap` lists what
-each milestone delivered.
+farm; until they are out, build from source ({doc}`quickstart`). The
+[releases](https://github.com/h3ct0r/vectorfield_nav2/releases) list what each one changed.
 :::
 
 ## Pick your robot
@@ -374,7 +374,6 @@ design/index
 
 benchmarks
 controller_comparison
-roadmap
 contributing
 api
 ```

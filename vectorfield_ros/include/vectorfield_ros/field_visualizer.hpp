@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief FieldVisualizer: owns the visualization publishers and publishes one cycle at the end
-/// of each control step (plan §4.1).
+/// of each control step.
 ///
-/// Implemented in src/field_visualizer.cpp (M2 wave 2, ros-viz).
+/// Implemented in src/field_visualizer.cpp.
 
 #ifndef VECTORFIELD_ROS__FIELD_VISUALIZER_HPP_
 #define VECTORFIELD_ROS__FIELD_VISUALIZER_HPP_
@@ -39,7 +39,7 @@
 namespace vectorfield_ros
 {
 
-/// @brief Publishes the six visualization topics of plan §4.1 under a namespace.
+/// @brief Publishes the six visualization topics under a namespace.
 ///
 /// - **Topics** (topics.hpp): `<ns>/markers`, `<ns>/field_grid`, `<ns>/predicted_path`,
 ///   `<ns>/window`, `<ns>/field_state` and `<ns>/obstacle_distance`; `<ns>` is

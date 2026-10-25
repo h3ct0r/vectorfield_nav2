@@ -13,8 +13,8 @@
 // limitations under the License.
 
 // Regressions for the points-mode defects of adrianomcr/vectorfield_stack listed in
-// docs/design/upstream_audit.md (rows U08, U09, U11, U12, U13, U14). Test names are fixed by
-// plan §3.5.
+// docs/design/upstream_audit.md (rows U08, U09, U11, U12, U13, U14). Test names follow the
+// audit's `UpstreamRegression.UNN_Name` scheme.
 
 #include <gtest/gtest.h>
 
@@ -136,7 +136,7 @@ TEST(UpstreamRegression, U08_ShortPathIndexError)
 // U09: the upstream window wrapped on open paths, so a robot at the start of a nearly closed
 // open path latched onto its end. On an open C-shaped polyline whose ends are 0.2 m apart, a
 // robot at the start gets s* ~ 0 and tracks the whole length without jumping to the end (the
-// FINAL_APPROACH part of this regression belongs to the Tracker, wave 3).
+// FINAL_APPROACH part of this regression is a Tracker test).
 TEST(UpstreamRegression, U09_OpenPathWindowDoesNotWrap)
 {
   const double radius = 1.0;

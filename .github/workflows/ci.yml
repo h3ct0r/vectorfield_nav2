@@ -18,8 +18,7 @@
 # (rolling.yml, nightly, non-gating); Gazebo and injection tests run in
 # nightly.yml; docs build in docs.yml.
 #
-# Benchmarks (non-gating, `bench` preset) are planned for M1, once
-# vectorfield_core has benchmark targets.
+# Benchmarks (the `bench` preset) are not run in CI; docs/benchmarks.md has reference numbers.
 
 name: CI
 
@@ -105,7 +104,7 @@ jobs:
             vectorfield_nav2
           rosdep-check: true
           coverage-result: ${{ matrix.coverage == true }}
-          # Coverage gate (M1) is measured on vectorfield_core/src and include only.
+          # Coverage gate is measured on vectorfield_core/src and include only.
           coverage-ignore-pattern: >-
             '*/third_party/*' '*/test/*' '*/bench/*' '*/rosidl_*' '/opt/ros/*' '/usr/*'
           # Debug for the coverage build (optimised line coverage is misleading);
@@ -248,7 +247,7 @@ jobs:
           mapfile -t fuzzers < <(find build/fuzz -type f -perm -u+x ! -path '*/CMakeFiles/*' \
             ! -name '*.so' ! -name '*.so.*' | sort)
           if [ "${#fuzzers[@]}" -eq 0 ]; then
-            echo "::notice::No libFuzzer target is defined yet (the ExpressionCurve fuzzer lands in M1); skipping."
+            echo "::notice::No libFuzzer target was built; skipping."
             exit 0
           fi
           mkdir -p "${RUNNER_TEMP}/fuzz-artifacts"

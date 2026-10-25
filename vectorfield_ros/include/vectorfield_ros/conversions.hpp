@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Conversions between ROS messages and vectorfield_core types: poses, twists, paths,
-/// `Curve.msg`, costmaps, footprints and goal-checker tolerances (plan §4 "Conversions").
+/// `Curve.msg`, costmaps, footprints and goal-checker tolerances.
 ///
-/// Implemented in src/conversions.cpp (M2 wave 2, ros-io). Every function is free of distro
+/// Implemented in src/conversions.cpp. Every function is free of distro
 /// conditionals. Conversions that fill caller-owned buffers clear and refill them, so once their
 /// capacity suffices they never allocate (the plugin calls them every cycle).
 ///
@@ -107,7 +107,7 @@ void toPositions(const nav_msgs::msg::Path & path, std::vector<vectorfield_core:
 /// @brief The core specification of a `Curve.msg` (field for field; `points` lose z).
 ///
 /// Performs no validation beyond the type code: `makeCurve` is the single validation point
-/// (plan §3.2). The header is not used: the follower resolves the frame and the time origin.
+///. The header is not used: the follower resolves the frame and the time origin.
 /// @param msg The curve message.
 /// @param t0 Time origin of \f$r(s, t)\f$ (s), resolved by the caller (the header stamp, or the
 /// goal acceptance time when the stamp is zero).
@@ -162,7 +162,7 @@ bool toOccupancyGrid(
   const nav2_msgs::msg::Costmap & costmap, bool unknown_is_obstacle,
   std::vector<std::uint8_t> * mask, vectorfield_core::OccupancyGrid * grid);
 
-/// @brief Costmap geometry for the costmap-dependent validation rules (plan §4 "CostmapInfo").
+/// @brief Costmap geometry for the costmap-dependent validation rules.
 /// @param costmap The costmap (size in metres and resolution).
 /// @param window_limit Gen A/B: LegacyPathHandler's `prune_distance`; Gen C and the follower:
 /// nullopt.
@@ -175,7 +175,7 @@ vectorfield_core::CostmapInfo toCostmapInfo(
 /// @}
 
 /// @name Footprints
-/// The robot-frame footprint is node-derived Tracker configuration (plan §4): the plugin uses
+/// The robot-frame footprint is node-derived Tracker configuration: the plugin uses
 /// `Costmap2DROS::getRobotFootprint()` (padded, robot frame; a polygon even for a circular
 /// robot); the follower transforms each `published_footprint` into the base frame first.
 /// @{
@@ -195,7 +195,7 @@ void toVertices(
   const std::vector<geometry_msgs::msg::Point> & polygon,
   std::vector<vectorfield_core::Vec2> * out);
 
-/// @brief Whether a footprint changed (plan §4): a different vertex count, or any vertex moved by
+/// @brief Whether a footprint changed: a different vertex count, or any vertex moved by
 /// more than `tolerance` (plugin: 1 mm; follower: 1 cm).
 bool footprintChanged(
   vectorfield_core::Span<const vectorfield_core::Vec2> previous,

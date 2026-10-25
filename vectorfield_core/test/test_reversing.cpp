@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// M7 reversing (math_spec §9.4 [Design, M7], docs/design/m7_reversing.md): plan segmentation,
+// Reversing (math_spec §9.4 [Design], docs/design/reversing.md): plan segmentation,
 // the replan hysteresis, and closed-loop oracles that follow a plan segment by segment the way
 // the plugin does (window = the active segment, goal = its cusp, drive_sign = its q).
 
@@ -357,7 +357,7 @@ TEST_P(StraightReversal, StopsAtTheCuspAndReversesToTheGoal)
 }
 
 INSTANTIATE_TEST_SUITE_P(
-  M7, StraightReversal,
+  Reversing, StraightReversal,
   ::testing::Values(
     LawCase{vf::MotionModel::kDifferential, vf::TrackingLaw::kFeedbackLinearization, 0.10},
     LawCase{vf::MotionModel::kDifferential, vf::TrackingLaw::kHeadingTracking, 0.10},

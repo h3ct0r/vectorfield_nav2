@@ -121,7 +121,7 @@ constexpr double kCellHeight = 0.02;
 constexpr std::size_t kStreamlinePoints = 8;
 /// Grid nodes per side are capped at this (a misconfigured resolution cannot explode the grid).
 constexpr int kMaxGridSide = 100;
-/// `obstacle_distance` scale beyond \f$D'_{\mathrm{in}}\f$ (plan §4.1).
+/// `obstacle_distance` scale beyond \f$D'_{\mathrm{in}}\f$.
 constexpr double kDistanceMargin = 0.5;
 /// @}
 

@@ -14,10 +14,9 @@
 
 /// @file
 /// @brief The Tracker: one control cycle of the vector-field controller, shared by the Nav2
-/// plugin and the curve follower (plan §3.1, §3.3–§3.4; math_spec §8–§10).
+/// plugin and the curve follower (math_spec §8–§10).
 ///
-/// Implemented in src/tracker.cpp (M1 wave 3, tracker). The public API is binding; private
-/// members are the implementer's choice.
+/// Implemented in src/tracker.cpp.
 
 #ifndef VECTORFIELD_CORE__TRACKER_HPP_
 #define VECTORFIELD_CORE__TRACKER_HPP_
@@ -68,13 +67,13 @@ struct ContourState
   bool k_valid{false};
   /// Ackermann, `path_blocked`: the nearest blocking site of the episode's latest cycle with
   /// \f$B(s^\star)\f$ non-empty, **in the grid frame**; once \f$B(s^\star)\f$ is empty the direction
-  /// exit is measured to it (math_spec §6.6 [Design, M7]).
+  /// exit is measured to it (math_spec §6.6 [Design]).
   Vec2 b_site{Vec2::Zero()};
   /// `b_site` is set.
   bool b_valid{false};
 };
 
-/// @brief The only cross-cycle state of the controller (plan §3.1, rev. 6).
+/// @brief The only cross-cycle state of the controller.
 ///
 /// Fixed-size Eigen types and PODs only; trivially destructible (asserted below). Never add a
 /// vector, string, function, smart pointer or dynamic Eigen type. Copy it member-wise; never
@@ -118,17 +117,17 @@ struct TrackerState
   bool ackermann_band_lifted{false};
   /// Drive sign \f$q\f$ of the last step (+1 body \f$+x\f$, −1 body \f$-x\f$; 0 before the
   /// first). A change resets the direction-scoped state: hint, last tangent, last_psi_d,
-  /// rotate_target, the contour episode and the kBlocked latch (math_spec §9.4 [Design, M7]).
+  /// rotate_target, the contour episode and the kBlocked latch (math_spec §9.4 [Design]).
   std::int8_t drive_sign{0};
 };
 
-static_assert(std::is_trivially_destructible_v<ContourState>, "plan §3.1");
-static_assert(std::is_trivially_destructible_v<CurveHint>, "plan §3.1");
-static_assert(std::is_trivially_destructible_v<LimiterState>, "plan §3.1");
-static_assert(std::is_trivially_destructible_v<Twist2>, "plan §3.1");
-static_assert(std::is_trivially_destructible_v<TrackerState>, "plan §3.1");
+static_assert(std::is_trivially_destructible_v<ContourState>, "TrackerState is POD");
+static_assert(std::is_trivially_destructible_v<CurveHint>, "TrackerState is POD");
+static_assert(std::is_trivially_destructible_v<LimiterState>, "TrackerState is POD");
+static_assert(std::is_trivially_destructible_v<Twist2>, "TrackerState is POD");
+static_assert(std::is_trivially_destructible_v<TrackerState>, "TrackerState is POD");
 
-/// @brief The goal of an open curve for one cycle (plan §3.1).
+/// @brief The goal of an open curve for one cycle.
 struct GoalInfo
 {
   /// Goal pose (evaluation frame). Plugin: `global_goal` in the costmap frame; follower:
@@ -146,7 +145,7 @@ struct GoalInfo
   std::optional<bool> xy_reached;
 };
 
-/// @brief The curve frame of one cycle (plan §3.1; math_spec §4.2).
+/// @brief The curve frame of one cycle (math_spec §4.2).
 struct CurveFrame
 {
   /// Curve frame → evaluation frame (\f$T_{\mathrm{eval}\leftarrow\mathcal F}\f$). Plugin:
@@ -160,7 +159,7 @@ struct CurveFrame
   bool moving{false};
 };
 
-/// @brief Inputs of one control cycle (plan §3.1).
+/// @brief Inputs of one control cycle.
 struct TrackerInput
 {
   /// base_link pose (evaluation frame).
@@ -191,12 +190,12 @@ struct TrackerInput
   bool cap_at_curve_end{false};
   /// Drive sign \f$q\f$ of this cycle: 0 = the configuration's (−1 iff `drive_backward`;
   /// Ackermann +1), +1 = body \f$+x\f$, −1 = body \f$-x\f$ (plugin: the active plan segment's,
-  /// math_spec §9.4 [Design, M7]). Ignored by the holonomic law. A sign that differs from the
+  /// math_spec §9.4 [Design]). Ignored by the holonomic law. A sign that differs from the
   /// configuration's turns the obstacle contour off for the cycle.
   std::int8_t drive_sign{0};
 };
 
-/// @brief Outputs of one control cycle (plan §3.1).
+/// @brief Outputs of one control cycle.
 struct TrackerOutput
 {
   /// Final command: body twist at base_link (FieldState.cmd), after the skid slip compensation
@@ -246,7 +245,7 @@ struct BlockingSite
   Vec2 site_grid{Vec2::Zero()};
 };
 
-/// @brief Caller-owned per-thread work buffers of Tracker::step (plan §3.1 "StepScratch").
+/// @brief Caller-owned per-thread work buffers of Tracker::step.
 ///
 /// Grows on demand and never shrinks: after warm-up a steady-state step performs no allocation
 /// (oracle O55). The visualizer reads it after step() (K cells, gate samples, rollout poses).
@@ -286,7 +285,7 @@ struct StepScratch
   void reserve(std::size_t grid_cells, std::size_t rollout_poses, std::size_t gate_samples);
 };
 
-/// @brief One control cycle of the vector-field controller (plan §3.1, §3.3–§3.4).
+/// @brief One control cycle of the vector-field controller.
 ///
 /// Owns only configuration (resolved CoreConfig, kinematics, gain, footprint checker, law).
 /// step() is `const noexcept`: concurrent steps on one Tracker are safe with distinct states
@@ -307,7 +306,7 @@ public:
   ///
   /// **Aliasing:** `out` may alias `&in`: step works on a local copy and writes `*out` once, at
   /// the end. **Commit before acting:** callers store `*out` and the returned command before
-  /// mapping any status to an exception or action result (plan §3.1).
+  /// mapping any status to an exception or action result.
   /// @param input Inputs of this cycle; `input.curve` must be non-null.
   /// @param in State after the previous cycle (initialState() at start).
   /// @param out Next state.

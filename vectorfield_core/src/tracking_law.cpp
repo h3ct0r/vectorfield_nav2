@@ -80,7 +80,7 @@ EvaluationPoint evaluationPoint(
   point.x_ref = 0.0;
   if (kinematics.isAckermann()) {
     // Heading tracking at the rear axle p_r = p + x_r h(psi), in every phase; the reference
-    // shift is the offset along the drive direction q h (math_spec §5.2 [Design, M7]).
+    // shift is the offset along the drive direction q h (math_spec §5.2 [Design]).
     point.x = base.p + kinematics.reference_point_offset * heading(base.yaw);
     point.x_ref = kinematics.driveSign() * kinematics.reference_point_offset;
     return point;

@@ -127,26 +127,26 @@ if(BUILD_TESTING)
   foreach(_vf_model differential skid_steer omnidirectional)
     vf_add_launch_test(test/test_corridor_kinematic.py ${_vf_model})
   endforeach()
-  # The CBF obstacle mode (M7; Ackermann since 0.3.0: the box beside the path only).
+  # The CBF obstacle mode (Ackermann since 0.3.0: the box beside the path only).
   foreach(_vf_model differential omnidirectional ackermann)
     vf_add_launch_test(test/test_cbf_kinematic.py ${_vf_model})
   endforeach()
   # Skid-slip identification (field-test kit): identify_skid_slip.py recovers vectorfield_sim's
   # slip through Nav2's command chain.
   vf_add_launch_test(test/test_skid_slip_kinematic.py skid_steer)
-  # Reversing (M7): Smac Hybrid-A* with Reeds-Shepp and allow_reversing.
+  # Reversing: Smac Hybrid-A* with Reeds-Shepp and allow_reversing.
   foreach(_vf_model differential ackermann)
     vf_add_launch_test(test/test_reversing_kinematic.py ${_vf_model})
   endforeach()
   # A 150° NavigateThroughPoses corner on NavFn: a forward corner, not a cusp (0.2.1).
   vf_add_launch_test(test/test_through_poses_kinematic.py differential)
 
-  # The curve follower (M5) on curve_follower_demo, differential only: laps of closed curves,
+  # The curve follower on curve_follower_demo, differential only: laps of closed curves,
   # moving frames, open curves and the Nav2 interlock. Minutes of simulated driving each.
   foreach(_vf_test test_curve_laps test_curve_moving test_curve_open)
     vf_add_launch_test(test/${_vf_test}.py differential TIMEOUT 600)
   endforeach()
-  # The FollowCurve behaviour-tree node (M7) in bt_runner and in bt_navigator, through the real
+  # The FollowCurve behaviour-tree node in bt_runner and in bt_navigator, through the real
   # follower, differential only.
   vf_add_launch_test(test/test_follow_curve_bt.py differential TIMEOUT 900)
   # The experimental 3D follower on point_sim_3d (no Nav2; the motion model is unused).

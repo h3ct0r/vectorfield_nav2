@@ -126,8 +126,8 @@ or FollowCurve goal, and writes into `<bag>_report/`:
 | Metric | Definition |
 |---|---|
 | Cross-track error (XTE), RMS and max | Distance from `base_link` (`map` frame, from TF) to the first `/plan` of the goal, over the goal; as in {doc}`../controller_comparison` |
-| max \|D\| after convergence | The controller's own distance to the path (`field_state.distance`), in FOLLOW and FINAL_APPROACH, from the first sample with \|D\| ≤ 0.05 m on: the M3 criterion of the launch tests |
-| \|D\| after lap 1 | The follower's `field_state.distance` after the first lap (FollowCurve feedback): the M5 criterion |
+| max \|D\| after convergence | The controller's own distance to the path (`field_state.distance`), in FOLLOW and FINAL_APPROACH, from the first sample with \|D\| ≤ 0.05 m on: the criterion of the launch tests |
+| \|D\| after lap 1 | The follower's `field_state.distance` after the first lap (FollowCurve feedback): the curve follower's criterion |
 | Time | Goal acceptance to result |
 | Goal miss, yaw error | Pose 0.5 s after the result against the last pose of the last `/plan` |
 | Stop latency | Result (success, cancel or abort) until the odometry twist stays below 0.02 m/s and 0.05 rad/s for 0.3 s |
@@ -150,10 +150,10 @@ slip:
 
 | Quantity | Simulation | Field threshold (default) |
 |---|---|---|
-| max \|D\| after convergence | below 0.10 m on every distro and motion model (M3); 0.25 m for Ackermann | 0.10 m (`--tracking-limit`; 0.25 m for Ackermann) |
+| max \|D\| after convergence | below 0.10 m on every distro and motion model; 0.25 m for Ackermann | 0.10 m (`--tracking-limit`; 0.25 m for Ackermann) |
 | XTE RMS / max, 3-goal route at 0.4 m/s | 0.048 m / 0.097 m (loopback, {doc}`../controller_comparison`) | RMS 0.05 m, max 0.15 m |
 | Route time, 3 goals | 24.2 s (loopback) | within 30 % of `distance / desired_speed` plus 2 s per goal |
-| \|D\| after lap 1, ellipse and lemniscate at 0.4 m/s | below 0.05 m (M5) | 0.10 m (`--lap-limit`) |
+| \|D\| after lap 1, ellipse and lemniscate at 0.4 m/s | below 0.05 m | 0.10 m (`--lap-limit`) |
 | Goal miss / yaw error | `xy_goal_tolerance` + 0.05 m | 0.30 m / 0.25 rad (the stock goal checker) |
 | RMS jerk, `cmd_vel_nav` / `cmd_vel` | 12 / 8 m/s³, 48 / 25 rad/s³ (loopback route) | at most twice the simulation |
 | ROTATE_TO_FIELD entries | at most one per sharp corner, plus one at the start | the same |

@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// The muParser hardening of plan §3.2 (SECURITY.md; upstream audit U01–U05), shared by the 2D
+// The muParser hardening (SECURITY.md; upstream audit U01–U05), shared by the 2D
 // ExpressionCurve and the 3D ExpressionCurve3. muParser headers are included here and in the two
 // curve sources only.
 

@@ -1,7 +1,7 @@
-# M7: reversing (plans with cusps) and Nav2 path constraints
+# Reversing (plans with cusps) and Nav2 path constraints
 
 Plans with reversing segments are followed as a sequence of segments with an intermediate stop
-at each cusp. The changes to {doc}`math_spec` are tagged [Design, M7] in §1, §2.8, §5.2, §7.1,
+at each cusp. The changes to {doc}`math_spec` are tagged [Design] in §1, §2.8, §5.2, §7.1,
 §7.5, §9.2, §9.4 and §13. Nav2 facts come from `navigation2` `lyrical`:
 `nav2_controller/plugins/feasible_path_handler.cpp` (FPH), `nav2_util/src/path_utils.cpp`
 (`findFirstPathConstraint`) and `nav2_controller/src/controller_server.cpp`.

@@ -47,7 +47,7 @@ inline constexpr double kCgRational = 0.38490017945975050;
 class GainFunction
 {
 public:
-  /// @brief The default gain: atan with \f$k_f = 2\f$ 1/m (plan §5.4 defaults).
+  /// @brief The default gain: atan with \f$k_f = 2\f$ 1/m (the parameter defaults).
   GainFunction() noexcept = default;
 
   /// @brief A gain of the given type and convergence gain.

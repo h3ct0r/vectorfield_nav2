@@ -27,7 +27,7 @@
 
 #include "collision_rollout.hpp"
 
-// One control cycle (plan §3.1; math_spec §8–§10):
+// One control cycle (math_spec §8–§10):
 //
 //   Tracker::step
 //     1. goal_seq reset of goal-scoped state, cancel bookkeeping, terminal-mode hysteresis
@@ -171,7 +171,7 @@ struct GateStations
 };
 
 /// @brief The obstacle preparation of the step, frozen for every stepNominal of the call
-/// (plan §3.1 step 0; math_spec §6.4).
+/// (math_spec §6.4).
 struct ObstacleEnv
 {
   /// The grid and \f$\mathrm{EDT}_{\mathrm{all}}\f$ are usable this cycle.
@@ -359,7 +359,7 @@ struct CurveQuery
 
 /// @brief Closest point of x (evaluation frame) at time t. x, the hint's foot and
 /// \f$T_{\mathrm{last}}\f$ are mapped into the curve frame and the result back
-/// (plan §3.1 "Ownership and frames"). Read-only: the caller decides whether to keep the hint.
+///. Read-only: the caller decides whether to keep the hint.
 CurveQuery closestPointAt(
   const StepEnv & env, const Isometry2 & frame, const CurveHint & hint, const Vec2 & last_tangent,
   const Vec2 & x, double t) noexcept
@@ -584,7 +584,7 @@ bool pastBlockage(const StepEnv & env, double s_star) noexcept
 /// in `path_blocked` mode (an empty set means the blocking part is behind: exited) and to K in
 /// `always` mode. Gate closing, K lost and the goal veto are decided by the preparation.
 ///
-/// Ackermann (math_spec §6.6 [Design, M7]): with \f$B(s^\star)\f$ empty the direction test is
+/// Ackermann (math_spec §6.6 [Design]): with \f$B(s^\star)\f$ empty the direction test is
 /// measured to the episode's last blocking site `contour.b_site` instead of exiting at once (the
 /// wide circulation empties \f$B(s^\star)\f$ while \f$\Phi\f$ still points at the obstacle).
 /// `blocking_out`, if not null, receives the nearest site of \f$B(s^\star)\f$ (invalid when empty).
@@ -629,7 +629,7 @@ double allSitesDistance(const ObstacleEnv & obstacles, const Vec2 & x_eval) noex
 }
 
 // -----------------------------------------------------------------------------------------------
-// CBF filter (math_spec §6.7 [Design, M7])
+// CBF filter (math_spec §6.7 [Design])
 
 /// @brief \f$\delta_{\mathrm{safe}} = r_e + m\f$ for the evaluation point x of a pose: \f$r_e\f$
 /// is the radius of the smallest disc centred on x that contains the footprint.
@@ -1759,7 +1759,7 @@ int probeSides(
     J(n_start).dot(Phi), Phi.norm(), env.obstacles.use_blocking);
 }
 
-/// @brief Step 0 of plan §3.1: the obstacle preparation of the call, frozen for every
+/// @brief Step 0 of the cycle: the obstacle preparation of the call, frozen for every
 /// stepNominal (rollouts, side probe, final step, probes): the gate, the goal veto, K and
 /// \f$\mathrm{EDT}_K\f$, the end of an episode on a frozen condition (gate closed, veto, K
 /// lost) and the start of a new one (start test at the current evaluation point, side probe).
@@ -1914,7 +1914,7 @@ void resetGoalScoped(std::uint32_t goal_seq, TrackerState * st) noexcept
   }
 }
 
-/// @brief A change of the drive sign q (a plan segment switch, math_spec §9.4 [Design, M7])
+/// @brief A change of the drive sign q (a plan segment switch, math_spec §9.4 [Design])
 /// resets the state that depends on the drive direction: the closest-point hint and last
 /// tangent (the next segment runs the other way), the held desired heading, the rotate target,
 /// the contour episode and the kBlocked latch. The first step only records q.

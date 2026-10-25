@@ -14,10 +14,10 @@
 
 /// @file
 /// @brief Curve specifications (the core mirror of `vectorfield_msgs/msg/Curve.msg`) and the
-/// `makeCurve` factory, the single validation point of curves (plan §3.2; math_spec §2.6–§2.8).
+/// `makeCurve` factory, the single validation point of curves (math_spec §2.6–§2.8).
 ///
-/// Implemented in src/curve_spec.cpp (M1 wave 2, parametric curves). Internal, non-installed
-/// pieces owned by the same wave, in namespace `vectorfield_core::detail`:
+/// Implemented in src/curve_spec.cpp. Internal, non-installed
+/// pieces, in namespace `vectorfield_core::detail`:
 /// - src/builtin_curves.{hpp,cpp}: the seven built-in shapes of math_spec §2.7;
 /// - src/expression_curve.{hpp,cpp}: ExpressionCurve on the vendored muParser (PIMPL,
 ///   non-copyable, `evalNoThrow()`), never exposed in public headers.
@@ -40,9 +40,9 @@
 namespace vectorfield_core
 {
 
-/// @brief Maximum length of each expression string (plan §3.2 expression hardening).
+/// @brief Maximum length of each expression string.
 inline constexpr std::size_t kMaxExpressionLength = 1024;
-/// @brief Maximum number of declared expression parameters (plan §3.2).
+/// @brief Maximum number of declared expression parameters.
 inline constexpr std::size_t kMaxExpressionParameters = 32;
 
 /// @brief A curve description, field for field `vectorfield_msgs/msg/Curve.msg` (without the
@@ -88,7 +88,7 @@ struct CurveSpec
   double t0{0.0};
 
   /// @brief Field-wise equality (the follower keeps TrackerState across a preemption only for an
-  /// identical spec, plan §6).
+  /// identical spec).
   bool operator==(const CurveSpec & other) const;
   /// @brief Negation of operator==.
   bool operator!=(const CurveSpec & other) const { return !(*this == other); }
@@ -122,12 +122,12 @@ private:
 /// @brief "INVALID_CURVE" or "UNSUPPORTED" (the FollowCurve.action result-code names).
 const char * toString(CurveError::Code code) noexcept;
 
-/// @brief Builds and validates a curve. The single validation point of curves (plan §3.2).
+/// @brief Builds and validates a curve. The single validation point of curves.
 ///
 /// - POLYLINE: conditioning of math_spec §2.8 in this order: dedupe (1 mm), corner fillet when
 ///   `max_corner_deviation` > 0, resample at `sample_spacing` (or the default), then
 ///   N <= `max_curve_points`; a PolylineCurve with SearchPolicy::hinted(options).
-/// - EXPRESSION: muParser hardening of plan §3.2 (parameters bound as constants, s and t as
+/// - EXPRESSION: muParser hardening (parameters bound as constants, s and t as
 ///   variables, the default functions except `rnd`, one result per expression, <= 1024 chars,
 ///   <= 32 identifier-validated names that are not `s`, `t` or a function name); time-varying
 ///   iff an expression uses `t`.

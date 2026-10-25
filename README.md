@@ -98,24 +98,12 @@ One command per mode starts MuJoCo physics, the controller, RViz and a scenario 
 - **Nav2 controller plugin** `vectorfield_nav2_controller::VectorFieldController` for any Nav2 `controller_server`, with differential, skid-steer, omnidirectional and Ackermann motion models and three tracking laws (feedback linearization, heading tracking, holonomic).
 - **Smooth goal handling:** a terminal field that brakes onto the goal, rotate-to-field and rotate-to-heading phases, and cancel support on Jazzy and later.
 - **Obstacle handling from the costmap:** collision prediction with a speed cap, a per-cycle blocked status that Nav2's recovery can act on, and optional obstacle contouring (latched circulation around costmap obstacles).
+- **More obstacle modes and plans:** a control-barrier-function obstacle mode (`obstacle_mode: cbf`), obstacle contouring for Ackermann bases, and plans that reverse (cusps) with Nav2's path constraints.
+- **A `FollowCurve` behaviour-tree node** (`vectorfield_behavior_tree`) and an experimental **3D core and follower** for drones (`vectorfield_core::d3`, `vectorfield.d3`, `vf-sim3d`, `vectorfield_follower_3d`).
 - **`follow_curve` action server** for closed, parametric and moving curves: polylines, muParser expressions in `s` and `t`, and built-in shapes (ellipse, lemniscates, superellipse, Lissajous, rounded rectangle, regular polygon), with laps, moving curve frames and an interlock with Nav2's own actions.
 - **RViz and Foxglove visualization** that shows what the robot is doing: the current phase and active flags as colour-coded text, the field broken into the paper's convergence, circulation and feedforward components, the command sent, the predicted trajectory and first collision, the goal and braking zone, and the obstacle-contouring state. Markers are published only while someone subscribes. See the [visualization guide](https://h3ct0r.github.io/vectorfield_nav2/visualization.html).
 - **Python bindings and tools** (`vectorfield`, plus `vf-plot`, `vf-sim`, `vf-tune` and `vf-curve`) for plotting fields, simulating and tuning without ROS.
 - **Documentation** with the theory, a tuning guide, a generated parameter reference and a [migration guide](https://h3ct0r.github.io/vectorfield_nav2/migration.html) from `vectorfield_stack`.
-
-## Roadmap
-
-| Milestone | Deliverable | Status |
-|---|---|---|
-| M0 | Scaffolding, community files, devcontainers, pre-commit, CI skeleton, `vectorfield_msgs` 0.x, design notes, docs skeleton | Done |
-| M1 | `vectorfield_core`: curves, fields, tracking laws, command limiter, obstacle contouring, collision prediction | Done |
-| M2 | `vectorfield_ros` (including the RViz marker builder) and the Nav2 controller plugin | Done |
-| M3 | `vectorfield_sim`, controller bringup and demos, system tests | Done |
-| M4 | `vectorfield_py` bindings and CLIs, theory pages with generated figures | Done |
-| M5 | `vectorfield_curve_follower` (`follow_curve` action), curve demos and example clients | Done |
-| M6 | Complete docs, benchmarks, controller comparison, release 0.1.0 | Done |
-| M7 | Optional extensions; done: an experimental 3D core (`vectorfield_core::d3`, `vectorfield.d3`, `vf-sim3d`), the `FollowCurve` behaviour-tree node (`vectorfield_behavior_tree`), reversing (plans with cusps) with Nav2 path constraints, obstacle contouring for Ackermann bases, and the control-barrier-function obstacle mode (`obstacle_mode: cbf`) | Optional |
-| Examples | `vectorfield_mujoco`: MuJoCo examples for every mode, the gallery clips, the documentation revamp | Done (0.4.0) |
 
 ## Packages
 

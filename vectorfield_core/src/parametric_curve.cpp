@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // ParametricCurve: closest-point search, arc length and regularity of r(u, t)
-// (plan §3.2; math_spec §2.4–§2.6).
+// (math_spec §2.4–§2.6).
 //
 // Invariants kept by this file:
 // - r() and drdu() are only ever called with a parameter inside the domain: wrapped into

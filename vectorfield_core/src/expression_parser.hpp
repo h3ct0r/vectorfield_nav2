@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief Internal: the muParser hardening shared by ExpressionCurve (2D) and ExpressionCurve3
-/// (plan §3.2; math_spec §14.1). Not installed; muParser is only forward-declared here.
+/// (math_spec §14.1). Not installed; muParser is only forward-declared here.
 
 #ifndef VECTORFIELD_CORE__DETAIL__EXPRESSION_PARSER_HPP_
 #define VECTORFIELD_CORE__DETAIL__EXPRESSION_PARSER_HPP_

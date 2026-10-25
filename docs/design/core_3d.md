@@ -1,4 +1,4 @@
-# M7: the 3D core (experimental)
+# The 3D core (experimental)
 
 The thesis field is $n$-dimensional. The planar library uses $J$ (the 90° rotation) only in the
 wedge and hairpin tangent rules. Every other equation, from $\Phi_S$ through $\eta$, $\Phi_T$
@@ -306,8 +306,9 @@ episode, and a 3D blocking set and gate. That is a design of its own, left as fu
 
 - Obstacles are static in the evaluation frame. Moving obstacles would add $\partial_t D$ to
   $\dot h$ and need its estimate.
-- Voxel distances are measured to occupied voxel centres, so $h \ge 0$ keeps the body
-  $m - \tfrac{\sqrt3}{2}\mathrm{res}$ from the voxel cubes. Choose `cbf_margin` accordingly.
+- Voxel distances are measured to occupied voxel centres; the filter subtracts half a voxel
+  diagonal, $\tfrac{\sqrt3}{2}\mathrm{res}$, so $h \ge 0$ keeps the body $m$ from the voxel
+  cubes. The cubes over-approximate the obstacle by up to that much.
   Outside the grid there are no voxel sites.
 - The CommandLimiter can delay the deceleration a head-on approach needs ($\gamma_b v_r$). Keep
   $\gamma_b v_r \le a_{\mathrm{dec}}$. `cbf_gain < control_frequency` is enforced ($\gamma_b\Delta t < 1$).

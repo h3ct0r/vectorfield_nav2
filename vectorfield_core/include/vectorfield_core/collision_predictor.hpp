@@ -14,9 +14,9 @@
 
 /// @file
 /// @brief Collision prediction: zero-order-hold rollout of the nominal step, free arc length and
-/// braking cap (plan §3.1 steps 1–3, §3.2; math_spec §10.2–§10.3).
+/// braking cap (math_spec §10.2–§10.3).
 ///
-/// Implemented in src/collision_predictor.cpp (M1 wave 3, tracker). The predictor is generic:
+/// Implemented in src/collision_predictor.cpp. The predictor is generic:
 /// the Tracker supplies its private `stepNominal` as a RolloutPolicy that owns the copied
 /// TrackerState.
 

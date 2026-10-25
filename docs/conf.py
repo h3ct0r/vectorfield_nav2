@@ -176,6 +176,35 @@ def _generate_parameter_pages(app):
 
 
 def _hide_generated_source_links(app, pagename, templatename, context, doctree):
+# Renamed or removed pages and where their old URLs lead (GitHub Pages has no server redirects).
+REDIRECTS = {
+    'roadmap': 'overview',
+    'design/m7_3d': 'design/core_3d',
+    'design/m7_3d_ros': 'design/follower_3d',
+    'design/m7_ackermann_contour': 'design/ackermann_contour',
+    'design/m7_cbf': 'design/cbf',
+    'design/m7_follow_curve_bt': 'design/follow_curve_bt',
+    'design/m7_reversing': 'design/reversing',
+}
+
+
+def _write_redirects(app, exception):
+    """Write a page at each old URL of REDIRECTS that forwards to its new one."""
+    if exception is not None or app.builder.format != 'html':
+        return
+    for old, new in REDIRECTS.items():
+        target = '../' * old.count('/') + f'{new}.html'
+        page = Path(app.outdir) / f'{old}.html'
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(
+            '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8">'
+            f'<meta http-equiv="refresh" content="0; url={target}">'
+            f'<link rel="canonical" href="{html_baseurl}{new}.html"><title>Moved</title></head>'
+            f'<body><p>This page moved to <a href="{target}">{target}</a>.</p></body></html>\n',
+            encoding='utf-8',
+        )
+
+
     """Drop the edit and view buttons of the generated parameter pages: git has no source."""
     if pagename.startswith('parameters/'):
         context['page_source_suffix'] = ''
@@ -186,3 +215,4 @@ def setup(app):
     app.connect('builder-inited', _generate_parameter_pages)
     app.connect('html-page-context', _hide_generated_source_links)
     return {'parallel_read_safe': True, 'parallel_write_safe': True}
+    app.connect('build-finished', _write_redirects)

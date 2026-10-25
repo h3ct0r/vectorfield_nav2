@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// FieldState.msg constants equal the core Phase and Status values (plan §4.1, §7).
+// FieldState.msg constants equal the core Phase and Status values.
 //
 // The real check is compile time: including field_state.hpp evaluates its static_asserts. The
 // tests below repeat the comparison at run time, so a failure is also visible in the test report,

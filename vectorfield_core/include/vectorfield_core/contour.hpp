@@ -14,10 +14,10 @@
 
 /// @file
 /// @brief Pure building blocks of the obstacle contour: blend weight, contour field, blend,
-/// start and exit predicates, gate, side ranking and watchdog (plan §3.2 ObstacleContour;
-/// math_spec §6.2–§6.4).
+/// start and exit predicates, gate, side ranking and watchdog
+/// (math_spec §6.2–§6.4).
 ///
-/// Implemented in src/contour.cpp (M1 wave 3, tracker). The orchestration (K identity, side-probe
+/// Implemented in src/contour.cpp. The orchestration (K identity, side-probe
 /// rollouts, episode latch) lives in the Tracker, which composes these functions. All functions
 /// are `noexcept` and allocation-free.
 

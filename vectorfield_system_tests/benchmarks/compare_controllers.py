@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compare the vector-field controller with RPP, MPPI and Graceful on the M3 route.
+"""Compare the vector-field controller with RPP, MPPI and Graceful on the system-test route.
 
 Each run starts ``loopback_demo.launch.py`` (Jazzy and later) on ``open_10x10`` headless, with a
 scenario overlay that replaces ``FollowPath`` by the controller under test, drives the fixed 3-goal
@@ -735,7 +735,8 @@ def render(rows, controllers, context, args):
         'gate CI.',
         ':::',
         '',
-        f"The M3 route on Nav2's loopback simulator, driven {runs} times by each controller with "
+        "The three-goal route of the system tests on Nav2's loopback simulator, "
+        f'driven {runs} times by each controller with '
         'identical limits, goal checker, velocity smoother and collision monitor.',
         '',
         '## Setup',

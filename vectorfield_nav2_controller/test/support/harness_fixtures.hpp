@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /// @file
-/// @brief Shared pieces of the layer-2 gtests (plan §9 "Test layers", 2): the ROS environment,
+/// @brief Shared pieces of the layer-2 gtests: the ROS environment,
 /// the default harness options per motion model and small queries over a run. Header-only; it
 /// needs gtest, so it is not part of the support library. Distro-free.
 

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The follower in process (plan §9 layer 2b), supervision of a running goal (plan §6 "Failure
-// modes"): TF_ERROR, STALE_INPUT (odometry, costmap and moving-frame gaps), BLOCKED (kBlocked,
+// The follower in process, supervision of a running goal (the failure
+// table): TF_ERROR, STALE_INPUT (odometry, costmap and moving-frame gaps), BLOCKED (kBlocked,
 // the progress watchdog, the contour watchdog), UNSUPPORTED from kHeadingInfeasible,
 // ASSUMPTION3_VIOLATED, UNKNOWN on deactivation, TIMEOUT and cancel, each with its stop
 // behaviour (decelerate, zero, one zero then silence).

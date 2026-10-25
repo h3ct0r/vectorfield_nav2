@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// libFuzzer target for ExpressionCurve (plan §3.2, §9; upstream audit U01): untrusted expression
+// libFuzzer target for ExpressionCurve (upstream audit U01): untrusted expression
 // strings reach muParser through makeCurve, which must reject them with CurveError or build a
 // curve that evaluates without crashing. Any other exception, crash or sanitizer report is a bug.
 //

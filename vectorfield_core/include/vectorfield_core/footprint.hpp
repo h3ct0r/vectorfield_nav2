@@ -13,11 +13,10 @@
 // limitations under the License.
 
 /// @file
-/// @brief Robot footprint and the footprint collision checker (plan §3.2; math_spec §10.1,
+/// @brief Robot footprint and the footprint collision checker (math_spec §10.1,
 /// sec-footprint).
 ///
-/// Implemented in src/footprint.cpp (M1 wave 2, occupancy). The public API is binding; private
-/// members are the implementer's choice.
+/// Implemented in src/footprint.cpp.
 
 #ifndef VECTORFIELD_CORE__FOOTPRINT_HPP_
 #define VECTORFIELD_CORE__FOOTPRINT_HPP_

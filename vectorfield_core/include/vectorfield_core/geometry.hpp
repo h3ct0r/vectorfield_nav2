@@ -30,7 +30,7 @@
 namespace vectorfield_core
 {
 
-/// @brief Search state carried across cycles in `TrackerState::hint` (plan §3.1).
+/// @brief Search state carried across cycles in `TrackerState::hint`.
 ///
 /// - `s` holds **the curve's own parameter**: arc length for polylines, \f$u\f$ for parametric
 ///   curves (frame-invariant). Only the follower's Hinted polyline search and ParametricCurve

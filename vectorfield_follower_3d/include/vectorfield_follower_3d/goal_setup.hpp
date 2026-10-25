@@ -13,7 +13,7 @@
 // limitations under the License.
 
 /// @file
-/// @brief Goal validation of a FollowCurve3 goal (docs/design/m7_3d_ros.md). Pure: no node; the
+/// @brief Goal validation of a FollowCurve3 goal (docs/design/follower_3d.md). Pure: no node; the
 /// caller passes the time and the configuration.
 ///
 /// As in the planar follower, an active server never rejects a goal: execute calls

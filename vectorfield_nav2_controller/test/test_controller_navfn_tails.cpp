@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Layer 2 (plan §9), through the server harness: NavFn-style tails (nav2_api_matrix.md §9) driven
+// Layer 2, through the server harness: NavFn-style tails (nav2_api_matrix.md §9) driven
 // to completion through the real path handler (LegacyPathHandler on Gen A/B, FeasiblePathHandler
 // on Gen C). 8 sub-cell goal offsets × 16 approach headings, the robot starting 1 m before the goal,
 // at xy_tol 0.05 and 0.25. Every goal: no InvalidPath, the window's end tangent within 30° of the

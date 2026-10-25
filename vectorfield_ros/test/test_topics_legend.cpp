@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Topic names and the <ns> rule (plan §4 "Topics"), and the consistency of the visualization
-// legend (plan §4.1).
+// Topic names and the <ns> rule, and the consistency of the visualization
+// legend.
 
 #include <gtest/gtest.h>
 

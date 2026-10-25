@@ -73,8 +73,8 @@ The controller and the curve follower publish their state as RViz markers
 (`<ns>/markers`: phase and status text, footprint, curve, closest point,
 control point, field components, command, heading target, collision
 prediction, goal and braking zone, contour episode) and the field around the robot (`<ns>/field_grid`); see
-the visualization guide in the docs. The pre-configured `rviz/vectorfield.rviz`
-and `foxglove/vectorfield.json` in `vectorfield_bringup` are planned for M3.
+the visualization guide in the docs, and the pre-configured `rviz/vectorfield.rviz` and
+`foxglove/vectorfield.json` in `vectorfield_bringup`.
 
 ### Foxglove (recommended on macOS)
 

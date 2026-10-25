@@ -14,7 +14,7 @@
 
 /// @file
 /// @brief The simulated laser: exact ray casting against an occupancy grid (cell-boundary DDA)
-/// plus the unmapped circles and boxes (plan §8). ROS-free.
+/// plus the unmapped circles and boxes. ROS-free.
 
 #ifndef VECTORFIELD_SIM__RAY_CASTER_HPP_
 #define VECTORFIELD_SIM__RAY_CASTER_HPP_

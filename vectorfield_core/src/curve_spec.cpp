@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// CurveSpec and makeCurve, the single validation point of curves (plan §3.2, §6, §7;
-// math_spec §2.6–§2.8).
+// CurveSpec and makeCurve, the single validation point of curves
+// (math_spec §2.6–§2.8).
 
 #include "vectorfield_core/curve_spec.hpp"
 

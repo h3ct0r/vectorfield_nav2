@@ -1,6 +1,6 @@
-# M7: the 3D follower node (experimental)
+# The 3D follower node (experimental)
 
-The 3D core ({doc}`m7_3d`, math_spec §14) gets a ROS 2 node: a FollowCurve-style action server
+The 3D core ({doc}`core_3d`, math_spec §14) gets a ROS 2 node: a FollowCurve-style action server
 for drones and other robots that take a 3D velocity setpoint. It mirrors the planar curve
 follower ({doc}`../curve_follower`), and it is **experimental in 0.x** like the core: its
 interfaces may change in a minor release.
