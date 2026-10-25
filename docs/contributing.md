@@ -33,11 +33,14 @@ The figures in `docs/_static/figures/` are committed, because the docs job does 
 C++ bindings: after changing the field, the tracker or the plotting helpers, regenerate them with
 `pip install './vectorfield_py[tools]' && python docs/gen_figures.py` and commit the result.
 
-The RViz screenshots and the demo GIF in `docs/_static/screenshots/` are captures of
-`kinematic_sim_demo` with the shipped `rviz/vectorfield.rviz`, taken on Jazzy under a virtual X
-server (Xvfb) with software rendering. Retake them when the markers, their colours or the RViz
-configuration change; {doc}`visualization` lists the scenario of each. Keep each PNG under
-300 KB and the GIF under 3 MB. The pre-commit hooks skip both image directories.
+The RViz phase clips of {doc}`visualization` (`docs/_static/media/viz_*`, with their PNG
+posters in `docs/_static/screenshots/`) are recordings of `kinematic_sim_demo` with the shipped
+`rviz/vectorfield.rviz`, made on Jazzy under a virtual X server (Xvfb) with software rendering.
+Record them again with `docs/tools/record_rviz_clips.sh` in the Jazzy devcontainer (with
+`apt install xvfb`) when the markers, their colours or the RViz configuration change; the
+script runs the scenario of each phase and writes the MP4, GIF and poster. Keep each MP4 under
+3 MiB, each GIF under 2 MiB and each PNG under 300 KB, and the demo GIF under 3 MB. The
+pre-commit hooks skip the screenshots directory.
 
 The gallery clips in `docs/_static/media/` (the README's GIFs and the {doc}`examples/index`
 videos) are recordings of the MuJoCo examples. Record them again with

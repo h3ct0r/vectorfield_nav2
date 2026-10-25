@@ -44,6 +44,10 @@ drives it by itself:
 ros2 launch vectorfield_mujoco differential.launch.py
 ```
 
+```{clip} differential
+:alt: PAL TIAGo drives past an unmapped box on its free side with Nav2 and the vector-field controller, rejoins the path and turns to the goal heading.
+```
+
 The other examples are `skid_steer`, `omnidirectional`, `ackermann`, `drone` and
 `curve_following`. {doc}`examples/index` shows each one with its clip and configuration, and
 lists what they need; the first run downloads three robots from the MuJoCo Menagerie.
@@ -67,6 +71,14 @@ simulator:
 ```bash
 ros2 launch vectorfield_bringup loopback_demo.launch.py
 ```
+
+:::{figure} _static/screenshots/demo.gif
+:alt: The robot in RViz follows the plan, circulates around a box on it with the contour markers shown, rejoins the plan and stops on the goal.
+:width: 100%
+
+What RViz shows during a run of `kinematic_sim_demo` with `scenarios:=demo_obstacles` (see
+{doc}`visualization` for every marker).
+:::
 
 `motion_model` is `differential` (default), `skid_steer`, `omnidirectional` or `ackermann`. The
 robot starts at (0, 0) facing +x on every map; `open_10x10` is a 10 m × 10 m open area centred on
@@ -99,6 +111,40 @@ Goals worth trying, and what to expect:
 - **Around a sharp corner** (`map:=corridor_corner`, goal (6, 6)). The robot follows the plan
   through the 90° corner of the 1.2 m corridor without touching its walls.
 
+::::{grid} 1 2 2 2
+:gutter: 2
+
+:::{grid-item}
+
+```{clip} viz_rotate_to_field
+:poster: screenshots/rotate_to_field.png
+:class: vf-natural
+:alt: The robot turns in place toward a goal behind it, the amber heading arrow and arc showing the turn still to do.
+```
+
+ROTATE_TO_FIELD: a goal behind the robot.
+:::
+
+:::{grid-item}
+
+```{clip} viz_rotate_to_heading
+:poster: screenshots/rotate_to_heading.png
+:class: vf-natural
+:alt: The robot on the goal turns in place to the goal yaw, with the blue target arrow and arc.
+```
+
+ROTATE_TO_HEADING: a new yaw at the same spot.
+:::
+::::
+
+```{clip} viz_final_approach
+:poster: screenshots/final_approach.png
+:class: vf-natural
+:alt: The robot drives along the plan and slows down onto the goal inside its tolerance rings.
+```
+
+FINAL_APPROACH: the last part of a goal a few metres ahead, braking onto it.
+
 In RViz, check:
 
 - the status text above the robot, whose colour changes with the phase;
@@ -127,7 +173,15 @@ The robot passes the box on its free side at about the contour distance $\lambda
 path and stops at the goal. While it circulates, the status reads `CONTOUR +1` or `CONTOUR -1`,
 and the `contour` markers show the path samples that opened the gate, the obstacle cells, the
 $\lambda$, $D_{\mathrm{in}}$ and $D'_{\mathrm{in}}$ rings, the chosen side and the watchdog
-progress. The obstacles are run-time parameters of the simulator:
+progress.
+
+```{clip} viz_contour
+:poster: screenshots/contour.png
+:class: vf-natural
+:alt: The robot circulates around a box on its plan, with the contour markers, then rejoins the plan.
+```
+
+The obstacles are run-time parameters of the simulator:
 
 ```bash
 ros2 param set /vectorfield_sim box_obstacles "[2.0, 0.0, 0.4, 0.4, 0.0]"
@@ -138,6 +192,12 @@ the box instead and the status reads `BLOCKED`. The controller then raises `NoVa
 Nav2's behaviour tree replans or recovers; with the stock global obstacle layer, the new plan goes
 around the box. {doc}`obstacle_avoidance` explains both modes.
 
+```{clip} viz_blocked
+:poster: screenshots/blocked.png
+:class: vf-natural
+:alt: The robot stops in front of a wall across its plan, its footprint red, a red collision cube ahead and BLOCKED in the status text.
+```
+
 ## Curve follower
 
 `curve_follower_demo` adds the `follow_curve` action server to the kinematic demo; Nav2 keeps
@@ -147,6 +207,12 @@ running, and its local costmap is the follower's obstacle input:
 ros2 launch vectorfield_bringup curve_follower_demo.launch.py
 ros2 run vectorfield_bringup send_curve.py --shape lemniscate_bernoulli --laps 3
 ```
+
+```{clip} curve_following
+:alt: An AgileX Scout Mini drives laps of a lemniscate in MuJoCo with the curve follower.
+```
+
+The clip is the MuJoCo example of the same action ({doc}`examples/curve_following`).
 
 `send_curve.py` first drives the robot to the curve with NavigateToPose, then sends the goal,
 prints the feedback and exits with status 0 once the three laps are done. Other shapes are
@@ -176,6 +242,14 @@ pip install './vectorfield_py[tools]'
 vf-sim --model differential --curve ellipse --gif ellipse.gif
 vf-plot --curve lemniscate_bernoulli:a=2 -o field.svg
 ```
+
+:::{figure} _static/figures/field_ellipse.svg
+:alt: Streamlines of the vector field around an ellipse, converging onto it and circulating along it.
+:width: 70%
+
+A field plotted with the Python tools: integral curves converge to the ellipse and then travel
+along it ({doc}`theory`).
+:::
 
 `vf-tune` checks a parameter file and sweeps a parameter in simulation (see {doc}`tuning`).
 `vectorfield_core` itself also builds and tests without ROS:

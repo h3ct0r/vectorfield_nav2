@@ -9,6 +9,14 @@ constant norm $v_r$. It blends convergence towards a curve with circulation alon
 a feedforward term when the curve itself moves. Integral curves of the field converge to the
 target curve and then travel along it (see {doc}`theory`).
 
+```{clip} overview
+:alt: Left, a Skydio X2 drone follows a helix past a sphere and a pole, the 3D field drawn as coloured arrows around it. Right, an AgileX Scout Mini drives through a door with Nav2 and the vector-field controller.
+:class: vf-wide
+```
+
+A drone on the 3D follower ({doc}`examples/drone`) and a skid-steer Scout Mini driven by Nav2
+through a door ({doc}`examples/skid_steer`), both in MuJoCo.
+
 The project delivers two front ends on top of one shared core:
 
 - **`vectorfield_nav2_controller::VectorFieldController`**, a `nav2_core::Controller` plugin.

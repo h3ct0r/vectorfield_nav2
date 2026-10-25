@@ -30,6 +30,24 @@ video.vf-clip {
   background: var(--color-background-secondary);
 }
 
+/* Two recordings side by side (the overview clip, 1280x360). */
+video.vf-clip.vf-wide {
+  aspect-ratio: 32 / 9;
+}
+
+/* The RViz phase clips keep their own proportions (their PNG poster has the same). */
+video.vf-clip.vf-natural {
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+/* Readers who prefer reduced motion get controls (clips.js): lift them above a link card's
+   stretched link (sphinx-design's ::after, z-index 1) so that they can be used. */
+video.vf-clip[controls] {
+  position: relative;
+  z-index: 2;
+}
+
 /* A clip on its own (example pages): a frame and some air around it. */
 article > section > video.vf-clip,
 article video.vf-clip[controls] {

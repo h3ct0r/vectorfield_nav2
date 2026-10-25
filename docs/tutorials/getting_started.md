@@ -206,7 +206,7 @@ The vector-field markers are drawn at the robot and along the plan:
 - the **goal rings** (the XY tolerance and the settle radius) and the orange **braking zone**;
 - the **field grid** (the *Field grid* display, on by default): the field around the robot.
 
-{doc}`../visualization` has the full legend, screenshots of every phase and the Foxglove and
+{doc}`../visualization` has the full legend, a clip of every phase and the Foxglove and
 PlotJuggler layouts.
 
 ## 6. Stop and clean up

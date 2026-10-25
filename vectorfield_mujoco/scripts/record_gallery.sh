@@ -270,19 +270,31 @@ encode() {
     -vf "scale=960:540,$(caption "$WORK/$ex.caption.txt" 20)" -q:v 5 "$OUT/$ex.jpg" || return 1
 }
 
-failed=0
-report=()
-for ex in "${selected[@]}"; do
-  raw="$WORK/$ex.raw.mp4"
-  if [ "$ENCODE_ONLY" = 0 ]; then
-    record "$ex" "$raw" "$WORK/$ex.log" || { failed=1; continue; }
-  elif [ ! -s "$raw" ]; then
-    echo "record_gallery: $ex: no $raw to encode" >&2
-    failed=1
-    continue
-  fi
-  encode "$ex" "$raw"
-  line="$ex:"
+# The Overview page's clip: the drone and the Scout Mini side by side (1280x360), cut from their
+# gallery clips to the shorter one; the GIF is the first 10 s.
+compose_overview() {
+  local a="$OUT/drone.mp4" b="$OUT/skid_steer.mp4" length
+  length=$(calc "($(duration "$a") < $(duration "$b")) ? $(duration "$a") : $(duration "$b")")
+  echo "== overview: drone and skid_steer side by side, ${length} s"
+  local mp4="[0:v]trim=0:$length,setpts=PTS-STARTPTS[a];[1:v]trim=0:$length,setpts=PTS-STARTPTS[b]"
+  mp4+=";[a][b]hstack=inputs=2,scale=1280:360"
+  ffmpeg -hide_banner -loglevel error -y -i "$a" -i "$b" -an -filter_complex "$mp4" \
+    -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -movflags +faststart "$OUT/overview.mp4" ||
+    return 1
+  local gif="[0:v]setpts=PTS-STARTPTS[a];[1:v]setpts=PTS-STARTPTS[b];[a][b]hstack=inputs=2"
+  gif+=",fps=10,scale=720:-2:flags=lanczos,split[x][y]"
+  gif+=";[x]palettegen=max_colors=96:stats_mode=diff[p]"
+  gif+=";[y][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle"
+  ffmpeg -hide_banner -loglevel error -y -t 10 -i "$a" -t 10 -i "$b" -an -filter_complex "$gif" \
+    -loop 0 "$OUT/overview.gif" || return 1
+  ffmpeg -hide_banner -loglevel error -y -ss 9 -i "$OUT/overview.mp4" -frames:v 1 -q:v 5 \
+    "$OUT/overview.jpg" || return 1
+}
+
+# Print "<name>: mp4 N KiB (T s) gif ... jpg ..." for docs/_static/media/<name>.*; fail when a file
+# is over its budget.
+check_sizes() {
+  local name="$1" line="$1:" kind file budget size status=0
   for kind in mp4 gif jpg; do
     file="$OUT/$name.$kind"
     case "$kind" in
@@ -298,8 +310,45 @@ for ex in "${selected[@]}"; do
       status=1
     fi
   done
+  echo "$line"
+  return "$status"
+}
+
+failed=0
+report=()
+for ex in "${selected[@]}"; do
+  raw="$WORK/$ex.raw.mp4"
+  if [ "$ENCODE_ONLY" = 0 ]; then
+    record "$ex" "$raw" "$WORK/$ex.log" || { failed=1; continue; }
+  elif [ ! -s "$raw" ]; then
+    echo "record_gallery: $ex: no $raw to encode" >&2
+    failed=1
+    continue
+  fi
+  # A failed encode fails this example only; the other examples and the recordings stay.
+  if ! encode "$ex" "$raw"; then
+    echo "record_gallery: $ex: encoding $raw failed" >&2
+    failed=1
+    continue
+  fi
+  line=$(check_sizes "$ex") || failed=1
   report+=("$line")
 done
+
+# The overview clip follows the drone and skid_steer clips whenever either is re-encoded.
+case " ${selected[*]} " in
+  *' drone '* | *' skid_steer '*)
+    if [ -s "$OUT/drone.mp4" ] && [ -s "$OUT/skid_steer.mp4" ]; then
+      if compose_overview; then
+        line=$(check_sizes overview) || failed=1
+        report+=("$line")
+      else
+        echo 'record_gallery: overview: encoding failed' >&2
+        failed=1
+      fi
+    fi
+    ;;
+esac
 
 echo '== gallery sizes'
 for line in "${report[@]}"; do echo "$line"; done

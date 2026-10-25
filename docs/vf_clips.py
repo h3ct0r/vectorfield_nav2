@@ -24,8 +24,10 @@ poster ``<name>.jpg``. In MyST::
     ```
 
 renders ``<video autoplay loop muted playsinline>`` of the MP4 with the JPEG as its poster and
-the GIF as the fallback of browsers without video (HTML builders only). A missing file is a
-warning, so ``sphinx-build -W`` fails on a clip that was not recorded.
+the GIF as the fallback of browsers without video (HTML builders only). ``:poster:`` names
+another poster under ``docs/_static`` (the RViz clips of the visualization guide show their
+screenshot), and then no JPEG is needed. A missing file is a warning, so ``sphinx-build -W``
+fails on a clip that was not recorded.
 """
 
 import html
@@ -36,42 +38,52 @@ from docutils.parsers.rst import directives
 from sphinx.util import logging
 from sphinx.util.docutils import SphinxDirective
 
-MEDIA_DIR = Path(__file__).resolve().parent / '_static' / 'media'
+STATIC_DIR = Path(__file__).resolve().parent / '_static'
+MEDIA_DIR = STATIC_DIR / 'media'
 SUFFIXES = ('mp4', 'gif', 'jpg')
 
 logger = logging.getLogger(__name__)
 
 
 class ClipDirective(SphinxDirective):
-    """``{clip} <name>``: options ``alt``, ``class`` (extra classes) and ``controls``."""
+    """``{clip} <name>``: options ``alt``, ``class`` (extra classes), ``controls``, ``poster``."""
 
     required_arguments = 1
     option_spec = {
         'alt': directives.unchanged,
         'class': directives.class_option,
         'controls': directives.flag,
+        'poster': directives.unchanged,
     }
 
     def run(self):
         """Return the video as a raw HTML node."""
         name = self.arguments[0]
-        missing = [f'{name}.{s}' for s in SUFFIXES if not (MEDIA_DIR / f'{name}.{s}').is_file()]
+        poster = self.options.get('poster')
+        suffixes = SUFFIXES[:2] if poster else SUFFIXES
+        missing = [
+            f'media/{name}.{s}' for s in suffixes if not (MEDIA_DIR / f'{name}.{s}').is_file()
+        ]
+        if poster and not (STATIC_DIR / poster).is_file():
+            missing.append(poster)
         if missing:
             logger.warning(
-                'clip %s: %s missing from docs/_static/media',
+                'clip %s: %s missing from docs/_static',
                 name,
                 ', '.join(missing),
                 location=(self.env.docname, self.lineno),
             )
             return []
         # Pages are <docname>.html (the html builder): climb to the root for _static.
-        src = '../' * self.env.docname.count('/') + f'_static/media/{name}'
+        static = '../' * self.env.docname.count('/') + '_static'
+        src = f'{static}/media/{name}'
+        poster_src = f'{static}/{poster}' if poster else f'{src}.jpg'
         alt = html.escape(self.options.get('alt', name.replace('_', ' ')), quote=True)
         classes = ' '.join(['vf-clip', *self.options.get('class', [])])
         controls = ' controls' if 'controls' in self.options else ''
         markup = (
             f'<video class="{classes}" autoplay loop muted playsinline{controls} '
-            f'preload="metadata" poster="{src}.jpg" aria-label="{alt}">'
+            f'preload="metadata" poster="{poster_src}" aria-label="{alt}">'
             f'<source src="{src}.mp4" type="video/mp4">'
             f'<img src="{src}.gif" alt="{alt}" loading="lazy">'
             '</video>'

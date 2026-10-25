@@ -139,10 +139,11 @@ html_theme = 'furo'
 html_title = f'vectorfield_nav2 {release}'
 html_baseurl = 'https://h3ct0r.github.io/vectorfield_nav2/'
 # _static/media holds the gallery clips (vf_clips); custom.css styles the landing page and the
-# gallery, clips.js plays the clips only while they are on screen.
+# gallery, clips.js plays the clips only while they are on screen, and sidebar.js keeps the
+# navigation's scroll position from page to page.
 html_static_path = ['_static']
 html_css_files = ['custom.css']
-html_js_files = [('clips.js', {'defer': 'defer'})]
+html_js_files = [('clips.js', {'defer': 'defer'}), ('sidebar.js', {'defer': 'defer'})]
 html_theme_options = {
     # "Edit this page" and "View source" link to the Markdown sources on main.
     'source_repository': f'{REPOSITORY_URL}/',
@@ -175,7 +176,6 @@ def _generate_parameter_pages(app):
         logger.warning('gen_params: %s', message)
 
 
-def _hide_generated_source_links(app, pagename, templatename, context, doctree):
 # Renamed or removed pages and where their old URLs lead (GitHub Pages has no server redirects).
 REDIRECTS = {
     'roadmap': 'overview',
@@ -205,6 +205,7 @@ def _write_redirects(app, exception):
         )
 
 
+def _hide_generated_source_links(app, pagename, templatename, context, doctree):
     """Drop the edit and view buttons of the generated parameter pages: git has no source."""
     if pagename.startswith('parameters/'):
         context['page_source_suffix'] = ''
@@ -214,5 +215,5 @@ def setup(app):
     """Register the build hooks."""
     app.connect('builder-inited', _generate_parameter_pages)
     app.connect('html-page-context', _hide_generated_source_links)
-    return {'parallel_read_safe': True, 'parallel_write_safe': True}
     app.connect('build-finished', _write_redirects)
+    return {'parallel_read_safe': True, 'parallel_write_safe': True}
