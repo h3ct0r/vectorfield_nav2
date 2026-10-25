@@ -17,6 +17,9 @@ Forthcoming
   near clipping plane out (close views of the drone were clipped).
 * The Ackermann command counts as infeasible below vectorfield_sim's zero speed (1e-6 m/s), and
   the adapter keeps the car's wheels straight and still there.
+* The drone's cbf_margin is 0.015 m (was 0.1 m): the 3D CBF now counts voxel sites from their
+  cubes, which covers the voxel blur the larger margin allowed for; the barrier keeps the same
+  0.5 m from the voxel centres.
 * The Ackermann car's tyres get the Scout Mini's soft first touch: skidding tyres stay on the
   floor (four-tyre contact 99 % of a hard turn, from 36 %).
 * record_gallery.sh: Ctrl-C and SIGTERM stop the running example before the script exits; a

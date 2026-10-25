@@ -35,13 +35,14 @@ follower_3d:
     max_yaw_accel: 3.2
     # The CBF filter against the obstacle cloud (the launch sets voxel_cloud_topic). The body
     # sphere about base_link covers the rotors: their 0.13 m discs sit at (+-0.14, +-0.18) m and
-    # up to 0.09 m above base_link, 0.37 m away at most. The margin is twice the default: the
-    # filter assumes the velocity is reached at once, but the drone's lags by its loop's time
-    # constant, and the 0.1 m voxels blur the surfaces. cbf_gain * desired_speed (1.0) is at
-    # most max_decel.
+    # up to 0.09 m above base_link, 0.37 m away at most. The filter counts each voxel site from
+    # its cube, half a voxel diagonal (0.087 m) nearer than the voxel centre, so with this margin
+    # the barrier keeps 0.5 m from the voxel centres: room for the drone's velocity lag (the
+    # filter assumes the velocity is reached at once). cbf_gain * desired_speed (1.0) is at most
+    # max_decel.
     obstacle_mode: "cbf"
     body_radius: 0.4
-    cbf_margin: 0.1
+    cbf_margin: 0.015
     cbf_gain: 2.0
     voxel_resolution: 0.1
     voxel_grid_size: 48

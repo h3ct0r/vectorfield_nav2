@@ -43,7 +43,8 @@ The drone rests on the floor below the start of the helix, a 1 m radius curve th
 0.5 m to 1.5 m in two counter-clockwise turns. The follower takes it to the curve and along it
 at 0.5 m/s. The pillar inside the helix and the sphere outside the first turn are 0.2 m and
 0.15 m from the curve, inside the drone's 0.4 m body radius: the CBF filter keeps the body
-sphere plus a 0.1 m margin off their surfaces ({ref}`core-3d-obstacles`). The helix is open, so
+sphere `cbf_margin` (0.015 m) clear of the voxel cubes the obstacle cloud fills, 0.5 m from
+the voxel centres ({ref}`core-3d-obstacles`). The helix is open, so
 the goal succeeds at its end.
 
 - [Blue line]{.vf-key .vf-blue3d}: the curve.
