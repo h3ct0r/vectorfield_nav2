@@ -1548,9 +1548,10 @@ void reserveScratch(const Model & model, const ObstacleEnv & obstacles, StepScra
 }
 
 /// @brief Gate samples \f$r(s)\f$ one cell apart over the lookahead in the traversal direction,
-/// rays excluded (math_spec §6.4), in traversal order; marks the blocked ones.
+/// rays excluded (math_spec §6.4), in traversal order; marks the blocked ones (with the release
+/// margin when `held`: the gate is open or an episode active).
 void sampleGate(
-  const StepEnv & env, const Isometry2 & frame, double s_star, StepScratch * scratch,
+  const StepEnv & env, const Isometry2 & frame, double s_star, bool held, StepScratch * scratch,
   ObstacleEnv * obstacles) noexcept
 {
   const Model & model = env.model;
@@ -1593,9 +1594,13 @@ void sampleGate(
     grid_samples[i] = obstacles->T_grid_eval.apply(samples[i]);
   }
   scratch->gate_blocked.resize(count);
+  // Hysteresis: an open gate (or an active episode) is held by samples within w_lat + the release
+  // margin, so a replanned path that grazes the obstacle keeps it open.
+  const double tolerance =
+    held ? -config.obstacle_gate_release_margin : config.obstacle_gate_tolerance;
   const int first = markBlockedSamples(
-    Span<const Vec2>(grid_samples.data(), count), *obstacles->edt_all, model.w_lat,
-    config.obstacle_gate_tolerance, Span<std::uint8_t>(scratch->gate_blocked.data(), count));
+    Span<const Vec2>(grid_samples.data(), count), *obstacles->edt_all, model.w_lat, tolerance,
+    Span<std::uint8_t>(scratch->gate_blocked.data(), count));
   if (first >= 0) {
     obstacles->has_blocked_sample = true;
     obstacles->first_blocked_sample = samples[static_cast<std::size_t>(first)];
@@ -1805,7 +1810,8 @@ void prepareObstacles(StepEnv * env, TrackerState * st, StepScratch * scratch) n
 
   // Gate (path_blocked), sampled in both modes for the visualizer.
   if (query.cp.valid) {
-    sampleGate(*env, frame, query.cp.s_star, scratch, &obstacles);
+    sampleGate(
+      *env, frame, query.cp.s_star, contour.gate_open || contour.active, scratch, &obstacles);
   }
   if (model.config.obstacles.obstacle_activation == ObstacleActivation::kAlways) {
     contour.gate_open = true;

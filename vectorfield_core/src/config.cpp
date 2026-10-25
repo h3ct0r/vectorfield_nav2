@@ -259,6 +259,12 @@ void checkDomain(const CoreConfig & config, ValidationReport * report)
   check.autoOrPositive("obstacle_blend_start_distance", obstacles.obstacle_blend_start_distance);
   check.autoOrPositive("obstacle_lookahead", obstacles.obstacle_lookahead);
   check.finiteValue("obstacle_gate_tolerance", obstacles.obstacle_gate_tolerance);
+  check.require(
+    finite(obstacles.obstacle_gate_release_margin) &&
+      obstacles.obstacle_gate_release_margin >= -obstacles.obstacle_gate_tolerance,
+    "obstacle_gate_release_margin = " + num(obstacles.obstacle_gate_release_margin) +
+      " must be finite and >= -obstacle_gate_tolerance (" + num(obstacles.obstacle_gate_tolerance) +
+      ")");
   check.nonNegative("obstacle_release_time", obstacles.obstacle_release_time);
   check.positive("obstacle_max_contour_length", obstacles.obstacle_max_contour_length);
   check.positive("obstacle_max_contour_time", obstacles.obstacle_max_contour_time);

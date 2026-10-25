@@ -79,10 +79,12 @@ The package depends on no autopilot stack. Feed it with remaps or a few lines of
   your state estimate as `odom`.
 
 :::{important}
-The follower is silent between goals (the safety contract below). An autopilot in an offboard
-or guided mode needs its own setpoint stream otherwise. PX4's offboard mode, for example,
-fails safe when setpoints stop. Keep a supervisor that holds position between goals, and arm
-and take off outside the follower.
+By default the follower is silent between goals (the safety contract below), and PX4's
+offboard mode fails safe when setpoints stop. Set `hold_between_goals: true` and, while active
+and without a goal, the follower publishes a zero setpoint every control period
+(`controller_frequency`), which keeps PX4 in offboard and holds ArduPilot in guided mode. No
+other node may publish on the same topic then. Arm, take off and switch modes outside the
+follower.
 :::
 
 ## Moving frames
@@ -118,8 +120,9 @@ With `obstacle_mode: cbf` the CBF filter of the 3D core keeps a sphere of `body_
   and when the robot leaves the central half of the cube. The cloud is transformed into
   `global_frame` with the latest TF. Points outside the cube are dropped. With `cbf`, a
   missing cloud, or one older than `voxel_timeout`, is a stale input. Set `voxel_timeout <= 0`
-  for a map that is republished rarely. Voxel distances are measured to voxel centres, so
-  expect a clearance about half a voxel short of the true surface.
+  for a map that is republished rarely. Voxel distances are measured to voxel centres; the
+  filter counts each voxel site from its cube, half a voxel diagonal closer, so the margin holds
+  to the voxel cubes, which over-approximate the obstacle by up to that much.
 
 When the filter leaves less than 5 % of the field speed, for example with an obstacle centred on
 the curve, the robot holds with status BLOCKED. After `blocked_timeout` the goal aborts BLOCKED.
@@ -131,7 +134,8 @@ As in the planar follower, an active node never rejects a goal: it validates it 
 terminates an invalid one before any command. A goal ends in one of three ways. A deceleration
 ramp at `max_decel` and `max_yaw_accel` ends with exactly one zero. A cancel decelerates at
 `cancel_decel` and then sends one zero. An immediate abort sends one zero at once. After that
-the node is silent until the next goal.
+the node is silent until the next goal, or, with `hold_between_goals`, publishes zeros at the
+control rate.
 
 | Result | Cause | Ending |
 |---|---|---|
@@ -154,7 +158,7 @@ the node is silent until the next goal.
 | `cmd_vel` | `geometry_msgs/TwistStamped` (pub) | `cmd_vel_topic`, only while a goal executes |
 | `~/curve` | `vectorfield_msgs/Curve3` | The goal's curve, transient local |
 | `~/field_state` | `vectorfield_msgs/FieldState3` | Every cycle: pose, foot, $D$, lap, $\Phi$, CBF barrier, commands |
-| `~/markers` | `visualization_msgs/MarkerArray` | Every `visualization_period`: `curve`, `closest_point`, `tangent`, `command`, `field` (arrows of $\Phi$ with three-stroke heads on a lattice of `field_arrows_step` within `field_arrows_extent`, coloured viridis by the distance to the curve, like the 2D field grid), `goal`, `obstacles`, `voxels`, `body`, `status` |
+| `~/markers` | `visualization_msgs/MarkerArray` | Every `visualization_period` while subscribed: `curve`, `closest_point`, `tangent`, `command`, `field` (arrows of $\Phi$ with three-stroke heads on a lattice of `field_arrows_step` within `field_arrows_extent`, at most 7 per axis, coloured viridis by the distance to the curve, like the 2D field grid), `goal`, `obstacles`, `voxels`, `body`, `status` |
 | `voxel_cloud_topic` | `sensor_msgs/PointCloud2` (sub) | Optional |
 | `<frame_odom_topic>` | `nav_msgs/Odometry` (sub) | Moving-frame goals |
 

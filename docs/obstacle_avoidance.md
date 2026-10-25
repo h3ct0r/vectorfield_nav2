@@ -104,6 +104,12 @@ $\lambda$ and make it limit-cycle exactly where clearance matters.
   path would touch the obstacle. Grazing contacts are left to the collision prediction.
 - The gate is open in a cycle with a blocked sample and closes after the path has stayed clear
   for `obstacle_release_time` (0.5 s).
+- **Hysteresis:** while the gate is open or an episode is active, a sample within
+  $w_{\mathrm{lat}}$ + `obstacle_gate_release_margin` (0.10 m) of an obstacle counts as blocked,
+  so the path has to clear the obstacle by that margin before the gate can close. Nav2 replans
+  from where the contour has taken the robot, and a global costmap that does not see the
+  obstacle gives a new path that grazes it; without the margin that path would end the episode
+  and leave the robot blocked against the obstacle.
 - **Goal veto:** when the path ends at the goal and the goal itself is blocked, no episode starts
   and an active one ends; the braking cap stops the robot instead.
 

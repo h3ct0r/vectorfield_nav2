@@ -444,7 +444,8 @@ def launch_description(driver, example=None, **defaults):
 
     if driver not in DRIVERS:
         raise ValueError(f'driver {driver!r} is not one of {", ".join(DRIVERS)}')
-    refusal = demo.refuse_unsupported(f'{example or "mujoco_" + driver}.launch.py')
+    generic = 'mujoco_drone' if driver == 'follower_3d' else f'mujoco_{driver}'
+    refusal = demo.refuse_unsupported(f'{example or generic}.launch.py')
     if refusal is not None:
         return refusal
     scenario_help = (

@@ -58,9 +58,17 @@ vectorfield_follower_3d_params:
     default_value: "cmd_vel"
     read_only: true
     description: "Velocity setpoints (geometry_msgs/TwistStamped), published only while a goal
-      executes."
+      executes (and zeros between goals with hold_between_goals)."
     validation:
       not_empty<>: []
+  hold_between_goals:
+    type: bool
+    default_value: false
+    read_only: true
+    description: "While active and no goal executes, publish a zero setpoint every control period
+      (controller_frequency), so that an autopilot in an offboard or guided mode keeps receiving
+      setpoints and holds (PX4's offboard mode fails safe when they stop). Off: silent between
+      goals."
   cmd_frame:
     type: string
     default_value: "global"
@@ -347,7 +355,8 @@ vectorfield_follower_3d_params:
   publish_markers:
     type: bool
     default_value: true
-    description: "Publish ~/markers (MarkerArray) and ~/field_state (FieldState3)."
+    description: "Publish ~/markers (MarkerArray, built only while subscribed) and ~/field_state
+      (FieldState3)."
   visualization_period:
     type: double
     default_value: 0.1
@@ -364,6 +373,7 @@ vectorfield_follower_3d_params:
   field_arrows_step:
     type: double
     default_value: 0.5
-    description: "Spacing of the lattice of field arrows (m)."
+    description: "Spacing of the lattice of field arrows (m); widened to keep at most 7 arrows
+      per axis."
     validation:
       gt<>: [0.0]

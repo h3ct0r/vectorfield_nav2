@@ -126,6 +126,32 @@ def test_ackermann_car_turns_at_the_commanded_radius():
     assert lin[0] / ang[2] == pytest.approx(0.7, rel=0.05)
 
 
+@pytest.mark.parametrize('robot', ['scout_mini', 'ackermann_car'])
+def test_skidding_tyres_stay_on_the_floor(robot):
+    """Tight, fast turns make the tyres skid; all of them keep touching the floor (no hop)."""
+    from vectorfield_mujoco import simulation
+
+    world = scene.make_world(robot)
+    sim = simulation.Simulation(world)
+    model, data = world.model, world.data
+    tyres = [
+        g
+        for g in range(model.ngeom)
+        if model.geom(g).name.endswith('_wheel') and model.geom_group[g] == 3
+    ]
+    assert len(tyres) == 4
+    ticks = touching_all = 0
+    for v, omega in ((0.6, 2.0), (1.0, 3.0)):
+        for _ in range(300):
+            sim.set_command(v, 0.0, omega)
+            sim.step()
+            touching = {c.geom1 for c in data.contact[: data.ncon]}
+            touching |= {c.geom2 for c in data.contact[: data.ncon]}
+            ticks += 1
+            touching_all += all(t in touching for t in tyres)
+    assert touching_all / ticks > 0.9
+
+
 def test_robot_geoms_avoid_the_world_group():
     """No robot geom is in the lidar's world group."""
     for key in ('scout_mini', 'ackermann_car'):

@@ -343,6 +343,15 @@ TEST(Markers, DrawsTheCurveTheObstaclesAndTheStatus)
     varied = varied || c.r != field->colors.front().r || c.b != field->colors.front().b;
   }
   EXPECT_TRUE(varied);
+
+  // A finer lattice is capped at 7 arrows per axis, spread over the same extent.
+  input.field_extent = 1.5;
+  input.field_step = 0.1;
+  for (const auto & m : vectorfield_follower_3d::buildMarkers3(input).markers) {
+    if (m.ns == "field") {
+      EXPECT_EQ(m.points.size(), 8U * 343U);
+    }
+  }
 }
 
 }  // namespace

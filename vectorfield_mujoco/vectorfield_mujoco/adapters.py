@@ -27,6 +27,10 @@ import math
 
 import numpy as np
 
+# A speed at or below this is zero (m/s), as vectorfield_sim's kZeroVelocity: an Ackermann
+# command with |v| <= ZERO_SPEED and |ω| > ZERO_SPEED is infeasible.
+ZERO_SPEED = 1e-6
+
 
 def diff_drive(v, omega, radius, track):
     """Return the (left, right) wheel speeds of a differential drive: (v ∓ ω·track/2)/r."""
@@ -60,7 +64,7 @@ def ackermann(v, omega, wheelbase, track, radius, max_steer=None, steer_track=No
     ``steer_track`` is the distance between the steering pivots (default ``track``). With
     v = 0 the car cannot turn: the wheels stay straight and still.
     """
-    if abs(v) < 1e-9:
+    if abs(v) <= ZERO_SPEED:
         return 0.0, 0.0, 0.0, 0.0
     half = 0.5 * track
     pivot = 0.5 * (track if steer_track is None else steer_track)
@@ -85,7 +89,7 @@ def ackermann_inverse(rear_left, rear_right, radius, track):
 
 def bicycle_steer(v, omega, wheelbase):
     """Return the bicycle-model steering angle atan(L·ω/v) (0 when v = 0)."""
-    return 0.0 if abs(v) < 1e-9 else math.atan(wheelbase * omega / v)
+    return 0.0 if abs(v) <= ZERO_SPEED else math.atan(wheelbase * omega / v)
 
 
 def holonomic(vx, vy, omega, yaw):

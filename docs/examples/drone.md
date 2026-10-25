@@ -104,8 +104,9 @@ reaches a commanded velocity only after its loop's 0.33 s time constant.
 ## Adapt it to your vehicle
 
 On a real drone the follower talks to the autopilot instead: MAVROS, PX4 over uXRCE-DDS or
-ArduPilot DDS, with a supervisor that arms, takes off and holds position between goals
-({doc}`../follower_3d`, {doc}`../tutorials/aerial_3d`). Keep the follower's speed and
+ArduPilot DDS, with a supervisor that arms and takes off, and `hold_between_goals: true` so
+that the vehicle keeps getting setpoints between goals ({doc}`../follower_3d`,
+{doc}`../tutorials/aerial_3d`). Keep the follower's speed and
 acceleration limits well inside what the vehicle's velocity mode tracks, and widen
 `cbf_margin` by how far the vehicle travels during its velocity lag.
 

@@ -40,7 +40,7 @@ import math
 import numpy as np
 import yaml
 
-from vectorfield_mujoco import scene
+from vectorfield_mujoco import adapters, scene
 
 #: Poses this close (m, rad) to the current one are not teleported to (only re-anchored), so
 #: the initial pose publisher's first message does not disturb a robot that just settled.
@@ -185,6 +185,7 @@ class Simulation:
         self.cmd_timeout = cmd_timeout
         self.ticks = 0
         self.infeasible_count = 0
+        self.resets = 0
         self._command = (0.0, 0.0, 0.0)
         self._velocity = ((0.0, 0.0, 0.0), 0.0, False)
         self._command_time = None
@@ -206,7 +207,11 @@ class Simulation:
             raise ValueError('non-finite command')
         self._command = (float(vx), float(vy), float(omega))
         self._command_time = self.time
-        infeasible = self.world.robot.adapter == 'ackermann' and vx == 0.0 and omega != 0.0
+        infeasible = (
+            self.world.robot.adapter == 'ackermann'
+            and abs(vx) <= adapters.ZERO_SPEED
+            and abs(omega) > adapters.ZERO_SPEED
+        )
         if infeasible:
             self.infeasible_count += 1
         return infeasible
@@ -274,13 +279,32 @@ class Simulation:
                 world.fly(*self.velocity())
             else:
                 world.drive(*self.command())
+            time, qpos = world.data.time, world.data.qpos.copy()
             mujoco.mj_step(world.model, world.data)
+            if world.data.time < time:  # MuJoCo reset an unstable state (it prints a warning)
+                self._recover(time, qpos)
             if on_substep is not None:
                 on_substep(world.data)
         # mj_step leaves the poses and velocities of the step's start; recompute them for the
         # new state, which everything published after the tick reads.
         mujoco.mj_forward(world.model, world.data)
         self.ticks += 1
+
+    def _recover(self, time, qpos):
+        """Undo MuJoCo's auto-reset: the last good pose at rest, time kept, command zeroed.
+
+        MuJoCo resets the whole state (time 0, the model's initial pose) when the accelerations
+        diverge; that would send /clock backwards and teleport the robot. Counted in
+        :attr:`resets`.
+        """
+        data = self.world.data
+        data.qpos[:] = qpos
+        data.qvel[:] = 0.0
+        data.time = time + self.world.model.opt.timestep
+        self._command = (0.0, 0.0, 0.0)
+        self._velocity = ((0.0, 0.0, 0.0), 0.0, False)
+        self._command_time = None
+        self.resets += 1
 
     def truth(self):
         """Return the true base pose (x, y, yaw) in the map frame."""

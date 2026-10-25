@@ -39,6 +39,9 @@ constexpr double kFieldArrowLength = 0.25;
 // Head strokes: a third of the arrow, 25° off its axis.
 constexpr double kFieldHeadFraction = 0.3;
 constexpr double kFieldHeadAngle = 25.0 * vectorfield_core::kPi / 180.0;
+/// At most this many field arrows on each side of the robot per lattice axis (7³ = 343 arrows,
+/// within the MuJoCo overlay's geom budget); a finer lattice is drawn with a wider step.
+constexpr int kMaxFieldHalf = 3;
 /// Size of a drawn plane (m).
 constexpr double kPlaneSize = 6.0;
 
@@ -129,13 +132,21 @@ void addField(const MarkerInput3 & in, MarkerArray * out)
   Marker m = base(in, "field", Marker::LINE_LIST);
   m.scale.x = 0.012;
   m.color = color(1.0F, 1.0F, 1.0F, 1.0F);
-  const int half = static_cast<int>(std::floor(in.field_extent / in.field_step + 1e-9));
+  int half = static_cast<int>(std::floor(in.field_extent / in.field_step + 1e-9));
+  double step = in.field_step;
+  if (half > kMaxFieldHalf) {
+    half = kMaxFieldHalf;
+    step = in.field_extent / kMaxFieldHalf;
+  }
+  const std::size_t per_axis = 2U * static_cast<std::size_t>(half) + 1U;
+  m.points.reserve(8U * per_axis * per_axis * per_axis);
+  m.colors.reserve(8U * per_axis * per_axis * per_axis);
   const d3::Isometry3 inverse = in.frame.T_eval_curve.inverse();
   const double v_r = in.field->referenceSpeed();
   for (int i = -half; i <= half; ++i) {
     for (int j = -half; j <= half; ++j) {
       for (int k = -half; k <= half; ++k) {
-        const d3::Vec3 x = in.pose.p + in.field_step * d3::Vec3(i, j, k);
+        const d3::Vec3 x = in.pose.p + step * d3::Vec3(i, j, k);
         const d3::FieldSample3 sample = in.field->sampleAt(*in.curve, inverse * x, in.t);
         const d3::Vec3 phi = in.frame.T_eval_curve.linear() * sample.Phi;
         const double speed = phi.norm();

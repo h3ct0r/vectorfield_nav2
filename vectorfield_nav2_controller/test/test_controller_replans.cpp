@@ -279,6 +279,45 @@ TEST(MovingGoal, AGoalEndMovingAtEveryReplanKeepsTheContourEpisodeAndTheSpeed)
   EXPECT_GE(during, 2) << "episode [" << episode_start << ", " << episode_end << "]";
 }
 
+// A replan from where a contour episode has taken the robot, through a global costmap that does
+// not see the obstacle (math_spec §6.4 "Gate"): the new plan runs along a 1.5 m box 4 cm inside
+// w_lat, within obstacle_gate_tolerance, so a closed gate would ignore it and the footprint on it
+// would hit the box. The open gate stays open (obstacle_gate_release_margin) and the episode
+// carries the robot past the box: no NoValidControl, SUCCEEDED.
+TEST(GrazingReplan, AReplanAlongTheContouredBoxKeepsTheEpisode)
+{
+  HarnessOptions options = modelOptions();
+  options.parameters.push_back(pluginParameter(options, "obstacle_mode", std::string("contour")));
+  options.initial_pose = vf::Pose2{vf::Vec2(-1.0, 0.0), 0.0};
+  options.costmap_size = 6.0;
+  options.costmap_center = vf::Vec2(1.0, 0.0);
+  ServerHarness harness(options);
+  harness.configure();
+  harness.activate();
+  harness.setLethalBox(vf::Vec2(0.3, -0.25), vf::Vec2(1.8, 0.25));
+  const vf::Vec2 goal(3.0, 0.0);
+  harness.followPath(mapPlan(straightPlan(options.initial_pose.p, goal, 0.05, 0.0)));
+  bool replanned = false;
+  const GoalStatus status = harness.runUntilDone(60.0, [&](const CycleRecord & record) {
+    const vf::Vec2 p = record.pose_map.p;
+    if (replanned || !record.diagnostics.state.contour.active || p.x() < 0.0) {
+      return;
+    }
+    const double y = std::copysign(0.25 + options.robot_radius - 0.04, p.y());
+    std::vector<vf::Pose2> plan = straightPlan(p, vf::Vec2(0.2, y), 0.05, 0.0);
+    for (const auto & leg :
+         {straightPlan(vf::Vec2(0.2, y), vf::Vec2(2.1, y), 0.05, 0.0),
+          straightPlan(vf::Vec2(2.1, y), goal, 0.05, 0.0)}) {
+      plan.insert(plan.end(), leg.begin() + 1, leg.end());
+    }
+    harness.replan(mapPlan(plan));
+    replanned = true;
+  });
+  ASSERT_TRUE(replanned) << "no episode beside the box";
+  ASSERT_EQ(status, GoalStatus::kSucceeded) << describe(harness);
+  EXPECT_EQ(countThrows(harness), 0U);
+}
+
 TEST(ConsecutiveGoals, AGoalRightAfterAnotherAndOneAfterAPauseSucceed)
 {
   ServerHarness harness(modelOptions());

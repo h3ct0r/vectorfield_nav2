@@ -33,6 +33,7 @@
 
 #include "geometry_msgs/msg/twist_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/create_timer.hpp"
 #include "rclcpp/duration.hpp"
 #include "rclcpp/logging.hpp"
 #include "rclcpp/qos.hpp"
@@ -225,6 +226,16 @@ struct Follower3D::Impl
   std::mutex wait_mutex;
   std::condition_variable wake;
   std::atomic<bool> deactivating{false};
+  /// @}
+
+  /// @name Hold between goals (hold_between_goals)
+  /// @{
+  rclcpp::TimerBase::SharedPtr hold_timer;
+  std::string hold_frame;
+  /// A goal is executing; set and read under `hold_mutex`, so a hold zero never lands among a
+  /// goal's commands.
+  bool running{false};
+  std::mutex hold_mutex;
   /// @}
 
   /// @name Control-thread state that outlives goals
@@ -430,6 +441,39 @@ struct Follower3D::Impl
   }
 
   // --- Commands ----------------------------------------------------------------------------
+
+  /// A zero setpoint between goals (hold_between_goals), every control period.
+  void hold()
+  {
+    const std::lock_guard<std::mutex> lock(hold_mutex);
+    if (running || deactivating || !cmd_pub || !cmd_pub->is_activated()) {
+      return;
+    }
+    auto msg = std::make_unique<geometry_msgs::msg::TwistStamped>();
+    msg->header.frame_id = hold_frame;
+    msg->header.stamp = clock->now();
+    cmd_pub->publish(std::move(msg));
+    const std::lock_guard<std::mutex> diag_lock(diag_mutex);
+    ++snapshot.commands_sent;
+  }
+
+  /// Marks a goal as executing for the hold timer while it lives.
+  struct Running
+  {
+    explicit Running(Impl & impl) : s(impl)
+    {
+      const std::lock_guard<std::mutex> lock(s.hold_mutex);
+      s.running = true;
+    }
+    ~Running()
+    {
+      const std::lock_guard<std::mutex> lock(s.hold_mutex);
+      s.running = false;
+    }
+    Running(const Running &) = delete;
+    Running & operator=(const Running &) = delete;
+    Impl & s;
+  };
 
   void publish(GoalRun3 & run, const d3::Twist3 & command)
   {
@@ -915,7 +959,8 @@ struct Follower3D::Impl
     }
     if (ran) {
       if (
-        params.publish_markers && !ended && now - run.last_markers >= params.visualization_period) {
+        params.publish_markers && !ended && now - run.last_markers >= params.visualization_period &&
+        marker_pub->get_subscription_count() > 0) {
         run.last_markers = now;
         MarkerInput3 markers;
         markers.frame_id = params.global_frame;
@@ -975,6 +1020,7 @@ struct Follower3D::Impl
 
   void release()
   {
+    hold_timer.reset();
     action_server.reset();
     frame_odom_sub.reset();
     frame_odom_topic.clear();
@@ -1117,6 +1163,12 @@ Follower3D::CallbackReturn Follower3D::on_activate(const rclcpp_lifecycle::State
   s.state_pub->on_activate();
   s.marker_pub->on_activate();
   s.action_server->activate();
+  if (s.params.hold_between_goals) {
+    s.hold_frame = s.body() ? s.params.robot_base_frame : s.params.global_frame;
+    Impl * impl = impl_.get();
+    s.hold_timer = rclcpp::create_timer(
+      this, get_clock(), rclcpp::Duration::from_seconds(s.period()), [impl]() { impl->hold(); });
+  }
   createBond();
   return CallbackReturn::SUCCESS;
 }
@@ -1126,6 +1178,7 @@ Follower3D::CallbackReturn Follower3D::on_deactivate(const rclcpp_lifecycle::Sta
   Impl & s = *impl_;
   s.deactivating = true;
   s.wake.notify_all();
+  s.hold_timer.reset();
   s.action_server->deactivate();  // waits for a running goal to stop (UNKNOWN, one zero)
   s.marker_pub->publish(clearMarkers3(s.params.global_frame, s.clock->now()));
   s.marker_pub->on_deactivate();
@@ -1166,6 +1219,7 @@ void Follower3D::execute()
   if (!goal) {
     return;
   }
+  const Impl::Running running(s);
   auto run = std::make_unique<GoalRun3>();
   run->serial = ++s.goals_taken;
   if (const auto rejection = s.startGoal(*goal, nullptr, run.get())) {

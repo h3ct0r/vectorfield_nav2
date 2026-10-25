@@ -848,12 +848,16 @@ class MujocoSim(Node):
         self.clock_pub = self.create_publisher(
             ClockMsg, '/clock', QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE)
         )
-        self.overlays = Overlays(
-            self,
-            self.read_only('overlay_topics', [''], 'MarkerArray and Path topics drawn in scenes'),
-            self.interface.frame_pose,
+        overlay_topics = self.read_only(
+            'overlay_topics', [''], 'MarkerArray and Path topics drawn in scenes'
         )
         self._setup_views(world)
+        # Subscribed only with a view: the controllers publish their markers only while someone
+        # subscribes.
+        viewing = any(v is not None for v in (self._viewer, self._camera, self._recorder))
+        self.overlays = Overlays(
+            self, overlay_topics if viewing else [], self.interface.frame_pose
+        )
 
         walls = sum(1 for g in range(world.model.ngeom) if world.model.geom(g).name[:5] == 'wall_')
         geometry = ', '.join(f'{k} {v:.4f}' for k, v in world.geometry.items())
@@ -920,6 +924,7 @@ class MujocoSim(Node):
 
         self._camera = None
         self._recorder = None
+        self._resets_seen = 0
         self._viewer = None
         # Whether a viewer was opened (main() then exits without the interpreter's teardown).
         self.viewer_used = False
@@ -958,9 +963,9 @@ class MujocoSim(Node):
                 )
         if record_path:
             path = os.path.abspath(os.path.expanduser(record_path))
-            os.makedirs(os.path.dirname(path), exist_ok=True)
             width, height = record_size
             try:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
                 self._recorder = recorder.Recorder(
                     world.model,
                     path,
@@ -970,7 +975,7 @@ class MujocoSim(Node):
                     camera=self._camera_rig(world, record_camera, record_view),
                     overlay=lambda scn: self._draw_recording(scn, record_hide),
                 )
-            except Exception as e:  # no ffmpeg, or a GL failure
+            except Exception as e:  # no ffmpeg, a GL failure or an uncreatable directory
                 self.get_logger().error(f'record_path off: {e}')
             else:
                 self.get_logger().info(
@@ -1070,6 +1075,8 @@ class MujocoSim(Node):
         self.clock_pub.publish(ClockMsg(clock=to_stamp(self.sim.time)))
 
     def _capture(self, data):
+        if self._recorder is None:  # stopped by an earlier substep of this tick
+            return
         try:
             self._recorder.maybe_capture(data)
         except Exception as e:  # a GL or ffmpeg failure ends the recording, not the physics
@@ -1085,6 +1092,12 @@ class MujocoSim(Node):
                 self.sim.step(on_substep)
         else:
             self.sim.step(on_substep)
+        if self.sim.resets != self._resets_seen:
+            self._resets_seen = self.sim.resets
+            self.get_logger().error(
+                'The physics diverged and MuJoCo reset it; the robot was put back at its last '
+                f'pose at rest and its command zeroed ({self.sim.resets} so far)'
+            )
         stamp = to_stamp(self.sim.time)
         self.clock_pub.publish(ClockMsg(clock=stamp))
         self.interface.on_tick(stamp)

@@ -27,10 +27,12 @@
       <default class="car_collision">
         <geom group="3" mass="0" material="car_collision"/>
       </default>
-      <!-- Tyres: cylinders along the wheel axle (body y); their friction wins over the floor's. -->
+      <!-- Tyres: cylinders along the wheel axle (body y); their friction wins over the floor's.
+           The soft first touch keeps a skidding tyre on the floor, as the Scout Mini's
+           (models/scout_mini/README.md). -->
       <default class="car_tyre">
         <geom type="cylinder" size="0.05 0.015" zaxis="0 1 0" group="3" mass="0" friction="1.0 0.005 0.0001"
-          priority="1" material="car_collision"/>
+          solimp="0.05 0.95 0.001" priority="1" material="car_collision"/>
       </default>
       <default class="car_tyre_visual">
         <geom type="cylinder" size="0.05 0.015" zaxis="0 1 0" group="2" contype="0" conaffinity="0" mass="0"

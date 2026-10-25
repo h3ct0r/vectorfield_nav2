@@ -147,8 +147,9 @@ def visible(markers, hide=()):
 def add_markers(scene, markers, cap=DEFAULT_CAP):
     """Append markers to an ``mujoco.MjvScene``; return the number of geoms added.
 
-    At most ``cap`` geoms are added (and never beyond ``scene.maxgeom``); markers later in the
-    list are dropped first.
+    At most ``cap`` geoms are added (and never beyond ``scene.maxgeom``). Markers go in order
+    of their geom count, fewest first (ties in list order), so a large lattice of field arrows
+    is what the cap cuts, never the robot's own markers.
     """
     import mujoco
 
@@ -162,8 +163,8 @@ def add_markers(scene, markers, cap=DEFAULT_CAP):
     limit = min(scene.maxgeom, scene.ngeom + int(cap))
     added = 0
     identity = np.eye(3).ravel()
-    for marker in markers:
-        for prim in primitives(marker):
+    for prims in sorted((primitives(m) for m in markers), key=len):
+        for prim in prims:
             if scene.ngeom >= limit:
                 return added
             geom = scene.geoms[scene.ngeom]

@@ -130,9 +130,10 @@ follower_3d:
     obstacles: ['plane 0 0 0.3 0 0 1']   # a virtual floor at 0.3 m
 ```
 
-Arm, take off and switch to offboard or guided mode outside the follower. The follower
-publishes only while a goal runs, so your supervisor must keep a setpoint stream (a position
-hold) between goals, or the autopilot's offboard failsafe will trigger. For PX4 over
+Arm, take off and switch to offboard or guided mode outside the follower. By default the
+follower publishes only while a goal runs, and the autopilot's offboard failsafe triggers when
+setpoints stop. Set `hold_between_goals: true` to have the follower stream zero setpoints
+between goals, or keep a setpoint stream (a position hold) in your supervisor. For PX4 over
 uXRCE-DDS or ArduPilot's DDS interface, see {doc}`../follower_3d`, "Inputs, output and
 autopilots".
 

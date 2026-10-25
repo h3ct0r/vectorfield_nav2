@@ -66,6 +66,8 @@ def test_ackermann_straight_and_stopped():
     assert adapters.ackermann(0.5, 0.0, 0.26, 0.22, 0.05) == pytest.approx((0, 0, 10, 10))
     # A car cannot turn in place: with v = 0 everything stays still.
     assert adapters.ackermann(0.0, 1.0, 0.26, 0.22, 0.05) == (0.0, 0.0, 0.0, 0.0)
+    # Nor just above zero, where vectorfield_sim still counts the command as v = 0.
+    assert adapters.ackermann(1e-7, 1.0, 0.26, 0.22, 0.05) == (0.0, 0.0, 0.0, 0.0)
 
 
 def test_ackermann_clips_the_steering():

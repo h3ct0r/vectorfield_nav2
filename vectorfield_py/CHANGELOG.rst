@@ -2,6 +2,10 @@
 Changelog for package vectorfield_py
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* ObstacleConfig.obstacle_gate_release_margin.
+
 0.4.1 (2026-10-25)
 ------------------
 

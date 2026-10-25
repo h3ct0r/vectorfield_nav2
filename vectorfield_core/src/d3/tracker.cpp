@@ -107,7 +107,13 @@ Tracker3Config validated(const Tracker3Config & config)
   return config;
 }
 
-/// @brief The sites of the CBF filter at the body x and their barriers (math_spec §14.8).
+/// Half a voxel's diagonal, in voxel edges.
+constexpr double kHalfVoxelDiagonal = 0.8660254037844386;  // √3/2
+
+/// @brief The sites of the CBF filter at the body x and their barriers (math_spec §14.8). A
+/// voxel site's distance is measured to the voxel's centre, so its cube can be up to half a
+/// diagonal closer: voxel sites count from there, and h >= 0 keeps the body the margin from
+/// the voxel cubes.
 void sampleObstacles(
   const Obstacles3Config & config, const ObstacleSet3 & obstacles, const Vec3 & x,
   Cbf3Sample * cbf) noexcept
@@ -116,7 +122,11 @@ void sampleObstacles(
   cbf->on = true;
   cbf->delta = config.body_radius + config.cbf_margin;
   cbf->count = obstacles.sites(x, config.cbf_sites, cbf->sites);
+  const double voxel_offset = kHalfVoxelDiagonal * obstacles.voxels().resolution();
   for (int j = 0; j < cbf->count; ++j) {
+    if (cbf->sites[j].source < 0) {
+      cbf->sites[j].D -= voxel_offset;
+    }
     cbf->h = std::min(cbf->h, cbf->sites[j].D - cbf->delta);
   }
 }

@@ -136,6 +136,42 @@ TEST_F(Follower3DTest, CancelDeceleratesThenOneZeroThenSilence)
   expectSilence();
 }
 
+TEST_F(Follower3DTest, HoldBetweenGoalsStreamsZeroSetpoints)
+{
+  start(RobotSetup{at(0.7, -0.1, 0.1), {rclcpp::Parameter("hold_between_goals", true)}});
+  // Before the first goal: a zero setpoint every control period (20 Hz).
+  const std::size_t idle_start = robot_->commands();
+  tickFor(1.0);
+  const std::size_t idle = robot_->commands() - idle_start;
+  EXPECT_GE(idle, 15U);
+  EXPECT_LE(idle, 21U);
+  for (const d3::Twist3 & command : robot_->log()) {
+    EXPECT_TRUE(isZero(command));
+  }
+  // The goal runs as without the hold, and no zero lands among its commands.
+  const std::size_t goal_start = robot_->commands();
+  const auto result = run(builtin("helix", {"radius", "lead", "turns"}, {0.5, 0.4, 1.0}), 30.0);
+  EXPECT_EQ(result.code, ResultCode::SUCCEEDED);
+  const auto log = robot_->log();
+  std::size_t first = log.size();
+  std::size_t last = 0;
+  for (std::size_t k = goal_start; k < log.size(); ++k) {
+    if (!isZero(log[k])) {
+      first = std::min(first, k);
+      last = k;
+    }
+  }
+  ASSERT_LT(first, log.size()) << "the goal sent no motion";
+  for (std::size_t k = first; k <= last; ++k) {
+    EXPECT_FALSE(isZero(log[k])) << "a zero among the goal's commands at " << k;
+  }
+  // Afterwards the zeros resume.
+  const std::size_t after = robot_->commands();
+  tickFor(1.0);
+  EXPECT_GE(robot_->commands() - after, 15U);
+  EXPECT_TRUE(isZero(robot_->log().back()));
+}
+
 TEST_F(Follower3DTest, FrameMovingThroughOdometry)
 {
   start(RobotSetup{at(0.7, 0.0, 0.0), {}});

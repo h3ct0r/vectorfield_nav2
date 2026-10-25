@@ -2,6 +2,30 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* mujoco_sim: a recording that fails stops quietly for the rest of its tick (the first error
+  stays visible), and an uncreatable record_path directory disables recording instead of
+  killing the node; MuJoCo's auto-reset of a diverged state is undone (the last pose at rest,
+  time kept going forward, the command zeroed) and logged; overlay_topics are subscribed only
+  with a viewer, a camera or a recording, so the controllers' markers stay unbuilt otherwise.
+* Overlays fill the geom budget smallest marker first: a large lattice of field arrows is cut,
+  never the robot's own markers.
+* Worlds load Nav2 maps as map_server does: the mean of the colour channels (not the luma),
+  the alpha in trinary mode, and the scale and raw modes.
+* Small worlds widen vis.map.shadowclip instead of the statistic extent, which also pushed the
+  near clipping plane out (close views of the drone were clipped).
+* The Ackermann command counts as infeasible below vectorfield_sim's zero speed (1e-6 m/s), and
+  the adapter keeps the car's wheels straight and still there.
+* The Ackermann car's tyres get the Scout Mini's soft first touch: skidding tyres stay on the
+  floor (four-tyre contact 99 % of a hard turn, from 36 %).
+* record_gallery.sh: Ctrl-C and SIGTERM stop the running example before the script exits; a
+  failed encode fails only that example; the work directory is kept when an example failed;
+  the size summary prints when nothing matched.
+* convert_scout_mini.py caches the upstream files per commit.
+* The refusal on unsupported distros names mujoco_drone.launch.py; tf2_msgs is a test
+  dependency; test_sim_node tears its nodes down when a test or the node's start fails.
+
 0.4.1 (2026-10-25)
 ------------------
 * mujoco_sim: the camera image and the obstacle cloud are assigned as array.array, which

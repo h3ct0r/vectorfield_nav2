@@ -2,6 +2,16 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Contour gate hysteresis: while the gate is open or an episode is active, path samples within
+  w_lat + obstacle_gate_release_margin (new, 0.10 m) keep it open. A path replanned from the
+  displaced pose that grazes the contoured obstacle no longer ends the episode and leaves the
+  robot blocked against it.
+* 3D CBF: a voxel site's distance counts from its voxel cube (half a voxel diagonal inside the
+  centre distance), so h >= 0 keeps the body cbf_margin from the voxel cubes; a voxelised sphere
+  is passed 26 mm outside its true surface (18 mm inside before).
+
 0.4.1 (2026-10-25)
 ------------------
 

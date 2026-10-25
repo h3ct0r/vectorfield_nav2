@@ -2,6 +2,14 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* New parameter hold_between_goals (false): while active and without a goal, publish a zero
+  setpoint every control period, so that PX4's offboard mode and ArduPilot's guided mode keep
+  receiving setpoints.
+* ~/markers is built only while someone subscribes, and its lattice of field arrows is capped
+  at 7 per axis (a finer field_arrows_step is widened).
+
 0.4.1 (2026-10-25)
 ------------------
 

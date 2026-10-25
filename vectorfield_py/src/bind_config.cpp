@@ -171,6 +171,9 @@ void bindGroups(py::module_ & m)
       "obstacle_lookahead", &ObstacleConfig::obstacle_lookahead,
       "Gate lookahead (m); negative = auto (max(1, v_r T_h)).")
     .field("obstacle_gate_tolerance", &ObstacleConfig::obstacle_gate_tolerance, "(m).")
+    .field(
+      "obstacle_gate_release_margin", &ObstacleConfig::obstacle_gate_release_margin,
+      "An open gate is held by samples within w_lat + this (m).")
     .field("obstacle_release_time", &ObstacleConfig::obstacle_release_time, "(s).")
     .field(
       "obstacle_max_contour_length", &ObstacleConfig::obstacle_max_contour_length, "Watchdog (m).")

@@ -41,7 +41,7 @@
 #                  curve_following (default: all six)
 #   --out DIR      where the media go (default: docs/_static/media of this repository)
 #   --work DIR     keep the raw recordings and the launch logs there (default: a temporary
-#                  directory, removed at the end)
+#                  directory, removed at the end unless an example failed)
 #   --encode-only  encode <work>/<example>.raw.mp4 again without running the example
 #
 # Environment: VF_GALLERY_TIMEOUT (s per example, default 1500), VF_GALLERY_FONT (a TTF file).
@@ -144,8 +144,29 @@ fi
 if [ -z "$WORK" ]; then
   [ "$ENCODE_ONLY" = 0 ] || { echo 'record_gallery: --encode-only needs --work' >&2; exit 2; }
   WORK="$(mktemp -d)"
-  trap 'rm -rf "$WORK"' EXIT
+  # Kept when an example failed: its log and raw recording are what to look at.
+  cleanup() {
+    if [ "${failed:-1}" = 0 ]; then
+      rm -rf "$WORK"
+    else
+      echo "record_gallery: kept $WORK" >&2
+    fi
+  }
+  trap cleanup EXIT
 fi
+LAUNCH=''
+
+# Ctrl-C or SIGTERM: stop the running example first (timeout runs it in its own process group,
+# out of reach of the terminal's signals), then exit; the EXIT trap cleans up after it.
+interrupt() {
+  if [ -n "$LAUNCH" ]; then
+    kill -INT "$LAUNCH" 2>/dev/null || true
+    wait "$LAUNCH" 2>/dev/null || true
+  fi
+  exit "$1"
+}
+trap 'interrupt 130' INT
+trap 'interrupt 143' TERM
 mkdir -p "$OUT" "$WORK"
 
 # ffmpeg 6.1's drawtext (Ubuntu Noble's) drops one character from the end of a text per extra
@@ -195,8 +216,13 @@ record() {
   local ex="$1" raw="$2" log="$3" status=0
   echo "== $ex: running the example (log: $log)"
   rm -f "$raw"
+  # In the background so that the traps above run while it does (bash defers them until a
+  # foreground command ends).
   timeout -s INT -k 60 "$TIMEOUT" ros2 launch vectorfield_mujoco "$ex.launch.py" \
-    use_rviz:=false exit_on_done:=true record_path:="$raw" >"$log" 2>&1 || status=$?
+    use_rviz:=false exit_on_done:=true record_path:="$raw" >"$log" 2>&1 &
+  LAUNCH=$!
+  wait "$LAUNCH" || status=$?
+  LAUNCH=''
   if ! grep -q 'Scenario succeeded' "$log"; then
     echo "record_gallery: $ex: the scenario did not succeed (exit $status); see $log" >&2
     grep -E 'scenario [a-z_]+: |ERROR|Traceback' "$log" | tail -n 5 >&2 || true
@@ -226,7 +252,8 @@ encode() {
 
   ffmpeg -hide_banner -loglevel error -y -ss "$start" -t "$length" -i "$raw" -an \
     -vf "setpts=(PTS-STARTPTS)/$SPEED,fps=30,scale=960:540,$(caption "$WORK/$ex.caption.txt" 20)" \
-    -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -movflags +faststart "$OUT/$ex.mp4"
+    -c:v libx264 -preset slow -crf 28 -pix_fmt yuv420p -movflags +faststart "$OUT/$ex.mp4" ||
+    return 1
 
   # One palette for the whole GIF; ordered dithering and changed rectangles keep it small.
   local gif="setpts=(PTS-STARTPTS)/$GIF_SPEED,fps=12,scale=480:-2:flags=lanczos"
@@ -235,12 +262,12 @@ encode() {
   gif+=";[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle"
   ffmpeg -hide_banner -loglevel error -y -ss "$(calc "$first + $GIF_FROM")" \
     -t "$(calc "$GIF_LEN * $GIF_SPEED")" -i "$raw" -an -filter_complex "[0:v]$gif" \
-    -loop 0 "$OUT/$ex.gif"
+    -loop 0 "$OUT/$ex.gif" || return 1
 
   # The poster, at full size, with the MP4's caption.
   poster=$(calc "$first + $POSTER")
   ffmpeg -hide_banner -loglevel error -y -ss "$poster" -i "$raw" -an -frames:v 1 \
-    -vf "scale=960:540,$(caption "$WORK/$ex.caption.txt" 20)" -q:v 5 "$OUT/$ex.jpg"
+    -vf "scale=960:540,$(caption "$WORK/$ex.caption.txt" 20)" -q:v 5 "$OUT/$ex.jpg" || return 1
 }
 
 failed=0
@@ -257,7 +284,7 @@ for ex in "${selected[@]}"; do
   encode "$ex" "$raw"
   line="$ex:"
   for kind in mp4 gif jpg; do
-    file="$OUT/$ex.$kind"
+    file="$OUT/$name.$kind"
     case "$kind" in
       mp4) budget=$MP4_BUDGET ;;
       gif) budget=$GIF_BUDGET ;;
@@ -268,7 +295,7 @@ for ex in "${selected[@]}"; do
     [ "$kind" = jpg ] || line+=" ($(printf '%.1f' "$(duration "$file")") s)"
     if [ "$size" -gt "$budget" ]; then
       echo "record_gallery: $file is $(kib "$file") KiB, over $((budget / 1024)) KiB" >&2
-      failed=1
+      status=1
     fi
   done
   report+=("$line")
@@ -276,6 +303,10 @@ done
 
 echo '== gallery sizes'
 for line in "${report[@]}"; do echo "$line"; done
-total=$(cat "$OUT"/*.mp4 "$OUT"/*.gif "$OUT"/*.jpg 2>/dev/null | wc -c)
+shopt -s nullglob
+media=("$OUT"/*.mp4 "$OUT"/*.gif "$OUT"/*.jpg)
+shopt -u nullglob
+total=0
+[ ${#media[@]} -eq 0 ] || total=$(cat "${media[@]}" | wc -c)
 echo "total in $OUT: $(((total + 1023) / 1024)) KiB"
 exit "$failed"

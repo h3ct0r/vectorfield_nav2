@@ -19,6 +19,8 @@ release.
 It mirrors `vectorfield_curve_follower`, whose pure goal helpers (`GoalSupervisor`, `LapCounter`
 and the result codes) it reuses: the same execution model, safety contract (a deceleration,
 exactly one zero, then silence) and failure table. It has no Nav2 interlock and no costmap.
+With `hold_between_goals: true` it streams zero setpoints between goals instead of going
+silent, for an autopilot's offboard or guided mode.
 
 ```bash
 ros2 launch vectorfield_bringup follower3d_demo.launch.py
@@ -40,5 +42,6 @@ NED) and ArduPilot (`/ap/cmd_vel`) need a remap or a few lines of adapter. See t
   robot. It covers an invalid goal (no command), an open helix (SUCCEEDED at its end, one zero,
   silence), two laps of a tilted circle (max |D| after lap 1 < 0.05 m), a cancel (monotone
   deceleration, one zero, silence), a frame moving through Odometry, a centred sphere (hold, then
-  BLOCKED), configuration checks and body-frame output.
+  BLOCKED), zero setpoints between goals with `hold_between_goals`, configuration checks and
+  body-frame output.
 - `vectorfield_system_tests/test/test_follower_3d.py`: `follower3d_demo` launched headless.

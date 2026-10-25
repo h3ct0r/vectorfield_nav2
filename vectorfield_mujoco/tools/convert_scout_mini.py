@@ -421,18 +421,20 @@ def main(argv=None):
         '--download-dir',
         type=pathlib.Path,
         default=pathlib.Path('/tmp/scout_mini_upstream'),
-        help='where the upstream files are cached',
+        help='where the upstream files are cached (in a directory per upstream commit)',
     )
     parser.add_argument('--base-faces', type=int, default=BASE_FACES)
     parser.add_argument('--wheel-faces', type=int, default=WHEEL_FACES)
     parser.add_argument('--no-check', action='store_true', help='skip the MuJoCo compile check')
     args = parser.parse_args(argv)
 
-    for rel, digest in fetch(args.download_dir).items():
+    # Per commit: a new UPSTREAM_COMMIT never reuses the files of an older one.
+    cache = args.download_dir / UPSTREAM_COMMIT
+    for rel, digest in fetch(cache).items():
         print(f'{digest}  {rel}')
-    geo = read_upstream(args.download_dir)
+    geo = read_upstream(cache)
     print({k: v for k, v in geo.items()}, file=sys.stderr)
-    convert_meshes(args.download_dir, args.out / 'meshes', args.base_faces, args.wheel_faces)
+    convert_meshes(cache, args.out / 'meshes', args.base_faces, args.wheel_faces)
     xml_path = args.out / 'scout_mini.xml'
     xml_path.write_text(mjcf(geo, args.out / 'meshes'))
     size = sum(p.stat().st_size for p in args.out.rglob('*') if p.is_file())

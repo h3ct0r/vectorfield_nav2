@@ -294,6 +294,12 @@ vectorfield_common_params:
     default_value: 0.05
     description: "A path sample blocks when its obstacle distance is below w_lat minus this
       tolerance (m)."
+  obstacle_gate_release_margin:
+    type: double
+    default_value: 0.10
+    description: "While the contour gate is open, a path sample within w_lat plus this margin
+      keeps it open (m), so a replanned path that grazes the obstacle does not end the
+      episode. At least -obstacle_gate_tolerance."
   obstacle_release_time:
     type: double
     default_value: 0.5

@@ -155,6 +155,7 @@ constexpr CommonParamRow kRows[] = {
   VF_CORE_ROW(obstacles, obstacle_blend_start_distance),
   VF_CORE_ROW(obstacles, obstacle_lookahead),
   VF_CORE_ROW(obstacles, obstacle_gate_tolerance),
+  VF_CORE_ROW(obstacles, obstacle_gate_release_margin),
   VF_CORE_ROW(obstacles, obstacle_release_time),
   VF_CORE_ROW(obstacles, obstacle_max_contour_length),
   VF_CORE_ROW(obstacles, obstacle_max_contour_time),

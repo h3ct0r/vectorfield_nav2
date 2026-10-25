@@ -125,13 +125,23 @@ def _node(extra=()):
         *extra,
     ]  # fmt: skip
     rclpy.init(args=args)
-    sim = sim_node.MujocoSim()
-    probe = rclpy.create_node('probe')
-    yield sim, probe
-    sim.close()
-    sim.destroy_node()
-    probe.destroy_node()
-    rclpy.shutdown()
+    yield from _started()
+
+
+def _started():
+    """Yield (sim, probe) and tear them down, also when the node fails to start or a test fails."""
+    sim = probe = None
+    try:
+        sim = sim_node.MujocoSim()
+        probe = rclpy.create_node('probe')
+        yield sim, probe
+    finally:
+        if sim is not None:
+            sim.close()
+            sim.destroy_node()
+        if probe is not None:
+            probe.destroy_node()
+        rclpy.shutdown()
 
 
 def _spin(nodes, predicate, ticks, sim):
@@ -295,13 +305,7 @@ def aerial(monkeypatch):
         '-p', f'moving_frame_angular:={list(FRAME_ANGULAR)}',
     ]  # fmt: skip
     rclpy.init(args=args)
-    sim = sim_node.MujocoSim()
-    probe = rclpy.create_node('probe')
-    yield sim, probe
-    sim.close()
-    sim.destroy_node()
-    probe.destroy_node()
-    rclpy.shutdown()
+    yield from _started()
 
 
 def _stamp(message):

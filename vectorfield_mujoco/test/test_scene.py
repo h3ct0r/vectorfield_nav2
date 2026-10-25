@@ -34,6 +34,7 @@ def _write_map(
     resolution=0.1,
     fmt='P5',
     occupied_thresh=0.65,
+    mode='trinary',
 ):
     pixels = np.asarray(pixels, dtype=np.uint8)
     h, w = pixels.shape
@@ -46,7 +47,7 @@ def _write_map(
     yaml_path = tmp_path / 'map.yaml'
     yaml_path.write_text(
         f'image: map.pgm\nresolution: {resolution}\norigin: {list(origin)}\nnegate: {negate}\n'
-        f'occupied_thresh: {occupied_thresh}\nfree_thresh: 0.196\nmode: trinary\n'
+        f'occupied_thresh: {occupied_thresh}\nfree_thresh: 0.196\nmode: {mode}\n'
     )
     return yaml_path
 
@@ -93,6 +94,34 @@ def test_merge_boxes_exact_cover():
     l_shape[:, 0] = True
     assert len(scene.merge_boxes(l_shape)) == 2
     assert len(scene.merge_boxes(np.ones((5, 7), dtype=bool))) == 1
+
+
+def test_load_map_raw_mode(tmp_path):
+    """Raw mode: the pixel value is the occupancy, so only 100 is a wall (255 is unknown)."""
+    pixels = [[100, 0, 255, 99]]
+    occ = scene.load_map(_write_map(tmp_path, pixels, mode='raw')).occupied
+    assert occ.tolist() == [[True, False, False, False]]
+    # The same pixels in trinary mode: only the black cell is a wall.
+    occ = scene.load_map(_write_map(tmp_path, pixels)).occupied
+    assert occ.tolist() == [[False, True, False, False]]
+
+
+def test_load_map_colour_is_the_channel_mean(tmp_path):
+    """An RGB map is read as map_server reads it: the mean of the channels, not the luma."""
+    image_module = pytest.importorskip('PIL.Image')
+    # Pure green: mean 85 (p = 0.67, a wall in Nav2); luma 150 would be free.
+    image_module.fromarray(np.array([[[0, 255, 0], [255, 255, 255]]], dtype=np.uint8)).save(
+        tmp_path / 'map.png'
+    )
+    yaml_path = _write_map(tmp_path, [[0, 0]])
+    yaml_path.write_text(yaml_path.read_text().replace('map.pgm', 'map.png'))
+    assert scene.load_map(yaml_path).occupied.tolist() == [[True, False]]
+
+
+def test_load_map_rejects_unknown_modes(tmp_path):
+    """A map mode map_server does not know is an error, not a guess."""
+    with pytest.raises(ValueError, match='mode'):
+        scene.load_map(_write_map(tmp_path, [[0]], mode='bogus'))
 
 
 def test_map_walls_positions(tmp_path):
@@ -175,11 +204,17 @@ def test_build_world_spec():
     assert [int(g) for g in opt.geomgroup] == [1, 1, 1, 0, 1, 0]
 
 
-def test_small_worlds_get_the_least_extent():
-    """A small world gets MIN_EXTENT (the shadow map's size); a larger one keeps its own."""
+def test_small_worlds_get_the_least_shadow_extent():
+    """A small world's shadow map covers MIN_EXTENT, its near plane unchanged.
+
+    A larger world keeps MuJoCo's defaults.
+    """
     pytest.importorskip('mujoco')
     small = scene.make_world('scout_mini')
-    assert small.model.stat.extent == pytest.approx(scene.MIN_EXTENT)
+    extent = small.model.stat.extent
+    assert extent < scene.MIN_EXTENT
+    assert small.model.vis.map.shadowclip * extent == pytest.approx(scene.MIN_EXTENT, rel=1e-6)
     far = {'type': 'box', 'pos': [40.0, 0.0], 'size': [0.2, 0.2, 0.2]}
     large = scene.make_world('scout_mini', obstacles=[far])
     assert large.model.stat.extent > scene.MIN_EXTENT
+    assert large.model.vis.map.shadowclip == pytest.approx(1.0)

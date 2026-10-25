@@ -198,10 +198,27 @@ def test_ackermann_infeasible_commands_are_counted():
     assert sim.set_command(0.0, 0.0, 0.5)
     assert not sim.set_command(0.3, 0.0, 0.5)
     assert sim.set_command(0.0, 0.0, -0.2)
-    assert sim.infeasible_count == 2
+    assert sim.set_command(1e-7, 0.0, 0.5)  # below vectorfield_sim's zero speed, as there
+    assert sim.infeasible_count == 3
     for _ in range(50):
         sim.step()
     assert abs(sim.truth()[2]) < 1e-3
+
+
+def test_auto_reset_is_undone(tmp_path, monkeypatch):
+    """A diverged state that MuJoCo resets: the last pose at rest, time forward, command zero."""
+    monkeypatch.chdir(tmp_path)  # MuJoCo logs the warning to ./MUJOCO_LOG.TXT
+    sim = _scout(pose=(1.0, -0.5, 0.3))
+    for _ in range(20):
+        sim.step()
+    sim.set_command(0.3, 0.0, 0.0)
+    pose, time = sim.truth(), sim.time
+    sim.world.data.qvel[0] = float('nan')  # mj_step's check resets the state
+    sim.step()
+    assert sim.resets >= 1
+    assert sim.time > time
+    assert _close(sim.truth(), pose, 0.02)
+    assert sim.command() == (0.0, 0.0, 0.0)
 
 
 @pytest.fixture

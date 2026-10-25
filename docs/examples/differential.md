@@ -92,10 +92,18 @@ The {doc}`index` lists the arguments every example takes (viewing, recording, st
 The controller keys in `tiago.yaml` are the ones a real differential base needs on top of the
 motion-model overlay: the speed, the limits from the wheels' maximum speed, and the footprint.
 {doc}`../tutorials/your_robot` puts them into your own `nav2_params.yaml`, step by step, with
-the velocity smoother and collision monitor settings. To run another MuJoCo model, add it to
-`vectorfield_mujoco/registry.py` (its MJCF, base body and wheel actuators; the wheel radius and
-track are read from the model) with a `config/robots/<robot>.yaml`, then start
-`mujoco_nav2.launch.py robot:=<robot>`.
+the velocity smoother and collision monitor settings. To run another MuJoCo model:
+
+1. Add it to `vectorfield_mujoco/registry.py`: its MJCF, base body and wheel actuators. The
+   wheel radius and track are read from the model.
+2. Add it to `ROBOT_MODELS` in `vectorfield_mujoco/examples.py` with its motion model (an
+   aerial robot goes in `AERIAL_ROBOTS` instead); the launch files accept only the robots
+   listed there.
+3. Write its `config/robots/<robot>.yaml`.
+4. For a MuJoCo Menagerie model, add its directory to `ROBOT_DIRS` in
+   `vectorfield_mujoco/menagerie.py`, so that the fetch includes it.
+
+Then start `mujoco_nav2.launch.py robot:=<robot>`.
 
 ## Troubleshooting
 

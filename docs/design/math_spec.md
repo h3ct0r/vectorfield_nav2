@@ -929,7 +929,12 @@ side in a reverse segment, where every rule below applies unchanged with $v_r^{-
   (0.05). Grazing contacts are left to the predictor;
 - the gate is open in a cycle with a blocked sample; it closes after staying clear for
   `obstacle_release_time` (0.5 s): a clear timer resets on any blocked sample and accumulates
-  $\Delta t$ otherwise.
+  $\Delta t$ otherwise;
+- hysteresis: while the gate is open or an episode is active, a sample is blocked iff
+  $D_o^{\mathrm{all}}(r(s)) < w_{\mathrm{lat}} + $ `obstacle_gate_release_margin` (0.10,
+  validated $\ge -$`obstacle_gate_tolerance`). A path replanned from the displaced pose that
+  grazes the contoured obstacle (inside the tolerance) then keeps the episode going instead of
+  closing the gate and leaving the predictor to block the robot.
 
 *Rationale*: $\Psi$ attracts to $D_o = \lambda$. Without the gate, (3.72) fires whenever a valid
 path passes a wall, door jamb or furniture at clearance $\lambda < c < D_{\mathrm{in}}$ and $\Phi$
@@ -2304,7 +2309,7 @@ rotate phases or rollouts. Obstacles enter only through the CBF filter of §14.8
 | O3D-20 | ground plane under a descending helix: $z \ge \delta_{\mathrm{safe}} - 10^{-3}$, follows to the end above the goal [0.3.0] | — |
 | O3D-21 | walls $\lvert y\rvert \le 0.6$ around the helix ($\lvert y\rvert \le 1$): $h \ge -10^{-3}$, no kBlocked, settled [0.3.0] | — |
 | O3D-22 | between two spheres (a 7 cm gap): both bind, target change $\le 0.08$ m/s per step, at most 2 reversals [0.3.0] | — |
-| O3D-23 | $64^3$ voxelised sphere (0.05 m) off the line: true barrier $\ge -\mathrm{res}$ [0.3.0] | — |
+| O3D-23 | $64^3$ voxelised sphere (0.05 m) off the line: true barrier $\ge 0$, voxel sites counted from their cubes [0.3.0] | — |
 | O3D-24 | no obstacles, or obstacles the filter never meets: bit-identical to `obstacle_mode` none (static and rotating frame) [0.3.0] | 0 |
 
 (sec-3d-frames)=
@@ -2373,8 +2378,9 @@ planar only, so it is a ConfigError.
   only when the grid's content stamp changes. The continuous query blends $v_c = x - f(c)$ over the
   eight voxel centres around $x$ with trilinear weights when every pair has $v_a^\top v_b \ge 0$ and
   none is zero; otherwise it takes the feature of the voxel containing $x$ (§6.1 in 3D). There is no
-  voxel site outside the grid. $D$ is measured to occupied voxel *centres*, so $h \ge 0$ keeps the
-  body $m - \tfrac{\sqrt3}{2}\mathrm{res}$ from the voxel cubes.
+  voxel site outside the grid. The transform measures $D$ to occupied voxel *centres*; the filter
+  subtracts half a voxel diagonal, $\tfrac{\sqrt3}{2}\mathrm{res}$, from each voxel site's $D$, so
+  $h \ge 0$ keeps the body the margin $m$ from the voxel cubes.
 - **Sites.** Each primitive gives one site. The voxels give the continuous query, then the nearest
   features of the $5^3$ voxels around $x$ whose normals are more than 45° from the voxel normals
   already taken; voxel sites at distance 0 are skipped. The $k$ = `cbf_sites` $\le 4$ sites with the

@@ -208,8 +208,9 @@ rejoins the helix.
 In the tests (math_spec O3D-17 to O3D-24) the least barrier is 0.8 mm past a sphere beside a
 line and 6.9 mm past one beside the helix. A centred sphere holds the robot at
 $h \approx 12$ mm. A floor under a descending helix and two walls narrower than the helix are
-followed at $h = 0$. A voxelised sphere (0.05 m voxels) is passed at $-18$ mm from the true
-surface; voxel distances are measured to voxel centres.
+followed at $h = 0$. A voxelised sphere (0.05 m voxels) is passed 26 mm outside its true
+surface: voxel distances are measured to voxel centres, and the filter counts each voxel site
+from its cube (half a voxel diagonal closer).
 
 ## Behaviour
 

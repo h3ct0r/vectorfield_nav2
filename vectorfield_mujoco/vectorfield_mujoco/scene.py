@@ -46,9 +46,10 @@ WALL_HEIGHT = 0.5
 
 TIMESTEP = 0.002
 
-#: Least statistic extent (m) of a compiled world, that of the open_10x10 world. MuJoCo sizes
-#: the directional light's shadow map by the extent, and a small world (a drone among a few
-#: obstacles, without walls) gets a speckled floor around it.
+#: Least extent (m) the directional light's shadow map covers, that of the open_10x10 world.
+#: MuJoCo sizes the shadow map by the statistic extent, and a small world (a drone among a few
+#: obstacles, without walls) gets a speckled floor around it; its ``vis.map.shadowclip`` is
+#: scaled up instead of the extent, which would also push the near clipping plane out.
 MIN_EXTENT = 20.0
 
 
@@ -100,29 +101,51 @@ def read_pgm(path):
 
 
 def _read_image(path):
+    """Return the image's (colour, alpha) on 0..255.
+
+    The colour is the mean of its channels, as map_server takes it; the alpha is 255 where
+    opaque, or None without an alpha channel.
+    """
     if pathlib.Path(path).suffix.lower() == '.pgm':
-        return read_pgm(path)
+        return read_pgm(path), None
     try:
         from PIL import Image
     except ImportError as e:  # pragma: no cover - depends on the host
         raise ValueError(f'{path}: only PGM maps are supported without Pillow') from e
     with Image.open(path) as image:
-        return np.asarray(image.convert('L'), dtype=np.float64)
+        has_alpha = 'A' in image.getbands() or 'transparency' in image.info
+        pixels = np.asarray(image.convert('RGBA' if has_alpha else 'RGB'), dtype=np.float64)
+    if has_alpha:
+        return pixels[..., :3].mean(axis=-1), pixels[..., 3]
+    return pixels.mean(axis=-1), None
 
 
 def load_map(yaml_path):
     """Load a Nav2 map YAML and its image into an :class:`OccupancyMap`.
 
-    A cell is occupied when its occupancy probability exceeds ``occupied_thresh``, as
-    map_server's ``trinary`` and ``scale`` modes decide it: p = (255 − v)/255, or v/255 with
-    ``negate``. Unknown and free cells are not walls.
+    A wall is a cell map_server loads as occupied (100), which the costmap's static layer makes
+    lethal. In the ``trinary`` and ``scale`` modes that is an occupancy probability above
+    ``occupied_thresh``, with p = 1 − v/255 (v/255 with ``negate``), v the mean of the colour
+    channels (in ``trinary`` also of the alpha; ``scale`` leaves translucent cells unknown). In
+    ``raw`` mode the pixel value is the occupancy itself, so a wall is v = 100. Unknown and
+    free cells are not walls.
     """
     yaml_path = pathlib.Path(yaml_path)
     meta = yaml.safe_load(yaml_path.read_text())
-    image = _read_image(yaml_path.parent / meta['image'])
-    shade = image / 255.0
-    occ = shade if int(meta.get('negate', 0)) else 1.0 - shade
-    occupied = occ > float(meta.get('occupied_thresh', 0.65))
+    mode = str(meta.get('mode', 'trinary'))
+    if mode not in ('trinary', 'scale', 'raw'):
+        raise ValueError(f'{yaml_path}: unknown map mode {mode!r}')
+    value, alpha = _read_image(yaml_path.parent / meta['image'])
+    if mode == 'raw':
+        occupied = np.rint(value) == 100.0
+    else:
+        if mode == 'trinary' and alpha is not None:
+            value = (3.0 * value + alpha) / 4.0
+        shade = value / 255.0
+        occ = shade if int(meta.get('negate', 0)) else 1.0 - shade
+        occupied = occ > float(meta.get('occupied_thresh', 0.65))
+        if mode == 'scale' and alpha is not None:
+            occupied &= alpha == 255.0
     origin = tuple(float(v) for v in (list(meta.get('origin', [0.0, 0.0, 0.0])) + [0.0])[:3])
     return OccupancyMap(np.flipud(occupied), float(meta['resolution']), origin)
 
@@ -453,7 +476,8 @@ def make_world(
         option=robot.option,
     )
     model = spec.compile()
-    model.stat.extent = max(float(model.stat.extent), MIN_EXTENT)
+    if model.stat.extent < MIN_EXTENT:
+        model.vis.map.shadowclip *= MIN_EXTENT / float(model.stat.extent)
     data = mujoco.MjData(model)
     initial = {}
     for joint, value in zip(robot.planar_joints, (x, y, yaw)):

@@ -269,6 +269,9 @@ struct ObstacleConfig
   double obstacle_lookahead{kAutoValue};
   /// `obstacle_gate_tolerance` (m).
   double obstacle_gate_tolerance{0.05};
+  /// `obstacle_gate_release_margin` (m): while the gate is open, a path sample within
+  /// \f$w_{\mathrm{lat}} +\f$ this margin keeps it open (math_spec §6.4 "Gate").
+  double obstacle_gate_release_margin{0.10};
   /// `obstacle_release_time` (s).
   double obstacle_release_time{0.5};
   /// `obstacle_max_contour_length` (m), watchdog.

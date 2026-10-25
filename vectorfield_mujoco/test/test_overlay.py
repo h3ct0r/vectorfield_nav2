@@ -85,11 +85,12 @@ def test_add_markers_to_a_scene():
     scn = mujoco.MjvScene(model, maxgeom=3000)
     added = overlay.add_markers(scn, [STRIP, {'type': 'SPHERE', 'scale': (0.2, 0.2, 0.2)}])
     assert added == 4 and scn.ngeom == 4
-    capsule = scn.geoms[0]
+    # The sphere (one geom) goes before the strip's three.
+    assert scn.geoms[0].type == mujoco.mjtGeom.mjGEOM_ELLIPSOID
+    capsule = scn.geoms[1]
     assert capsule.type == mujoco.mjtGeom.mjGEOM_CAPSULE
     assert capsule.pos == pytest.approx([0.5, 0, 0])
     assert capsule.size[0] == pytest.approx(0.01)
-    assert scn.geoms[3].type == mujoco.mjtGeom.mjGEOM_ELLIPSOID
     # The cap counts from the geoms already in the scene; the scene's capacity bounds it too.
     many = {'type': 'SPHERE_LIST', 'points': np.zeros((2000, 3)), 'scale': (0.1, 0.1, 0.1)}
     assert overlay.add_markers(scn, [many], cap=1500) == 1500 and scn.ngeom == 1504
@@ -97,6 +98,20 @@ def test_add_markers_to_a_scene():
     # Zero-length segments are skipped.
     scn.ngeom = 0
     assert overlay.add_markers(scn, [{'type': 'LINE_LIST', 'points': [(1, 1, 1)] * 4}]) == 0
+
+
+def test_the_cap_cuts_the_largest_markers():
+    """A lattice of arrows larger than the budget leaves room for the small markers after it."""
+    mujoco = pytest.importorskip('mujoco')
+    model = mujoco.MjModel.from_xml_string('<mujoco><worldbody/></mujoco>')
+    scn = mujoco.MjvScene(model, maxgeom=3000)
+    points = np.zeros((4000, 3))
+    points[1::2, 0] = 0.1  # 2000 segments
+    lattice = {'type': 'LINE_LIST', 'points': points, 'scale': (0.01, 0, 0)}
+    body = {'type': 'SPHERE', 'scale': (0.2, 0.2, 0.2)}
+    assert overlay.add_markers(scn, [lattice, body], cap=100) == 100
+    types = [scn.geoms[i].type for i in range(scn.ngeom)]
+    assert types.count(mujoco.mjtGeom.mjGEOM_ELLIPSOID) == 1
 
 
 def test_visible_hides_namespaces_and_single_markers():

@@ -262,7 +262,8 @@ TEST(D3CbfOracle, TwoSpheresNoChattering)
   RecordProperty("steps_with_both_binding", both);
 }
 
-// O3D-23: a voxelised sphere (0.05 m voxels, 64^3) is passed with the true barrier >= -res.
+// O3D-23: a voxelised sphere (0.05 m voxels, 64^3) is passed with the true barrier >= 0: voxel
+// sites count from the voxel cubes (half a diagonal inside the centre distance).
 TEST(D3CbfOracle, VoxelSphereOffTheLine)
 {
   const d3::PolylineCurve3 line({Vec3(-1, 0, 1), Vec3(5, 0, 1)}, false);
@@ -288,7 +289,7 @@ TEST(D3CbfOracle, VoxelSphereOffTheLine)
   analytic.add(d3::Primitive3::sphere(centre, radius));
   const Records run = simulate(line, Vec3(-1, 0, 1), obstacles, 30.0);
   ASSERT_TRUE(run.back().settled);
-  EXPECT_GE(minBarrier(run, analytic), -res);
+  EXPECT_GE(minBarrier(run, analytic), 0.0);
   EXPECT_FALSE(anyStatus(run, Status::kBlocked));
   RecordProperty("min_true_barrier", std::to_string(minBarrier(run, analytic)));
 }

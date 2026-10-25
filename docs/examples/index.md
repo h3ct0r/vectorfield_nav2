@@ -167,6 +167,10 @@ ros2 launch vectorfield_mujoco differential.launch.py use_rviz:=false camera_top
 ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765
 ```
 
+The camera image is published with the sensor-data QoS (best effort, volatile).
+`foxglove_bridge` matches it by itself; in RViz set the Image display's *Reliability Policy* to
+*Best Effort*, or it shows no image.
+
 ## Launch arguments
 
 Every example takes these arguments:
