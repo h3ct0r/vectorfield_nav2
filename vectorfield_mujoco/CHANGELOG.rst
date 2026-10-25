@@ -2,8 +2,10 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-10-25)
+------------------
+* The drone's recording hides the 3D follower's lattice of field arrows, as the ground examples
+  hide theirs; the gallery clips are recorded again.
 * mujoco_sim: a recording that fails stops quietly for the rest of its tick (the first error
   stays visible), and an uncreatable record_path directory disables recording instead of
   killing the node; MuJoCo's auto-reset of a diverged state is undone (the last pose at rest,

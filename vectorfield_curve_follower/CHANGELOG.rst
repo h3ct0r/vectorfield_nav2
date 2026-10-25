@@ -2,6 +2,9 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.0 (2026-10-25)
+------------------
+
 0.4.1 (2026-10-25)
 ------------------
 * At goal start the Nav2 interlock waits up to 0.5 s for the exclusive actions' statuses to

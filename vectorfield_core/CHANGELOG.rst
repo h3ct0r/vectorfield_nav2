@@ -2,8 +2,8 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-10-25)
+------------------
 * Contour gate hysteresis: while the gate is open or an episode is active, path samples within
   w_lat + obstacle_gate_release_margin (new, 0.10 m) keep it open. A path replanned from the
   displaced pose that grazes the contoured obstacle no longer ends the episode and leaves the

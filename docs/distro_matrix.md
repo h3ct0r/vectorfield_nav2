@@ -74,4 +74,4 @@ never released.
 workspace with rosdep run as `PIP_BREAK_SYSTEM_PACKAGES=1` on Noble and later
 ({doc}`examples/index`).
 
-0.4.1 is released; until its binaries are available, build from source ({doc}`quickstart`).
+0.5.0 is released; until its binaries are available, build from source ({doc}`quickstart`).

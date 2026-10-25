@@ -2,8 +2,8 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-10-25)
+------------------
 * New parameter hold_between_goals (false): while active and without a goal, publish a zero
   setpoint every control period, so that PX4's offboard mode and ArduPilot's guided mode keep
   receiving setpoints.

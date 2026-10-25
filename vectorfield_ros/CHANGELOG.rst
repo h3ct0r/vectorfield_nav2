@@ -2,8 +2,8 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-10-25)
+------------------
 * New parameter obstacle_gate_release_margin (0.10 m): the contour gate's hysteresis.
 
 0.4.1 (2026-10-25)

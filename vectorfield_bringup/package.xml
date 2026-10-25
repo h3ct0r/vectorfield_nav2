@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_bringup</name>
-  <version>0.4.1</version>
+  <version>0.5.0</version>
   <description>Launch files, Nav2 parameter overlays, maps and RViz, Foxglove and PlotJuggler configurations for running and visualizing the vectorfield_nav2 controller and curve follower in the loopback, kinematic and Gazebo simulations.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

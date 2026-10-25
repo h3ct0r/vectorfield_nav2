@@ -2,15 +2,16 @@
 Changelog for package vectorfield_nav2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.0 (2026-10-25)
+------------------
 * Obstacle contouring: the gate stays open while a replanned path still grazes the obstacle
   (obstacle_gate_release_margin), so Nav2's replans near an unmapped obstacle no longer leave the
   robot blocked against it.
 * 3D CBF: voxel sites count from their voxel cubes, half a voxel diagonal closer than the centre.
 * 3D follower: hold_between_goals streams zero setpoints between goals for PX4 and ArduPilot.
 * MuJoCo examples: review fixes (recording errors, map loading as map_server, the car's tyres,
-  near-plane clipping, overlay budget, the gallery script's interrupts and failures).
+  near-plane clipping, overlay budget, the gallery script's interrupts and failures); the
+  gallery clips are recorded again, the drone's without its lattice of field arrows.
 * Docs: the left sidebar keeps its scroll position between pages; animated RViz clips of every
   phase; clips and figures in the quickstart; a drone and Scout Mini clip in the overview; the
   roadmap page is gone and the design notes are renamed by topic (old URLs redirect).
