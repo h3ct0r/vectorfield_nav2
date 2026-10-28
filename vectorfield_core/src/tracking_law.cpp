@@ -196,10 +196,11 @@ LawOutput headingTrackingLaw(
     psi_d = std::isfinite(input.last_psi_d) ? input.last_psi_d : psi_dr;
   }
   const double e = wrapAngle(psi_d - psi_dr);
-  // Ackermann in a contour episode keeps moving while it turns at R_min (math_spec §6.6).
-  const bool contour_turn = ackermann && input.contour_episode;
+  // Ackermann around an obstacle (a contour episode or an active CBF filter) keeps moving while
+  // it turns at R_min (math_spec §6.6, §6.7).
+  const bool obstacle_turn = ackermann && input.obstacle_turn;
   const double speed_factor =
-    contour_turn ? std::max(std::cos(e), kContourTurnSpeedFactor) : std::max(0.0, std::cos(e));
+    obstacle_turn ? std::max(std::cos(e), kObstacleTurnSpeedFactor) : std::max(0.0, std::cos(e));
   const double v = drive * F_norm * speed_factor;
   const double omega_c = ackermann ? std::abs(v) / min_turning_radius : input.omega_bar;
 
@@ -249,7 +250,7 @@ LawOutput headingTrackingLaw(
   out.psi_d_dot = psi_d_dot;
   out.held = held;
   out.jump = jump;
-  if (ackermann && !contour_turn && std::abs(e) > kHalfPi) {
+  if (ackermann && !obstacle_turn && std::abs(e) > kHalfPi) {
     out.status |= Status::kHeadingInfeasible;
   }
   return out;

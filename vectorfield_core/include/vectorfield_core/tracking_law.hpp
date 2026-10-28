@@ -123,15 +123,16 @@ struct LawInput
   double vertex_spacing{0.0};
   /// The field is time-varying: \f$\partial_t\psi_d\f$ is probed (math_spec §7.4).
   bool time_varying{false};
-  /// A contour episode is active (math_spec §6.6 [Design]). Ackermann only: the speed factor
-  /// \f$\cos e\f$ is floored at kContourTurnSpeedFactor and \f$\lvert e\rvert > \pi/2\f$ does not
-  /// set kHeadingInfeasible, so the car keeps turning at \f$R_{\min}\f$ toward the field.
-  bool contour_episode{false};
+  /// A contour episode is active, or the CBF filter changes the field (math_spec §6.6, §6.7
+  /// [Design]). Ackermann only: the speed factor \f$\cos e\f$ is floored at
+  /// kObstacleTurnSpeedFactor and \f$\lvert e\rvert > \pi/2\f$ does not set kHeadingInfeasible,
+  /// so the car keeps turning at \f$R_{\min}\f$ toward the field.
+  bool obstacle_turn{false};
 };
 
-/// @brief Floor of heading tracking's speed factor \f$\cos e\f$ for Ackermann during a contour
-/// episode (math_spec §6.6 [Design]).
-inline constexpr double kContourTurnSpeedFactor = 0.5;
+/// @brief Floor of heading tracking's speed factor \f$\cos e\f$ for Ackermann while it turns
+/// around an obstacle: a contour episode or an active CBF filter (math_spec §6.6, §6.7 [Design]).
+inline constexpr double kObstacleTurnSpeedFactor = 0.5;
 
 /// @brief Output of a translation law, before the kinematic box.
 struct LawOutput

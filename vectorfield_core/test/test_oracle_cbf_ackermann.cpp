@@ -305,6 +305,43 @@ TEST(OracleCbfAckermann, O59d_GapTooTightHolds)
   }
 }
 
+// O59 (g) A car whose heading lags the field beside a box (a real car's steering and drive lag
+// behind the commands): a 0.3 m box whose near face is 0.15 or 0.30 m from the path, the car on
+// the path 0.85 or 1.25 m before it, heading 0.6–1.2 rad toward the box's side. The filtered
+// field points up to about 115° from the heading; the car turns at R_min toward it at no less
+// than half the field speed (kObstacleTurnSpeedFactor) instead of stopping with
+// kHeadingInfeasible, passes the box without collision and settles at the goal. Six of these
+// nine starts stopped with kHeadingInfeasible before the turn rule. Pointed at the box from
+// 0.85 m at 0.9 rad or more the car only creeps under the collision cap (it turns at v/R_min) and
+// may not clear the box in time; it never collides.
+TEST(OracleCbfAckermann, O59g_LaggingHeadingTurnsBesideABox)
+{
+  struct Start
+  {
+    double near_face;
+    double x0;
+    double yaw0;
+  };
+  const Start starts[] = {
+    {0.15, 1.6, 0.6}, {0.15, 1.6, 0.9}, {0.15, 1.6, 1.2}, {0.15, 2.0, 0.6}, {0.30, 1.6, 0.6},
+    {0.30, 1.6, 0.9}, {0.30, 1.6, 1.2}, {0.30, 2.0, 0.6}, {0.30, 2.0, 0.9},
+  };
+  const Car & car = kCars[0];
+  for (const Start & start : starts) {
+    SCOPED_TRACE(
+      "near face " + std::to_string(start.near_face) + ", x0 " + std::to_string(start.x0) +
+      ", yaw0 " + std::to_string(start.yaw0));
+    ObstacleWorld world(Vec2(-1.525, -2.525), 10.0, 5.0);
+    world.addBox(Vec2(2.85, start.near_face), Vec2(3.15, start.near_face + 0.3));
+    world.commit();
+    const CarRun m =
+      runCar(carConfig(car), world, Pose2{Vec2(start.x0, 0.0), start.yaw0}, 7.0, 40.0);
+    expectSafe(m);
+    EXPECT_TRUE(m.settled) << describe(m);
+    EXPECT_GT(m.active_cycles, 0) << "the filter never bound: " << describe(m);
+  }
+}
+
 // O59 (f) The turning margin itself: one step of the car (R_min = 1) at the origin, heading 0.5
 // rad, toward a wall whose face is across +x at x = 2. The first site is the face's nearest point
 // with n = −x (math_spec §6.1), so c = cos 0.5 and the margin is R_min (1 − sin 0.5); h_j stays

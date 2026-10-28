@@ -1128,7 +1128,9 @@ Twist2 translationTarget(
   law_input.curve_length = env.closed ? env.length : kInf;
   law_input.vertex_spacing = env.vertex_spacing;
   law_input.time_varying = env.time_varying;
-  law_input.contour_episode = st->contour.active;
+  // A car turns around an obstacle (contour episode or CBF filter) instead of stopping when its
+  // heading lags the field by more than 90 degrees (math_spec §6.6, §6.7).
+  law_input.obstacle_turn = st->contour.active || (sample.cbf.on && sample.cbf.active);
 
   const double cbf_delta = sample.cbf.on ? sample.cbf.delta : kNaN;
   const ProbeContext probe{&env, st, pose, t, point.x_ref, result->shaping, cbf_delta};

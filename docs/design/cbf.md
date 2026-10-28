@@ -170,7 +170,18 @@ to $v_{\mathrm{ack}}$. Near a hold, $\lVert F^\star\rVert$ falls below $v_{\math
 the hold ratio 0.05. The car then closes in at $v_{\mathrm{ack}}$ over a few millimetres of
 $\tilde h$ (the turn is per distance, so its geometry is unchanged). Then the hold sets kBlocked,
 and the car stops from $v_{\mathrm{ack}}$ within $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$ (1.25 mm
-at the defaults). The hold rule is unchanged: where the filter stops a car, kBlocked follows, the
+at the defaults).
+
+**A lagging heading.** A real car's steering and drive lag behind the commands, so beside an
+obstacle its heading can trail the filtered field by more than 90° (the MuJoCo car did, about
+1 m before a box 0.1 m off its path). The heading-tracking law commands $v = \lVert F\rVert\cos e$,
+which is 0 there, and a car at rest cannot turn: with kHeadingInfeasible the plugin raised
+NoValidControl and Nav2 aborted the goal. While the filter changes the field the law therefore
+turns as in a contour episode: the speed factor is $\max(\cos e, \tfrac12)$ and the heading error
+does not set kHeadingInfeasible, so the car keeps moving and turns at $R_{\min}$ toward
+$F^\star$. The collision cap and the hold still stop it where that turn would collide (pointed at
+the box from close up it only creeps under the cap). Once the filter no longer binds, a heading
+more than 90° from the path's field is kHeadingInfeasible again. The hold rule is unchanged: where the filter stops a car, kBlocked follows, the
 plugin raises NoValidControl and Nav2 replans. Head-on, the car stops where $\tilde h = 0$:
 $R_{\min} + \delta_{\mathrm{safe}}$ from the face at the axle. There it can still turn away at
 full lock, which leaves a Hybrid-A* replan room. A gap narrower than $2\delta_{\mathrm{safe}}$
@@ -202,7 +213,10 @@ $v_r$. (c) A box across the path: hold and kBlocked for 100 cycles, at rest, $h 
 0.57 m (0.5) and 1.07 m (1.0) short. (d) Two discs whose sites are $\delta_{\mathrm{safe}} - 0.05$
 off the path (0.39 m of free space beside the body): hold, kBlocked, $h \ge 0$. (e) A disc 0.3 m
 beside the reverse leg of a cusp plan: passed backwards with $\min h \ge -3$ mm. (f) One step:
-$\mu = R_{\min}(1 - \sin\beta)$, 0 when parallel, receding or not a car. Layer 2: a box 0.12 m
+$\mu = R_{\min}(1 - \sin\beta)$, 0 when parallel, receding or not a car. (g) A lagging heading:
+the car 0.85 or 1.25 m before a box beside the path, heading 0.6 to 1.2 rad toward its side:
+never kHeadingInfeasible, no collision, settled (six of its nine starts stopped with
+kHeadingInfeasible before the turn rule). Layer 2: a box 0.12 m
 beside an Ackermann plan passes with clearance $\ge m - \mathrm{res}$. System test (Ackermann,
 kinematic): an unmapped box 0.1 m beside the path succeeds with clearance $\ge m - \mathrm{res}$
 and no infeasible command at the simulator.

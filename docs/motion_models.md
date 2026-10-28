@@ -235,7 +235,8 @@ once at configuration. `vectorfield_bringup/config/examples/` has both layouts a
 A car-like base cannot turn in place, which affects the controller and the rest of Nav2:
 
 - **No in-place phases.** ROTATE_TO_FIELD and ROTATE_TO_HEADING never run. A heading error above
-  90° at the reference point, a car that has passed the goal without reaching the XY tolerance,
+  90° at the reference point (outside a contour episode, and while the CBF filter does not change
+  the field; around an obstacle the car keeps turning at full lock instead), a car that has passed the goal without reaching the XY tolerance,
   or a goal yaw outside the tolerance once settled raises `STATUS_HEADING_INFEASIBLE`: the controller stops and raises
   `NoValidControl`, and Nav2 replans or aborts.
 - **Minimum speed.** While following, a positive speed below `ackermann_min_speed`

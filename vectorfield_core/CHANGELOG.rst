@@ -2,6 +2,15 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* CBF for Ackermann: while the filter changes the field, a heading more than 90 degrees from it
+  (a car lagging its commands beside an obstacle) no longer sets kHeadingInfeasible; the car turns
+  at R_min toward the field at no less than half its speed, as in a contour episode, and the
+  collision cap and the hold stop it where that turn would collide. The MuJoCo Ackermann example
+  could abort its goal at the box this way (nightly). LawInput::contour_episode is now
+  obstacle_turn, and kContourTurnSpeedFactor is kObstacleTurnSpeedFactor.
+
 0.5.0 (2026-10-25)
 ------------------
 * Contour gate hysteresis: while the gate is open or an episode is active, path samples within
