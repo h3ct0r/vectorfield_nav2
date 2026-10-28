@@ -87,7 +87,8 @@ rclcpp_components_register_node(${PROJECT_NAME}
 
 # The kinematic point simulator of the tests and the demo.
 add_executable(point_sim_3d src/point_sim_3d.cpp)
-target_link_libraries(point_sim_3d PRIVATE vectorfield_core::vectorfield_core)
+target_link_libraries(point_sim_3d PRIVATE
+  vectorfield_core::vectorfield_core vectorfield_ros::vectorfield_ros)
 target_include_directories(point_sim_3d PRIVATE
   "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>")
 vf_link_ament_deps(point_sim_3d PRIVATE

@@ -396,3 +396,32 @@ def test_aerial_commands_follow_their_frame(aerial):
     )
     v = odom.twist.twist.linear
     assert rotation @ np.array([v.x, v.y, v.z]) == pytest.approx([0.4, 0.0, 0.1], abs=0.03)
+
+
+def test_the_clock_outlives_its_readers():
+    """After the signal, spin_clock_source returns once no other node subscribes to /clock."""
+    import threading
+    import time
+
+    from rclpy.context import Context
+
+    context = Context()
+    rclpy.init(context=context)
+    try:
+        source = rclpy.create_node('clock_source', context=context)
+        reader = rclpy.create_node('clock_reader', context=context)
+        subscription = reader.create_subscription(Clock, '/clock', lambda _: None, 1)
+        end = time.monotonic() + 5.0
+        while source.count_subscribers('/clock') < 1 and time.monotonic() < end:
+            time.sleep(0.01)
+        signalled = threading.Event()
+        signalled.set()
+        start = time.monotonic()
+        sim_node.spin_clock_source(source, signalled, grace=0.5)
+        assert time.monotonic() - start >= 0.5  # read until the grace ran out
+        reader.destroy_subscription(subscription)
+        start = time.monotonic()
+        sim_node.spin_clock_source(source, signalled, grace=5.0)
+        assert time.monotonic() - start < 2.0  # nobody reads it any more
+    finally:
+        rclpy.shutdown(context=context)

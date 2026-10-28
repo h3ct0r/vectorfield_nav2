@@ -74,6 +74,11 @@ if(BUILD_TESTING)
     TIMEOUT 120
     ENV ${VF_DISCOVERY_ENV}
   )
+  ament_add_ros_isolated_pytest_test(test_clock_source
+    test/test_clock_source.py
+    TIMEOUT 120
+    ENV ${VF_DISCOVERY_ENV}
+  )
 
   # Per-PR launch tests: the default `launch_test`
   # label, isolated, serial and without retries. The motion model reaches the

@@ -8,6 +8,9 @@ Forthcoming
   (navigate_w_replanning_only_if_path_becomes_invalid.xml). With the overlay's 1 Hz
   replanning, a new path sometimes bent toward the unmapped box and led the car to its side,
   where the car stopped.
+* mujoco_sim keeps publishing /clock after SIGINT or SIGTERM while another node reads it (at
+  most 4 s): Ctrl+C no longer leaves Nav2's container waiting on simulated time until launch
+  kills it.
 
 0.5.0 (2026-10-25)
 ------------------

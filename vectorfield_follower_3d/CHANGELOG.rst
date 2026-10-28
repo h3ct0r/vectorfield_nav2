@@ -2,6 +2,11 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* point_sim_3d keeps publishing /clock after SIGINT or SIGTERM while another node reads it
+  (at most 4 s), as kinematic_sim does.
+
 0.5.0 (2026-10-25)
 ------------------
 * New parameter hold_between_goals (false): while active and without a goal, publish a zero

@@ -2,6 +2,12 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* clock_source.hpp: runClockSource(), the main() of a simulator that publishes /clock. After
+  SIGINT or SIGTERM it keeps running while another node subscribes to /clock (at most 4 s), so
+  nodes whose shutdown waits on simulated time finish it.
+
 0.5.0 (2026-10-25)
 ------------------
 * New parameter obstacle_gate_release_margin (0.10 m): the contour gate's hysteresis.

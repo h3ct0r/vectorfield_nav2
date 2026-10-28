@@ -2,6 +2,11 @@
 Changelog for package vectorfield_system_tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* test_clock_source: after SIGINT, kinematic_sim and point_sim_3d keep their clock running
+  while it has a reader and exit soon after the last one.
+
 0.5.0 (2026-10-25)
 ------------------
 

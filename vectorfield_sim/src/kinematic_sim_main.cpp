@@ -13,24 +13,18 @@
 // limitations under the License.
 
 /// @file
-/// @brief The `kinematic_sim` executable: one KinematicSimNode on a single-threaded executor.
+/// @brief The `kinematic_sim` executable: one KinematicSimNode on a single-threaded executor,
+/// which keeps publishing /clock after a shutdown signal while other nodes read it
+/// (vectorfield_ros/clock_source.hpp).
 
-#include <exception>
 #include <memory>
 
-#include "rclcpp/rclcpp.hpp"
+#include "vectorfield_ros/clock_source.hpp"
 #include "vectorfield_sim/kinematic_sim_node.hpp"
 
 int main(int argc, char ** argv)
 {
-  rclcpp::init(argc, argv);
-  int status = 0;
-  try {
-    rclcpp::spin(std::make_shared<vectorfield_sim::KinematicSimNode>());
-  } catch (const std::exception & error) {
-    RCLCPP_FATAL(rclcpp::get_logger("kinematic_sim"), "%s", error.what());
-    status = 1;
-  }
-  rclcpp::shutdown();
-  return status;
+  return vectorfield_ros::runClockSource(argc, argv, "kinematic_sim", []() {
+    return std::make_shared<vectorfield_sim::KinematicSimNode>();
+  });
 }

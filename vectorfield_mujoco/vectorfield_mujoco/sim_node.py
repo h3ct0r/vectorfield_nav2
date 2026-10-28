@@ -83,6 +83,7 @@ import collections
 import contextlib
 import math
 import os
+import signal
 import threading
 import time
 
@@ -116,6 +117,12 @@ VIEWER_CLOSE_TIMEOUT = 2.0
 
 #: The wall-clock rate (Hz) at which the passive viewer is synchronised.
 VIEWER_RATE = 30.0
+
+#: Wall-clock seconds the node keeps running after SIGINT or SIGTERM while another node
+#: subscribes to /clock: a node shutting down can wait on simulated time (Nav2's collision
+#: monitor looks up transforms with a timeout), and would wait forever with the clock gone.
+#: Below launch's 5 s before SIGTERM.
+CLOCK_GRACE = 4.0
 
 
 def stamped_cmd_vel_default(distro=None):
@@ -1169,10 +1176,44 @@ class MujocoSim(Node):
         self._viewer_threads = []
 
 
+def spin_clock_source(node, signalled, grace=CLOCK_GRACE):
+    """Spin ``node`` until ``signalled`` is set, then until no other node subscribes to /clock.
+
+    At most ``grace`` wall-clock seconds pass after the signal (:data:`CLOCK_GRACE`).
+    """
+    from rclpy.executors import SingleThreadedExecutor
+
+    own = 1 if node.get_parameter('use_sim_time').value else 0
+    executor = SingleThreadedExecutor(context=node.context)
+    executor.add_node(node)
+    deadline = None
+    try:
+        while rclpy.ok(context=node.context):
+            executor.spin_once(timeout_sec=0.02)
+            if not signalled.is_set():
+                continue
+            now = time.monotonic()
+            deadline = deadline or now + grace
+            if node.count_subscribers('/clock') <= own or now >= deadline:
+                return
+    finally:
+        executor.remove_node(node)
+        executor.shutdown()
+
+
 def main(args=None):
-    """Run the node until it is shut down; the recording is finished either way."""
+    """Run the node until it is shut down; the recording is finished either way.
+
+    rclpy is initialised without its signal handlers: after SIGINT or SIGTERM the simulation
+    keeps publishing /clock while other nodes read it (:func:`spin_clock_source`).
+    """
+    from rclpy.signals import SignalHandlerOptions
+
     gl.configure()  # Before anything imports mujoco: MuJoCo reads MUJOCO_GL once.
-    rclpy.init(args=args)
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
+    signalled = threading.Event()
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(signum, lambda *_: signalled.set())
     try:
         from rclpy.executors import ExternalShutdownException
     except ImportError:  # pragma: no cover - very old rclpy
@@ -1180,7 +1221,7 @@ def main(args=None):
     node = None
     try:
         node = MujocoSim()
-        rclpy.spin(node)
+        spin_clock_source(node, signalled)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     except RuntimeError:

@@ -22,7 +22,8 @@
 /// `global_frame → base_frame` and, with `publish_clock`, `/clock` at `real_time_factor`. A
 /// command older than `cmd_timeout` counts as zero (an autopilot's failsafe). Optional extras: a
 /// frame moving with a constant body twist (`moving_frame`: TF and Odometry), and a PointCloud2
-/// of the surfaces of `obstacle_spheres` (dynamic) on `cloud_topic`.
+/// of the surfaces of `obstacle_spheres` (dynamic) on `cloud_topic`. After a shutdown signal
+/// it keeps running while other nodes read `/clock` (vectorfield_ros/clock_source.hpp).
 
 #include <algorithm>
 #include <chrono>
@@ -49,6 +50,7 @@
 #include "vectorfield_core/d3/simulator.hpp"
 #include "vectorfield_core/types.hpp"
 #include "vectorfield_follower_3d/conversions.hpp"
+#include "vectorfield_ros/clock_source.hpp"
 
 namespace vectorfield_follower_3d
 {
@@ -306,14 +308,7 @@ private:
 
 int main(int argc, char ** argv)
 {
-  rclcpp::init(argc, argv);
-  int status = 0;
-  try {
-    rclcpp::spin(std::make_shared<vectorfield_follower_3d::PointSim3D>());
-  } catch (const std::exception & error) {
-    RCLCPP_FATAL(rclcpp::get_logger("point_sim_3d"), "%s", error.what());
-    status = 1;
-  }
-  rclcpp::shutdown();
-  return status;
+  return vectorfield_ros::runClockSource(argc, argv, "point_sim_3d", []() {
+    return std::make_shared<vectorfield_follower_3d::PointSim3D>();
+  });
 }
