@@ -179,6 +179,13 @@ def test_scenarios_never_set_smoother_limits(path):
             assert 0.0 < reverse <= limits['max_linear_vel'], model
 
 
+@pytest.mark.parametrize('scenario', ['kinematic_sim', 'loopback'])
+def test_demos_wait_a_second_for_goal_acknowledgement(scenario):
+    """bt_navigator waits 1 s, not Nav2's 20 ms, for a server to accept a goal."""
+    navigator = _node(_merged('differential', (scenario,)), 'bt_navigator')
+    assert navigator['default_server_timeout'] == 1000
+
+
 @pytest.mark.parametrize(
     'path',
     sorted(CONTROLLER.glob('*.yaml'))

@@ -21,6 +21,13 @@ velocity_smoother:
     # Scale every axis together when one hits a limit, so the commanded curvature survives.
     scale_velocities: true
 
+# Nav2's default_server_timeout (20 ms) is how long bt_navigator waits for a server to accept a
+# goal before the tree fails. A loaded machine (a CI runner, a Docker VM) can miss it, which
+# aborts a NavigateToPose goal before the planner has run; FollowCurve's trees use 1000 ms too.
+bt_navigator:
+  ros__parameters:
+    default_server_timeout: 1000
+
 # The kinematic simulator. The launch file sets cmd_vel_topic (cmd_vel_safe on Humble, after
 # collision_monitor) and the initial pose; the motion-model overlay sets motion_model.
 vectorfield_sim:

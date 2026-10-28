@@ -2,7 +2,8 @@
 
 Scenario overlays, merged after the motion-model overlay:
 
-- `kinematic_sim.yaml` and `loopback.yaml`: applied by their demos;
+- `kinematic_sim.yaml` and `loopback.yaml`: applied by their demos; both give bt_navigator a
+  1 s `default_server_timeout` (Nav2's is 20 ms) to accept goals on a loaded machine;
 - `demo_obstacles.yaml`: unmapped circles and boxes for `vectorfield_sim` on `open_10x10`, and
   no obstacle layer in the global costmap, so the plan runs through them and the controller
   contours them;

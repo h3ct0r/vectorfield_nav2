@@ -118,8 +118,9 @@ curve_follower:
 - **Interlock.** Inside bt_navigator, `navigate_to_pose` is active for the whole tree, so a
   follower that watches it refuses every goal with `NAV2_ACTIVE`. Leave the navigator actions
   out of `exclusive_actions` and let the tree keep FollowPath and FollowCurve apart.
-- **Goal acknowledgement.** bt_navigator's `default_server_timeout` is 20 ms; the example trees
-  give FollowCurve `server_timeout="1000"`.
+- **Goal acknowledgement.** bt_navigator's stock `default_server_timeout` is 20 ms, which a
+  loaded machine can miss; the example trees give FollowCurve `server_timeout="1000"`, and the
+  kinematic-sim demo sets `default_server_timeout: 1000` for the other nodes.
 - **Error codes in the NavigateToPose result.** On Jazzy, add `follow_curve_error_code` to
   `error_code_names`; on Lyrical, add `follow_curve` to `error_code_name_prefixes` (the trees
   write `{follow_curve_error_code}` and `{follow_curve_error_msg}`). Both parameters are full
