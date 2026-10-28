@@ -49,7 +49,12 @@ passes and steers back onto the path ({ref}`cbf-mode`).
 
 The car is sized for vectorfield_bringup's Ackermann overlay: `base_link` is the rear-axle
 centre, and the 0.5 m turning radius needs 0.59 rad on the inner wheel, within the hinges'
-0.65 rad. The scenario switches the obstacle mode from the overlay's `contour` to `cbf`.
+0.65 rad. The scenario switches the obstacle mode from the overlay's `contour` to `cbf`, and
+the overlay's 1 Hz replanning tree to `navigate_w_replanning_only_if_path_becomes_invalid.xml`.
+Each replan starts the Hybrid-A\* search at the car's pose; a new path that bends a few
+centimetres toward the box, which the global costmap does not see, can lead the car to the
+box's side, from where it cannot turn away in time. With one straight path, the CBF filter does
+the swerve.
 
 ::::{tab-set}
 

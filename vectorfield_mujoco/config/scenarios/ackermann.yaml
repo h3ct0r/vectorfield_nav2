@@ -34,6 +34,13 @@ params:
     ros__parameters:
       FollowPath:
         obstacle_mode: "cbf"
+  # Plan once and replan only if the path becomes invalid (also a stock tree with no Spin). The
+  # overlay's 1 Hz replanning starts each Hybrid-A* search at the car's pose, and a new path
+  # that bends a few centimetres toward the unseen box can steer the car to the box's side,
+  # from where it cannot turn away in time; with one straight path the CBF does the swerve.
+  bt_navigator:
+    ros__parameters:
+      default_nav_to_pose_bt_xml: "navigate_w_replanning_only_if_path_becomes_invalid.xml"
   global_costmap:
     global_costmap:
       ros__parameters:
