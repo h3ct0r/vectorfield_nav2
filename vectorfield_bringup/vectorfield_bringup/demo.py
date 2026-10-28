@@ -210,11 +210,34 @@ def navigation_lifecycle_nodes(context=None):
     return tuple(get_lifecycle_nodes(context))
 
 
+def lifecycle_manager_library(distro):
+    """Return the library of Nav2's lifecycle manager to preload into a container, or None.
+
+    From Jazzy on, a LifecycleManager adds a pre-shutdown callback to the global context and
+    never removes it. A container unloads the component's library when it stops, and the
+    context destroys that callback at exit with the library gone: a segmentation fault after
+    every clean shutdown. A preloaded library is never unmapped (Humble's manager adds no
+    callback).
+    """
+    from ament_index_python.packages import PackageNotFoundError, get_package_prefix
+
+    if distro == 'humble':
+        return None
+    try:
+        prefix = get_package_prefix('nav2_lifecycle_manager')
+    except PackageNotFoundError:
+        return None
+    library = os.path.join(prefix, 'lib', 'libnav2_lifecycle_manager_core.so')
+    return library if os.path.isfile(library) else None
+
+
 def component_container(name, parameters, distro):
     """Return a component container started as nav2_bringup starts its own on ``distro``.
 
     component_container_isolated up to Kilted; Lyrical deprecates it for ``component_container
-    --isolated``. Either way every component gets its own single-threaded executor.
+    --isolated``. Either way every component gets its own single-threaded executor. Both
+    containers hold a Nav2 lifecycle manager, whose library is preloaded
+    (:func:`lifecycle_manager_library`).
     """
     from launch_ros.actions import Node
 
@@ -225,6 +248,10 @@ def component_container(name, parameters, distro):
             'executable': 'component_container',
             'arguments': ['--isolated', '--executor-type', 'single-threaded'],
         }
+    library = lifecycle_manager_library(distro)
+    if library:
+        preload = ' '.join(p for p in (os.environ.get('LD_PRELOAD'), library) if p)
+        container['additional_env'] = {'LD_PRELOAD': preload}
     return Node(
         package='rclcpp_components', name=name, parameters=parameters, output='screen', **container
     )

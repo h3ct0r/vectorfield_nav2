@@ -6,6 +6,10 @@ Forthcoming
 -----------
 * The kinematic-sim and loopback demos give bt_navigator a 1 s default_server_timeout instead
   of Nav2's 20 ms, so a loaded machine no longer aborts a goal before the planner accepts it.
+* The demos' component containers preload Nav2's lifecycle manager library (Jazzy and later).
+  The manager leaves a pre-shutdown callback in the global context, which the context
+  destroyed at exit after the container had unloaded the library: the curve follower's
+  container ended every run with a segmentation fault.
 
 0.5.0 (2026-10-25)
 ------------------

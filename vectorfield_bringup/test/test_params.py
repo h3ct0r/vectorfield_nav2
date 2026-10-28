@@ -441,3 +441,24 @@ def test_refuse_unsupported():
     (action,) = refusal.entities
     with pytest.raises(demo.UnsupportedDistroError, match='kinematic_sim_demo'):
         action.execute(None)
+
+
+def test_containers_preload_the_lifecycle_manager(monkeypatch):
+    """From Jazzy on, a container keeps Nav2's lifecycle manager loaded until it exits."""
+    monkeypatch.setenv('LD_PRELOAD', 'libother.so')
+    library = demo.lifecycle_manager_library('jazzy')
+    if library is None:
+        pytest.skip('nav2_lifecycle_manager is not installed')
+    assert library.endswith('libnav2_lifecycle_manager_core.so') and os.path.isfile(library)
+
+    def environment(container):
+        text = ''.join
+        return {
+            text(s.text for s in name): text(s.text for s in value)
+            for name, value in container.additional_env or []
+        }
+
+    container = demo.component_container('c', [], 'jazzy')
+    assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}
+    assert demo.lifecycle_manager_library('humble') is None
+    assert environment(demo.component_container('c', [], 'humble')) == {}
