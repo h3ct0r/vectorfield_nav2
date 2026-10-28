@@ -141,7 +141,7 @@ target_link_libraries(vectorfield_core PUBLIC Eigen3::Eigen)
 target_compile_features(vectorfield_core PUBLIC cxx_std_17)
 vf_core_set_warnings(vectorfield_core)
 
-# Vendored muParser (plan section 3.2) is an OBJECT library folded into vectorfield_core through
+# Vendored muParser is an OBJECT library folded into vectorfield_core through
 # $<TARGET_OBJECTS>. That adds no link edge, so there is nothing extra to export, and hidden
 # visibility keeps mu:: symbols from clashing with a system libmuparser in the same process.
 # The vendored third_party/muparser's six src/*.cpp files.
@@ -245,7 +245,7 @@ if(PROJECT_IS_TOP_LEVEL AND VF_BUILD_BENCHMARKS)
     vf_core_set_warnings(${name})
   endfunction()
 
-  # The core benchmarks of plan section 3.5; reference numbers are in docs/benchmarks.md. The
+  # The core benchmarks; reference numbers are in docs/benchmarks.md. The
   # MarkerBuilder benchmark belongs to vectorfield_ros.
   vf_core_add_benchmark(bench_field bench/bench_field.cpp)
   vf_core_add_benchmark(bench_edt bench/bench_edt.cpp)
@@ -301,7 +301,7 @@ if(PROJECT_IS_TOP_LEVEL AND ament_cmake_FOUND AND NOT SKBUILD)
     find_package(ament_lint_auto QUIET)
     if(ament_lint_auto_FOUND)
       # C++ format and Python lint run in pre-commit (clang-format, ruff); cppcheck is replaced
-      # by clang-tidy (plan section 9).
+      # by clang-tidy.
       list(APPEND AMENT_LINT_AUTO_EXCLUDE
         ament_cmake_uncrustify
         ament_cmake_cpplint

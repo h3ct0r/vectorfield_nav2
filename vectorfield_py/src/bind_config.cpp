@@ -91,7 +91,7 @@ void bindEnums(py::module_ & m)
 
 void bindGroups(py::module_ & m)
 {
-  StructBinder<vf::FieldConfig>(m, "FieldConfig", "Field parameter group (plan section 5.4).")
+  StructBinder<vf::FieldConfig>(m, "FieldConfig", "Field parameter group.")
     .field("desired_speed", &vf::FieldConfig::desired_speed, "v_r (m/s).")
     .field("convergence_gain", &vf::FieldConfig::convergence_gain, "k_f (1/m).")
     .field("gain_function", &vf::FieldConfig::gain_function, "GainType.")
@@ -100,7 +100,7 @@ void bindGroups(py::module_ & m)
     .finish();
 
   using vf::MotionConfig;
-  StructBinder<MotionConfig>(m, "MotionConfig", "Motion parameter group (plan section 5.4).")
+  StructBinder<MotionConfig>(m, "MotionConfig", "Motion parameter group.")
     .field("motion_model", &MotionConfig::motion_model, "MotionModel.")
     .field("tracking_law", &MotionConfig::tracking_law, "TrackingLaw.")
     .field("control_point_offset", &MotionConfig::control_point_offset, "FL offset d (m).")
@@ -134,7 +134,7 @@ void bindGroups(py::module_ & m)
     .finish();
 
   using vf::PhaseConfig;
-  StructBinder<PhaseConfig>(m, "PhaseConfig", "Phases parameter group (plan section 5.4).")
+  StructBinder<PhaseConfig>(m, "PhaseConfig", "Phases parameter group.")
     .field("use_rotate_to_field", &PhaseConfig::use_rotate_to_field, "Enable ROTATE_TO_FIELD.")
     .field("rotate_to_field_angle", &PhaseConfig::rotate_to_field_angle, "Entry |e| (rad).")
     .field(
@@ -155,7 +155,7 @@ void bindGroups(py::module_ & m)
     .finish();
 
   using vf::ObstacleConfig;
-  StructBinder<ObstacleConfig>(m, "ObstacleConfig", "Obstacles parameter group (plan section 5.4).")
+  StructBinder<ObstacleConfig>(m, "ObstacleConfig", "Obstacles parameter group.")
     .field("obstacle_mode", &ObstacleConfig::obstacle_mode, "ObstacleMode.")
     .field("obstacle_activation", &ObstacleConfig::obstacle_activation, "ObstacleActivation.")
     .field(
@@ -189,7 +189,7 @@ void bindGroups(py::module_ & m)
     .finish();
 
   using vf::SafetyConfig;
-  StructBinder<SafetyConfig>(m, "SafetyConfig", "Safety parameter group (plan section 5.4).")
+  StructBinder<SafetyConfig>(m, "SafetyConfig", "Safety parameter group.")
     .field(
       "use_collision_detection", &SafetyConfig::use_collision_detection,
       "Run the collision predictor.")
@@ -220,7 +220,7 @@ void bindGroups(py::module_ & m)
   using vf::CoreConfig;
   StructBinder<CoreConfig>(
     m, "CoreConfig",
-    "Complete Tracker configuration. The defaults are the plan section 5.4 defaults (TB3 "
+    "Complete Tracker configuration. The defaults are the controller's defaults (TB3 "
     "footprint) and pass validate_config() with no error and no warning.")
     .field("field", &CoreConfig::field, "FieldConfig.")
     .field("motion", &CoreConfig::motion, "MotionConfig.")
@@ -231,8 +231,7 @@ void bindGroups(py::module_ & m)
     .finish();
 
   using vf::CurveOptions;
-  StructBinder<CurveOptions>(
-    m, "CurveOptions", "Curve-intake options (plan section 6), validated by make_curve().")
+  StructBinder<CurveOptions>(m, "CurveOptions", "Curve-intake options, validated by make_curve().")
     .field("max_curve_points", &CurveOptions::max_curve_points, "Max vertices after conditioning.")
     .field(
       "default_sample_spacing", &CurveOptions::default_sample_spacing,

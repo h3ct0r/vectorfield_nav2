@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay of kinematic_sim_demo.launch.py (plan section 8), merged after the
+# Scenario overlay of kinematic_sim_demo.launch.py, merged after the
 # motion-model overlay. Scenario overlays never set velocity_smoother limits; those belong to the
 # motion-model overlays in config/controller.
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Parameters of the curve follower only (no prefix; plan section 6). The common Field, Motion,
+# Parameters of the curve follower only (no prefix). The common Field, Motion,
 # Phases, Obstacles, Safety and Visualization groups come from vectorfield_common_params
 # (vectorfield_ros), declared on the same node. generate_parameter_library generates
 # vectorfield_curve_follower/vectorfield_follower_params.hpp from this file, and docs/gen_params.py

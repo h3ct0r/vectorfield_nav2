@@ -14,7 +14,7 @@
 
 """Checks of the installed overlays merged onto the running distro's nav2_params.yaml.
 
-For every motion model × scenario merge (plan section 9, shipped-config validation):
+For every motion model × scenario merge (shipped-config validation):
 
 - the velocity smoother's limits are at least the controller's on every commanded axis (x and θ,
   and y for the omnidirectional model), so the smoother never cuts a command the controller

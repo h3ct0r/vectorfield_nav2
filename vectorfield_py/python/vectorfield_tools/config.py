@@ -14,7 +14,7 @@
 
 """CoreConfig from ROS parameter YAML files and ``NAME=VALUE`` overrides.
 
-The controller's parameters (plan section 5.4) carry the names of the CoreConfig fields, so
+The controller's parameters carry the names of the CoreConfig fields, so
 ``FollowPath.desired_speed`` sets ``config.field.desired_speed``. Accepted layouts:
 
 - a Nav2 parameter file: ``controller_server.ros__parameters.<plugin>.*``, plus the server's

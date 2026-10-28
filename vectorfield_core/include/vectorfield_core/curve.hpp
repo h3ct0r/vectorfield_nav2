@@ -180,8 +180,7 @@ protected:
 
 /// @brief \f$\sigma_{\mathrm{end}} = \max(0, S_{\mathrm{end}} - s^\star)\f$: remaining arc
 /// length from a foot to the end of an open curve (math_spec §5.5 window-end cap); NaN for
-/// closed curves. Plan §3.2 lists \f$\sigma_{\mathrm{end}}\f$ with the closest point; it is
-/// derived here instead of stored.
+/// closed curves. Derived from the closest point instead of stored in it.
 inline double remainingToEnd(const Curve & curve, const ClosestPoint & cp, double t) noexcept
 {
   if (curve.isClosed()) {

@@ -43,7 +43,7 @@ if(BUILD_TESTING)
   find_package(vectorfield_core REQUIRED)
   find_package(vectorfield_ros REQUIRED)
 
-  # Restrict discovery to this host (plan section 9); never set ROS_DOMAIN_ID, which
+  # Restrict discovery to this host; never set ROS_DOMAIN_ID, which
   # run_test_isolated.py picks per test.
   if("$ENV{ROS_DISTRO}" STREQUAL "humble")
     set(VF_DISCOVERY_ENV "ROS_LOCALHOST_ONLY=1")
@@ -75,7 +75,7 @@ if(BUILD_TESTING)
     ENV ${VF_DISCOVERY_ENV}
   )
 
-  # Per-PR launch tests (plan section 9, layer 4): the default `launch_test`
+  # Per-PR launch tests: the default `launch_test`
   # label, isolated, serial and without retries. The motion model reaches the
   # test through VF_TEST_MOTION_MODEL; the shared helpers are imported from the
   # source tree. TIMEOUT (default 300 s) overrides the CTest timeout.

@@ -73,7 +73,7 @@ static_assert(static_cast<int>(vf::CurveSpec::Type::kPolyline) == 0, "POLYLINE")
 static_assert(static_cast<int>(vf::CurveSpec::Type::kExpression) == 1, "EXPRESSION");
 static_assert(static_cast<int>(vf::CurveSpec::Type::kBuiltin) == 2, "BUILTIN");
 
-// Plan §3.1: the cross-cycle state is trivially destructible, sub-structs included.
+// The cross-cycle state is trivially destructible, sub-structs included.
 static_assert(std::is_trivially_destructible_v<vf::TrackerState>, "TrackerState");
 static_assert(std::is_trivially_destructible_v<vf::ContourState>, "ContourState");
 static_assert(std::is_trivially_destructible_v<vf::CurveHint>, "CurveHint");

@@ -53,7 +53,7 @@ set(VF_FOLLOWER_PUBLIC_DEPS
   tf2_ros
 )
 
-# Follower parameters (plan section 6): an INTERFACE target with the generated
+# Follower parameters: an INTERFACE target with the generated
 # header vectorfield_curve_follower/vectorfield_follower_params.hpp, included
 # by the public follower_params.hpp and therefore exported.
 generate_parameter_library(vectorfield_follower_params
@@ -132,7 +132,7 @@ if(BUILD_TESTING)
   target_link_libraries(vf_follower_header_check PRIVATE ${PROJECT_NAME})
   vf_set_warnings(vf_follower_header_check)
 
-  # Pure helpers (plan section 6): no ROS graph.
+  # Pure helpers: no ROS graph.
   function(vf_follower_add_unit_gtest name)
     ament_add_gtest(${name} test/${name}.cpp)
     if(TARGET ${name})
@@ -153,7 +153,7 @@ if(BUILD_TESTING)
     vf_set_warnings(test_follower_smoke)
   endif()
 
-  # Layer 2b (plan section 9): the node in process on simulated time, driven in
+  # Layer 2b: the node in process on simulated time, driven in
   # lock step by test/follower_test_harness.hpp, one executable per theme.
   find_package(rosgraph_msgs REQUIRED)
   function(vf_follower_add_node_gtest name)

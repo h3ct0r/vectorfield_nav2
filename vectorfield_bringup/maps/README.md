@@ -6,7 +6,7 @@
   checks that obstacle contouring does not trigger in narrow but free passages;
 - `corridor_corner`: an L-shaped, 1.2 m wide corridor with a sharp 90° left corner in a
   10 m × 10 m map: along +x from (0, 0) to the corner at (6, 0), then along +y to (6, 7). A goal
-  at (6, 6) checks the turn through the corner (plan section 11 step 3).
+  at (6, 6) checks the turn through the corner.
 
 The robot starts at (0, 0) on all three. map_server loads them under `lifecycle_manager_map_server`
 with autostart.

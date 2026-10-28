@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Merge the bringup overlays onto nav2_bringup's parameter file (plan section 8).
+"""Merge the bringup overlays onto nav2_bringup's parameter file.
 
 The demos never ship a full Nav2 parameter file. They start from the installed
 ``nav2_bringup/params/nav2_params.yaml`` of the running distro, so every stock server keeps the

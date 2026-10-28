@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Motion-model overlay for a car-like (Ackermann) base (plan section 8).
+# Motion-model overlay for a car-like (Ackermann) base.
 # vectorfield_bringup.params.merge() deep-merges it onto nav2_bringup's nav2_params.yaml and
 # replaces FollowPath wholesale, and the goal checker and planner blocks too because their
 # plugins change. Unlisted controller parameters keep their defaults

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Humble only (plan section 8): Humble's navigation_launch.py has no collision_monitor, and its
+# Humble only: Humble's navigation_launch.py has no collision_monitor, and its
 # velocity smoother and behaviour server both publish cmd_vel. The demos therefore start
 # collision_monitor with this file under their own lifecycle_manager_collision_monitor, in the
 # Nav2 component container, and vectorfield_sim listens on cmd_vel_safe.

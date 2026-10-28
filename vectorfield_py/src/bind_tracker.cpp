@@ -300,7 +300,7 @@ void bindTrackerClass(py::module_ & m)
 {
   py::class_<TrackerBox>(
     m, "Tracker",
-    "One control cycle of the vector-field controller (plan sections 3.1, 3.3-3.4). Owns only "
+    "One control cycle of the vector-field controller. Owns only "
     "configuration, plus the StepScratch used when step() gets none.")
     .def(
       py::init([](const vf::CoreConfig & config) { return TrackerBox{vf::Tracker(config), {}}; }),

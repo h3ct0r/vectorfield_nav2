@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay of loopback_demo.launch.py (plan section 8), merged after the motion-model
+# Scenario overlay of loopback_demo.launch.py, merged after the motion-model
 # overlay. Nav2's loopback simulator keeps the stock loopback_simulator parameters (base_footprint,
 # base_scan). Scenario overlays never set velocity_smoother limits; those belong to the
 # motion-model overlays in config/controller.

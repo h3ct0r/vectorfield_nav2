@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Motion-model overlay for an omnidirectional (holonomic) base (plan section 8).
+# Motion-model overlay for an omnidirectional (holonomic) base.
 # vectorfield_bringup.params.merge() deep-merges it onto nav2_bringup's nav2_params.yaml and
 # replaces FollowPath wholesale. Unlisted controller parameters keep their defaults
 # (vectorfield_ros/params/vectorfield_common_params.yaml), which validate with the stock

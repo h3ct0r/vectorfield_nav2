@@ -125,7 +125,7 @@ if(BUILD_TESTING)
   target_link_libraries(vf_sim_header_check PRIVATE ${PROJECT_NAME}_node)
   vf_set_warnings(vf_sim_header_check)
 
-  # Every test runs isolated (plan section 9). The timeout leaves room for the CI coverage build.
+  # Every test runs isolated. The timeout leaves room for the CI coverage build.
   function(vf_sim_add_gtest name)
     ament_add_ros_isolated_gtest(${name} test/${name}.cpp TIMEOUT 300)
     if(TARGET ${name})

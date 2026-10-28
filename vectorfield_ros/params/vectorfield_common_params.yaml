@@ -14,7 +14,7 @@
 
 # Parameters shared by the controller plugin (prefix: the plugin name, e.g. FollowPath.) and the
 # curve follower (no prefix): the Field, Motion, Phases, Obstacles, Safety and Visualization
-# groups of plan section 5.4. generate_parameter_library (0.7.x on Humble to Kilted, 1.3.x on
+# parameter groups. generate_parameter_library (0.7.x on Humble to Kilted, 1.3.x on
 # Lyrical and later) generates vectorfield_ros/vectorfield_common_params.hpp from this file, and
 # docs/gen_params.py renders the parameter reference from it.
 #

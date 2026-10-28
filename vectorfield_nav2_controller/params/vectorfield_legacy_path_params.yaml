@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Legacy path handling (the Legacy group of plan section 5.4): the parameters of LegacyPathHandler,
+# Legacy path handling (the Legacy group): the parameters of LegacyPathHandler,
 # the port of Nav2's FeasiblePathHandler that builds the plan window on Humble to Kilted (Gen A/B).
 # The plugin declares them under its own prefix (e.g. FollowPath.prune_distance) only on those
 # distros: generate_parameter_library cannot declare conditionally, so they live in their own

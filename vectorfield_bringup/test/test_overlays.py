@@ -14,7 +14,7 @@
 
 """Checks of the shipped overlays, merged onto the running distro's nav2_params.yaml.
 
-They enforce the overlay rules of plan section 8: velocity_smoother ownership, the omni and
+They enforce the overlay rules: velocity_smoother ownership, the omni and
 Ackermann specifics, and that the overlays only name real controller parameters. The copy-paste
 templates of ``config/examples`` follow the same rules. The controller validation of each overlay
 and template (validateFromNode) runs in vectorfield_system_tests.
@@ -194,7 +194,7 @@ def test_demos_wait_a_second_for_goal_acknowledgement(scenario):
     ids=str,
 )
 def test_overlays_never_set_stamped_cmd_vel(path):
-    """enable_stamped_cmd_vel stays at each node's distro default (plan section 8)."""
+    """enable_stamped_cmd_vel stays at each node's distro default."""
     assert 'enable_stamped_cmd_vel' not in path.read_text(encoding='utf-8')
 
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay for the curve follower (plan section 8), merged by curve_follower_demo.
+# Scenario overlay for the curve follower, merged by curve_follower_demo.
 # The follower reads the local costmap's costmap_raw, so it needs the mapped walls as well as the
 # laser, and a costmap that is updated, not only published, at its rate: costmap_raw is
 # published from the update loop, so publish_frequency above update_frequency has no effect.

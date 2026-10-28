@@ -79,7 +79,7 @@ vf_link_ament_deps(${PROJECT_NAME} PUBLIC ${VF_CONTROLLER_PUBLIC_DEPS})
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_EXTENSIONS OFF)
 vf_set_warnings(${PROJECT_NAME})
 
-# The description names the library above (plan section 5.3).
+# The description names the library above.
 pluginlib_export_plugin_description_file(nav2_core vectorfield_nav2_controller.xml)
 
 install(
@@ -130,7 +130,7 @@ if(BUILD_TESTING)
   target_link_libraries(vf_controller_header_check PRIVATE ${PROJECT_NAME})
   vf_set_warnings(vf_controller_header_check)
 
-  # Test support (plan section 9, layer 2): the per-distro server harness and
+  # Test support: the per-distro server harness and
   # the plan generators. Not installed.
   add_library(vf_controller_test_support STATIC
     test/support/plan_generators.cpp
@@ -159,9 +159,9 @@ if(BUILD_TESTING)
   endfunction()
 
   vf_controller_add_gtest(test_plugin_discovery)
-  # Pure unit test of the raw-plan intake (plan section 5.1).
+  # Pure unit test of the raw-plan intake.
   vf_controller_add_gtest(test_plan_processing)
-  # Layer 2 through the server harness (plan section 9).
+  # Layer 2 through the server harness.
   vf_controller_add_gtest(test_controller_lifecycle)
   vf_controller_add_gtest(test_controller_approach)
   vf_controller_add_gtest(test_controller_obstacles_cancel)
@@ -175,7 +175,7 @@ if(BUILD_TESTING)
   vf_controller_add_gtest(test_controller_goal_checkers)
   # Its own process: Jazzy's shim library links PositionGoalChecker's.
   vf_controller_add_gtest(test_controller_rotation_shim)
-  # LegacyPathHandler against FeasiblePathHandler (plan section 5.1); its
+  # LegacyPathHandler against FeasiblePathHandler; its
   # body is compiled on Gen C only.
   vf_controller_add_gtest(test_path_handler_parity)
 endif()

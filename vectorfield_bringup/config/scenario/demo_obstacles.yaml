@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay with unmapped obstacles for kinematic_sim_demo.launch.py on open_10x10
-# (plan section 8). Only vectorfield_sim's laser sees them, so the local costmap marks them and
+# Scenario overlay with unmapped obstacles for kinematic_sim_demo.launch.py on open_10x10.
+# Only vectorfield_sim's laser sees them, so the local costmap marks them and
 # the controller contours around them (obstacle_mode contour) or stops before them (none). The
-# global costmap has no obstacle layer here (plan section 11 step 4): the planner keeps the plan
+# global costmap has no obstacle layer here: the planner keeps the plan
 # through the obstacles, so the controller meets them on its path. The lists are in the map
 # frame and can be changed at run time, for example:
 #   ros2 param set /vectorfield_sim box_obstacles "[2.0, 0.0, 0.4, 0.4, 0.0]"

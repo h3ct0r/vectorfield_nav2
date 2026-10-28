@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- PlotJuggler layout for the vector-field controller (plan section 4.1): D and the
+<!-- PlotJuggler layout for the vector-field controller: D and the
      remaining arc sigma, the command v, v_y and omega, the limiter scale, and the phase
      and contour side, all from /FollowPath/field_state. Colours follow the legend in
      vectorfield_ros/legend.hpp. -->

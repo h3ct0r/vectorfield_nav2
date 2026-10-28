@@ -68,7 +68,7 @@ if(nav2_ros_common_FOUND)
   list(APPEND VF_ROS_PUBLIC_DEPS nav2_ros_common)
 endif()
 
-# Shared parameters (plan section 4): an INTERFACE target with the generated
+# Shared parameters: an INTERFACE target with the generated
 # header vectorfield_ros/vectorfield_common_params.hpp, exported below.
 generate_parameter_library(vectorfield_common_params
   params/vectorfield_common_params.yaml)
@@ -173,7 +173,7 @@ if(BUILD_TESTING)
   endif()
 
   # Every test that creates nodes runs isolated (unique ROS_DOMAIN_ID per
-  # test process; plan section 9). ament_add_gtest links gtest with the plain
+  # test process). ament_add_gtest links gtest with the plain
   # target_link_libraries() signature, so the calls below use it too.
   function(vf_ros_add_gtest name)
     ament_add_ros_isolated_gtest(${name} test/${name}.cpp TIMEOUT 120)
@@ -199,7 +199,7 @@ if(BUILD_TESTING)
   vf_ros_add_gtest(test_topics_legend)
 endif()
 
-# The MarkerBuilder benchmark of plan section 4.1 (markers < 0.2 ms; the 12 x 12
+# The MarkerBuilder benchmark (markers < 0.2 ms; the 12 x 12
 # field grid reported separately). Non-gating; built only when requested and
 # google benchmark is installed.
 option(VF_BUILD_BENCHMARKS "Build the google-benchmark targets (non-gating)" OFF)

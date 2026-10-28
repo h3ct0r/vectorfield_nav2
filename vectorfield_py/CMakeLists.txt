@@ -92,7 +92,7 @@ else()
     find_package(ament_lint_auto QUIET)
     if(ament_lint_auto_FOUND)
       # Python lint and C++ format run in pre-commit (ruff, clang-format); cppcheck is replaced
-      # by clang-tidy (plan section 9).
+      # by clang-tidy.
       list(APPEND AMENT_LINT_AUTO_EXCLUDE
         ament_cmake_uncrustify
         ament_cmake_cpplint

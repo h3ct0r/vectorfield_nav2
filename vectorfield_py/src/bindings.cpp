@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Compiled extension module `vectorfield._vectorfield`: the module, the exception types and the
-// NumPy helpers shared by the bind_*.cpp files (plan section 8).
+// NumPy helpers shared by the bind_*.cpp files.
 //
 // Only the pybind11 2.9 API subset is used (jammy ships 2.9.1; Homebrew and resolute ship 3.x).
 
