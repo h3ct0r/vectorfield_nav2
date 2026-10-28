@@ -235,13 +235,18 @@ def component_container(name, parameters, distro):
     """Return a component container started as nav2_bringup starts its own on ``distro``.
 
     component_container_isolated up to Kilted; Lyrical deprecates it for ``component_container
-    --isolated``. Either way every component gets its own single-threaded executor. Both
-    containers hold a Nav2 lifecycle manager, whose library is preloaded
-    (:func:`lifecycle_manager_library`).
+    --isolated``. Either way every component gets its own single-threaded executor. On Humble,
+    whose component_container_isolated never exits after a shutdown signal, this package's
+    ``isolated_container`` does the same. Both containers hold a Nav2 lifecycle manager, whose
+    library is preloaded (:func:`lifecycle_manager_library`).
     """
     from launch_ros.actions import Node
 
-    if distro in ('humble', 'jazzy', 'kilted'):
+    package = 'rclcpp_components'
+    if distro == 'humble':
+        package = PACKAGE
+        container = {'executable': 'isolated_container', 'arguments': []}
+    elif distro in ('jazzy', 'kilted'):
         container = {'executable': 'component_container_isolated', 'arguments': []}
     else:
         container = {
@@ -252,9 +257,7 @@ def component_container(name, parameters, distro):
     if library:
         preload = ' '.join(p for p in (os.environ.get('LD_PRELOAD'), library) if p)
         container['additional_env'] = {'LD_PRELOAD': preload}
-    return Node(
-        package='rclcpp_components', name=name, parameters=parameters, output='screen', **container
-    )
+    return Node(package=package, name=name, parameters=parameters, output='screen', **container)
 
 
 def rviz_node(use_rviz, config='vectorfield.rviz'):

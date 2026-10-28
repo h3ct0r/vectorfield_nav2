@@ -10,6 +10,9 @@ Forthcoming
   The manager leaves a pre-shutdown callback in the global context, which the context
   destroyed at exit after the container had unloaded the library: the curve follower's
   container ended every run with a segmentation fault.
+* On Humble the demos' containers are this package's isolated_container: Humble's
+  component_container_isolated waits forever after a shutdown signal for its executors to spin
+  again (rclcpp_components 16.0), and launch had to kill every container after 15 s.
 
 0.5.0 (2026-10-25)
 ------------------

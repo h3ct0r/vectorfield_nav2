@@ -461,4 +461,6 @@ def test_containers_preload_the_lifecycle_manager(monkeypatch):
     container = demo.component_container('c', [], 'jazzy')
     assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}
     assert demo.lifecycle_manager_library('humble') is None
-    assert environment(demo.component_container('c', [], 'humble')) == {}
+    humble = demo.component_container('c', [], 'humble')
+    assert environment(humble) == {}
+    assert (humble.node_package, humble.node_executable) == (demo.PACKAGE, 'isolated_container')

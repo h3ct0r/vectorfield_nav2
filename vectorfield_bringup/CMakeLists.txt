@@ -45,6 +45,18 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# Humble's component_container_isolated never exits after a shutdown signal (rclcpp_components
+# 16.0); the demos start this replacement there (src/isolated_container.cpp).
+if("$ENV{ROS_DISTRO}" STREQUAL "humble")
+  find_package(rclcpp REQUIRED)
+  find_package(rclcpp_components REQUIRED)
+  add_executable(isolated_container src/isolated_container.cpp)
+  target_link_libraries(isolated_container PRIVATE
+    rclcpp::rclcpp rclcpp_components::component_manager)
+  target_compile_features(isolated_container PRIVATE cxx_std_17)
+  install(TARGETS isolated_container DESTINATION lib/${PROJECT_NAME})
+endif()
+
 # Install the resource directories that exist; their README.md files are not installed.
 foreach(_vf_dir IN ITEMS launch config behavior_trees maps rviz foxglove plotjuggler)
   if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${_vf_dir}")
