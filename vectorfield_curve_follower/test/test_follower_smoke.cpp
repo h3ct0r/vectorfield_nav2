@@ -219,6 +219,9 @@ protected:
   rclcpp_action::ClientGoalHandle<FollowCurve>::WrappedResult run(
     const FollowCurve::Goal & goal, std::chrono::seconds timeout)
   {
+    // nav2_util's SimpleActionServer parks a goal that arrives while the previous goal's worker
+    // thread is exiting in its pending slot, and nothing runs it: let that thread finish.
+    std::this_thread::sleep_for(100ms);
     auto goal_future = client_->async_send_goal(goal);
     if (goal_future.wait_for(10s) != std::future_status::ready) {
       ADD_FAILURE() << "goal not answered";
