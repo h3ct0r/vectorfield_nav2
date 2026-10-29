@@ -2,8 +2,8 @@
 Changelog for package vectorfield_sim
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * kinematic_sim keeps publishing /clock after SIGINT or SIGTERM while another node reads it
   (at most 4 s). Nav2's container no longer hangs at shutdown in a transform lookup on
   simulated time, which made launch kill it.

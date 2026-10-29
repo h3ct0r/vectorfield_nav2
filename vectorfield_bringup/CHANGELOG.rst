@@ -2,8 +2,8 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * The kinematic-sim and loopback demos give bt_navigator a 1 s default_server_timeout instead
   of Nav2's 20 ms, so a loaded machine no longer aborts a goal before the planner accepts it.
 * The demos' component containers preload Nav2's lifecycle manager library (Jazzy and later).

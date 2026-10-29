@@ -2,6 +2,19 @@
 Changelog for package vectorfield_nav2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.1 (2026-10-29)
+------------------
+* Ackermann: while a contour episode or the CBF filter bends the field more than 90 degrees from
+  the car's heading, the car keeps turning toward it at its minimum radius (half speed) instead
+  of stopping with kHeadingInfeasible.
+* MuJoCo Ackermann example: Nav2 plans once and replans only when the path becomes invalid; the
+  1 Hz replans sometimes bent the path toward the unmapped box and stopped the car beside it.
+* Demos: bt_navigator waits 1 s, not 20 ms, for a server to accept a goal.
+* Clean shutdowns: the simulators keep /clock running until its readers have shut down; the
+  demos' containers keep Nav2's lifecycle manager library loaded (no segmentation fault at exit),
+  Humble's use a container without component_container_isolated's shutdown hang, and Lyrical's
+  navigation manager runs without bonds (no shutdown deadlock).
+
 0.5.0 (2026-10-25)
 ------------------
 * Obstacle contouring: the gate stays open while a replanned path still grazes the obstacle

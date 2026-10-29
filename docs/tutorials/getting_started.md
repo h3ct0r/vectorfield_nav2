@@ -8,7 +8,7 @@ steps.
 :::{admonition} Build from source
 :class: note
 
-0.5.0 is released, but its binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS
+0.5.1 is released, but its binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS
 build farm ({doc}`../distro_matrix`). Until they are out, build the packages from source as
 below.
 :::

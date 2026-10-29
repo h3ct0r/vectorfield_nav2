@@ -2,8 +2,8 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * point_sim_3d keeps publishing /clock after SIGINT or SIGTERM while another node reads it
   (at most 4 s), as kinematic_sim does.
 

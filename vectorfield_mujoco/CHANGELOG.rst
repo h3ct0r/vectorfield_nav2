@@ -2,8 +2,8 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * The Ackermann example plans once and replans only when the path becomes invalid
   (navigate_w_replanning_only_if_path_becomes_invalid.xml). With the overlay's 1 Hz
   replanning, a new path sometimes bent toward the unmapped box and led the car to its side,

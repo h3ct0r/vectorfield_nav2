@@ -2,8 +2,8 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * CBF for Ackermann: while the filter changes the field, a heading more than 90 degrees from it
   (a car lagging its commands beside an obstacle) no longer sets kHeadingInfeasible; the car turns
   at R_min toward the field at no less than half its speed, as in a contour episode, and the

@@ -2,6 +2,9 @@
 Changelog for package vectorfield_nav2_controller
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.5.1 (2026-10-29)
+------------------
+
 0.5.0 (2026-10-25)
 ------------------
 * Tests: a replan from the pose a contour episode has displaced the robot to, grazing the

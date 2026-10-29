@@ -2,8 +2,8 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.5.1 (2026-10-29)
+------------------
 * clock_source.hpp: runClockSource(), the main() of a simulator that publishes /clock. After
   SIGINT or SIGTERM it keeps running while another node subscribes to /clock (at most 4 s), so
   nodes whose shutdown waits on simulated time finish it.
