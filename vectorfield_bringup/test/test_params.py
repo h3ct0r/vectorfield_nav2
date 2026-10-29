@@ -464,3 +464,17 @@ def test_containers_preload_the_lifecycle_manager(monkeypatch):
     humble = demo.component_container('c', [], 'humble')
     assert environment(humble) == {}
     assert (humble.node_package, humble.node_executable) == (demo.PACKAGE, 'isolated_container')
+
+
+def test_lifecycle_manager_bond_timeout():
+    """A manager keeps Nav2's bond timeout unless one is given (0: no bonds)."""
+
+    def parameters(manager):
+        (values,) = manager.parameters
+        return {''.join(s.text for s in name): value for name, value in values.items()}
+
+    default = parameters(demo.lifecycle_manager('m', ['a'], composed=True))
+    assert 'bond_timeout' not in default
+    assert default['use_sim_time'] is False
+    unbonded = parameters(demo.lifecycle_manager('m', ['a'], composed=True, bond_timeout=0))
+    assert unbonded['bond_timeout'] == 0.0

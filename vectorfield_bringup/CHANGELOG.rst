@@ -13,6 +13,9 @@ Forthcoming
 * On Humble the demos' containers are this package's isolated_container: Humble's
   component_container_isolated waits forever after a shutdown signal for its executors to spin
   again (rclcpp_components 16.0), and launch had to kill every container after 15 s.
+* Lyrical: the demos' lifecycle_manager_navigation runs without bonds. At a shutdown signal the
+  manager reset the servers whose bonds had just broken, and the cleanup of bt_navigator or a
+  costmap deadlocked with the context's shutdown, so launch killed Nav2's container.
 
 0.5.0 (2026-10-25)
 ------------------

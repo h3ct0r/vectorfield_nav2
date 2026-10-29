@@ -323,9 +323,14 @@ def lifecycle_node(package, plugin, executable, name, parameters, composed):
     )
 
 
-def lifecycle_manager(name, node_names, composed):
-    """Return a lifecycle manager with autostart for ``node_names``, on wall time."""
+def lifecycle_manager(name, node_names, composed, bond_timeout=None):
+    """Return a lifecycle manager with autostart for ``node_names``, on wall time.
+
+    ``bond_timeout`` (s, 0 for no bonds) replaces the manager's default when given.
+    """
     parameters = [{'autostart': True, 'node_names': list(node_names), **MANAGER_CLOCK}]
+    if bond_timeout is not None:
+        parameters[0]['bond_timeout'] = float(bond_timeout)
     return lifecycle_node(
         'nav2_lifecycle_manager',
         'nav2_lifecycle_manager::LifecycleManager',
@@ -379,8 +384,15 @@ def nav2_demo_actions(
     # Lyrical's navigation_launch.py no longer starts a lifecycle manager (bringup_launch.py does).
     navigation_nodes = navigation_lifecycle_nodes(context)
     if navigation_nodes:
+        # Without bonds: at a shutdown signal the servers break their bonds in their pre-shutdown
+        # callbacks, and Lyrical's manager then resets them from its own thread. Cleaning up
+        # bt_navigator (its tree's nodes) or a server's costmap removes a pre-shutdown callback,
+        # which waits for the context while the context's shutdown waits for that manager thread:
+        # the container never exits.
         managed.append(
-            lifecycle_manager('lifecycle_manager_navigation', navigation_nodes, composed)
+            lifecycle_manager(
+                'lifecycle_manager_navigation', navigation_nodes, composed, bond_timeout=0.0
+            )
         )
     if distro == 'humble':
         # Humble's navigation_launch.py has no collision_monitor; this one turns cmd_vel into
