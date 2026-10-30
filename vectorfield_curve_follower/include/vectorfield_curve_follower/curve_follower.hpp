@@ -32,8 +32,9 @@
 ///   `global_frame`, `robot_base_frame` ← footprint frame, and `moving_frame_reference` ← curve
 ///   frame (TF differencing).
 ///
-/// **Execution model.** An active follower never rejects a goal (only an inactive one does, as
-/// nav2_util::SimpleActionServer; clients report that as GOAL_REJECTED): the execute callback
+/// **Execution model.** An active follower never rejects a goal (only an inactive one does;
+/// clients report that as GOAL_REJECTED). vectorfield_ros::SingleGoalActionServer runs the goals
+/// one at a time: the execute callback
 /// validates first (prepareGoal(), the interlock liveness and an active Nav2 action) and
 /// terminates an invalid goal before publishing anything; then it runs one control cycle every
 /// 1/`controller_frequency` on the node's clock (simulated time included), until success, cancel,

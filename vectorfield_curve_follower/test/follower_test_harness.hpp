@@ -655,9 +655,10 @@ protected:
       ADD_FAILURE() << "goal rejected (the follower never rejects goals)";
       return handle;
     }
+    // Pending behind a running goal, or already taken: that goal may end in the meantime.
     const bool taken = waitFor([&]() {
-      return before.executing ? follower_->preemptPending()
-                              : follower_->lastCycle().goal > before.goal;
+      return (before.executing && follower_->preemptPending()) ||
+             follower_->lastCycle().goal > before.goal;
     });
     if (!taken) {
       ADD_FAILURE() << "the follower did not take the goal: " << describe(follower_->lastCycle());

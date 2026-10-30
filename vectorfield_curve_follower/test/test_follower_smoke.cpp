@@ -15,7 +15,7 @@
 // Smoke test of the CurveFollower node in process: configure and activate with a fake
 // robot (odometry, TF, an empty local costmap and a footprint), one short closed-curve goal
 // SUCCEEDS with laps_completed = 1, then the follower is silent. An invalid goal ends with
-// INVALID_GOAL and no command.
+// INVALID_GOAL and no command, also 50 of them sent back to back.
 
 #include <gtest/gtest.h>
 
@@ -219,12 +219,6 @@ protected:
   rclcpp_action::ClientGoalHandle<FollowCurve>::WrappedResult run(
     const FollowCurve::Goal & goal, std::chrono::seconds timeout)
   {
-    // nav2_util's SimpleActionServer parks a goal that arrives while the previous goal's worker
-    // thread is exiting in its pending slot, and nothing runs it: let that thread finish.
-    if (goal_sent_) {
-      std::this_thread::sleep_for(100ms);
-    }
-    goal_sent_ = true;
     auto goal_future = client_->async_send_goal(goal);
     if (goal_future.wait_for(10s) != std::future_status::ready) {
       ADD_FAILURE() << "goal not answered";
@@ -262,7 +256,6 @@ protected:
   std::thread spinner_;
   std::thread simulator_;
   std::atomic<bool> stop_{false};
-  bool goal_sent_{false};
 };
 
 TEST_F(FollowerSmoke, ClosedCurveGoalSucceedsWithOneLapThenSilence)
@@ -311,6 +304,22 @@ TEST_F(FollowerSmoke, InvalidGoalsEndBeforeAnyCommand)
   EXPECT_EQ(invalid.result->error_code, FollowCurve::Result::INVALID_CURVE);
 
   std::this_thread::sleep_for(200ms);
+  EXPECT_EQ(robot_->commands(), 0U);
+  EXPECT_EQ(follower_->deactivate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
+}
+
+TEST_F(FollowerSmoke, GoalsSentRightAfterTheLastResultAllRun)
+{
+  bringUp();
+  // Each goal goes out the moment the previous one's result arrives, while the action server's
+  // worker is still finishing with that goal (Nav2's SimpleActionServer could lose it there).
+  FollowCurve::Goal fast = circleGoal();
+  fast.desired_speed = 0.6;
+  for (int i = 0; i < 50; ++i) {
+    const auto wrapped = run(fast, 10s);
+    ASSERT_TRUE(wrapped.result) << "goal " << i << " never ended";
+    EXPECT_EQ(wrapped.result->error_code, FollowCurve::Result::INVALID_GOAL);
+  }
   EXPECT_EQ(robot_->commands(), 0U);
   EXPECT_EQ(follower_->deactivate().id(), lifecycle_msgs::msg::State::PRIMARY_STATE_INACTIVE);
 }

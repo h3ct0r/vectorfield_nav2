@@ -2,6 +2,16 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* SingleGoalActionServer (single_goal_action_server.hpp): the followers' action server, on
+  rclcpp_action, with one worker thread for the server's lifetime. Nav2's
+  SimpleActionServer, which it replaces, can accept a goal and never run it: a goal that
+  arrives while the previous goal's worker thread exits waits as pending, and nothing
+  executes it. The methods and their semantics are Nav2's, except is_cancel_requested(),
+  which is the running goal's flag (Nav2 reports the pending goal's).
+* compat::SimpleActionServer and compat::makeActionServer() are removed.
+
 0.5.1 (2026-10-29)
 ------------------
 * clock_source.hpp: runClockSource(), the main() of a simulator that publishes /clock. After

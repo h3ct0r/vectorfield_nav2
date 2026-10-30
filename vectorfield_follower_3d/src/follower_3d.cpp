@@ -49,6 +49,7 @@
 #include "vectorfield_follower_3d/voxelizer.hpp"
 #include "vectorfield_msgs/msg/curve3.hpp"
 #include "vectorfield_msgs/msg/field_state3.hpp"
+#include "vectorfield_ros/single_goal_action_server.hpp"
 #include "visualization_msgs/msg/marker_array.hpp"
 
 namespace vectorfield_follower_3d
@@ -100,7 +101,7 @@ static_assert(
 namespace
 {
 
-/// Grace of SimpleActionServer::deactivate() before it terminates the goals itself.
+/// Grace of the action server's deactivate() before it ends the goals itself.
 constexpr std::chrono::milliseconds kServerTimeout{500};
 /// A measured Δt longer than this many periods (a stall) is replaced by the nominal period.
 constexpr double kMaxDtPeriods = 5.0;
@@ -203,7 +204,7 @@ struct Follower3D::Impl
   rclcpp_lifecycle::LifecyclePublisher<vectorfield_msgs::msg::Curve3>::SharedPtr curve_pub;
   rclcpp_lifecycle::LifecyclePublisher<FieldState3>::SharedPtr state_pub;
   rclcpp_lifecycle::LifecyclePublisher<visualization_msgs::msg::MarkerArray>::SharedPtr marker_pub;
-  std::shared_ptr<compat::SimpleActionServer<FollowCurve3>> action_server;
+  std::shared_ptr<vectorfield_ros::SingleGoalActionServer<FollowCurve3>> action_server;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr cloud_sub;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr frame_odom_sub;
@@ -1140,8 +1141,8 @@ Follower3D::CallbackReturn Follower3D::on_configure(const rclcpp_lifecycle::Stat
           impl->cloud = Snapshot<sensor_msgs::msg::PointCloud2>{std::move(msg), received};
         });
     }
-    s.action_server = compat::makeActionServer<FollowCurve3>(
-      this, "follow_curve_3d", [this]() { execute(); }, nullptr, kServerTimeout, true);
+    s.action_server = std::make_shared<vectorfield_ros::SingleGoalActionServer<FollowCurve3>>(
+      this, "follow_curve_3d", [this]() { execute(); }, kServerTimeout);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(s.logger, "configure failed: %s", e.what());
     s.release();
@@ -1211,7 +1212,8 @@ Follower3D::CallbackReturn Follower3D::on_shutdown(const rclcpp_lifecycle::State
 void Follower3D::execute()
 {
   Impl & s = *impl_;
-  const std::shared_ptr<compat::SimpleActionServer<FollowCurve3>> server = s.action_server;
+  const std::shared_ptr<vectorfield_ros::SingleGoalActionServer<FollowCurve3>> server =
+    s.action_server;
   if (!server) {
     return;
   }

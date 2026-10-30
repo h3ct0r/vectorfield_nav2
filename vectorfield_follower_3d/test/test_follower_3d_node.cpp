@@ -72,6 +72,19 @@ TEST_F(Follower3DTest, InvalidGoalEndsWithoutACommand)
   expectSilence(0.5);
 }
 
+TEST_F(Follower3DTest, GoalsSentRightAfterTheLastResultAllRun)
+{
+  start(RobotSetup{at(0.0, 0.0, 1.0), {}});
+  // Each goal goes out the moment the previous one's result arrives, while the action server's
+  // worker is still finishing with that goal (Nav2's SimpleActionServer could lose it there).
+  for (int i = 0; i < 30; ++i) {
+    const auto result = run(builtin("no_such_shape", {}, {}), 2.0);
+    ASSERT_TRUE(result.result) << "goal " << i << " never ended";
+    EXPECT_EQ(result.result->error_code, rc::kInvalidCurve);
+  }
+  EXPECT_EQ(robot_->commands(), 0U);
+}
+
 TEST_F(Follower3DTest, OpenHelixSucceedsNearItsEnd)
 {
   start(RobotSetup{at(0.7, -0.1, 0.1), {}});

@@ -2,6 +2,12 @@
 Changelog for package vectorfield_follower_3d
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Goals run on vectorfield_ros::SingleGoalActionServer: a goal sent right after the previous
+  goal's result always runs (Nav2's SimpleActionServer could accept it and never execute
+  it). Cancelling a pending goal no longer ends the running one.
+
 0.5.1 (2026-10-29)
 ------------------
 * point_sim_3d keeps publishing /clock after SIGINT or SIGTERM while another node reads it

@@ -20,7 +20,6 @@
 
 #include <gtest/gtest.h>
 
-#include <chrono>
 #include <cmath>
 #include <iostream>
 #include <memory>
@@ -33,7 +32,6 @@
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/header.hpp"
-#include "vectorfield_msgs/action/follow_curve.hpp"
 #include "vectorfield_ros/compat.hpp"
 
 #ifndef VF_CMAKE_HAS_ROS_COMMON
@@ -128,10 +126,6 @@ TEST(Compat, HelpersWorkOnALifecycleNode)
   auto subscription = compat::subscribe<std_msgs::msg::Header>(
     node, "vf_compat_test_topic", rclcpp::QoS(1), [](std_msgs::msg::Header::ConstSharedPtr) {});
   EXPECT_NE(subscription, nullptr);
-
-  auto server = compat::makeActionServer<vectorfield_msgs::action::FollowCurve>(
-    node, "vf_compat_test_action", []() {}, nullptr, std::chrono::milliseconds(500), false);
-  EXPECT_NE(server, nullptr);
 
   compat::TwistPublisher publisher(node, "vf_compat_test_cmd_vel", rclcpp::QoS(1));
   // Jazzy and later declare enable_stamped_cmd_vel with Nav2's default; Humble publishes Twist.

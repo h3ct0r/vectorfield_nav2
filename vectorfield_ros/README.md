@@ -13,6 +13,9 @@ distro (Humble, Jazzy, Lyrical; Rolling nightly).
   `TwistPublisher` with the per-distro stamped `cmd_vel` default, TF buffer, listener and
   broadcaster factories, and goal-checker helpers. Distro-specific code lives here; the only
   other places are the controller's API signature blocks and its test server harness.
+- **`SingleGoalActionServer`**: the followers' action server, on rclcpp_action with one
+  long-lived worker thread. It keeps the methods of Nav2's SimpleActionServer that the followers
+  use, which can accept a goal and never run it when the goal arrives as its worker thread exits.
 - **Conversions**: the plan window to a polyline curve, `Curve.msg` to a core curve
   specification, costmap snapshots to an occupancy grid, and the robot-frame footprint.
 - **Shared parameters**: the `vectorfield_common_params` generate_parameter_library definition,

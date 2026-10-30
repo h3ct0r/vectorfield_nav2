@@ -36,7 +36,7 @@ invalid one with its code.
 
 **Behaviour.** The outputs are reset (`NONE`, `""`, 0) when a goal starts and set from every
 result. *Succeeded*: SUCCESS. *Aborted*: FAILURE with the result's code; an abort with `NONE` (the
-follower's `SimpleActionServer` aborts a goal preempted by another client with an empty result) is
+follower's action server aborts a goal preempted by another client with an empty result) is
 reported as `UNKNOWN`. *Canceled* by the server or another client: SUCCESS, Nav2's convention.
 *Halt* (a parent halts the node): the base class cancels the goal and waits for its result.
 *Preemption*: while the goal runs, every tick rebuilds the goal from the ports; when it differs

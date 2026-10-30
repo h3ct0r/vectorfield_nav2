@@ -48,7 +48,7 @@ namespace compat = vectorfield_behavior_tree::compat;
 constexpr double kDistance = 4.25;
 
 /// A follow_curve server whose goals succeed, abort or run until canceled. Like the follower's
-/// SimpleActionServer, it accepts every goal (unless told to reject them, as an inactive follower
+/// action server, it accepts every goal (unless told to reject them, as an inactive follower
 /// does) and aborts the running goal, with an empty result, when a new one arrives.
 class FakeFollowCurveServer
 {

@@ -55,6 +55,7 @@
 #include "vectorfield_ros/core_params.hpp"
 #include "vectorfield_ros/field_visualizer.hpp"
 #include "vectorfield_ros/marker_builder.hpp"
+#include "vectorfield_ros/single_goal_action_server.hpp"
 #include "vectorfield_ros/topics.hpp"
 
 namespace vectorfield_curve_follower
@@ -93,7 +94,7 @@ constexpr double kFootprintChangeTolerance = 0.01;
 constexpr const char * kInterlockAction = "follow_path";
 /// Suffix of an action's status topic.
 constexpr const char * kStatusSuffix = "/_action/status";
-/// Grace of SimpleActionServer::deactivate() before it terminates the goals itself.
+/// Grace of the action server's deactivate() before it ends the goals itself.
 constexpr std::chrono::milliseconds kServerTimeout{500};
 /// Longest wait at goal start for an exclusive action's terminal status (wall time): an action
 /// that has just ended publishes its result before its status, so a client that starts this goal
@@ -204,7 +205,7 @@ struct CurveFollower::Impl
   std::unique_ptr<compat::TwistPublisher> cmd_pub;
   rclcpp_lifecycle::LifecyclePublisher<vectorfield_msgs::msg::Curve>::SharedPtr curve_pub;
   std::unique_ptr<vr::FieldVisualizer> visualizer;
-  std::shared_ptr<compat::SimpleActionServer<FollowCurve>> action_server;
+  std::shared_ptr<vr::SingleGoalActionServer<FollowCurve>> action_server;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub;
   rclcpp::Subscription<nav2_msgs::msg::SpeedLimit>::SharedPtr speed_limit_sub;
   rclcpp::Subscription<nav2_msgs::msg::Costmap>::SharedPtr costmap_sub;
@@ -633,7 +634,9 @@ struct CurveFollower::Impl
     // thread, so they can catch up during the wait.
     std::string active;
     const auto settle_deadline = std::chrono::steady_clock::now() + kInterlockSettle;
-    while (nav2Active(&active) && std::chrono::steady_clock::now() < settle_deadline) {
+    while (nav2Active(&active) && !deactivating &&
+           std::chrono::steady_clock::now() < settle_deadline)
+    {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (nav2Active(&active)) {
@@ -1316,8 +1319,8 @@ CurveFollower::CallbackReturn CurveFollower::on_configure(const rclcpp_lifecycle
           }));
     }
 
-    s.action_server = compat::makeActionServer<FollowCurve>(
-      this, "follow_curve", [this]() { execute(); }, nullptr, kServerTimeout, true);
+    s.action_server = std::make_shared<vr::SingleGoalActionServer<FollowCurve>>(
+      this, "follow_curve", [this]() { execute(); }, kServerTimeout);
   } catch (const std::exception & e) {
     RCLCPP_ERROR(s.logger, "configure failed: %s", e.what());
     s.release();
@@ -1380,7 +1383,7 @@ CurveFollower::CallbackReturn CurveFollower::on_shutdown(const rclcpp_lifecycle:
 void CurveFollower::execute()
 {
   Impl & s = *impl_;
-  const std::shared_ptr<compat::SimpleActionServer<FollowCurve>> server = s.action_server;
+  const std::shared_ptr<vr::SingleGoalActionServer<FollowCurve>> server = s.action_server;
   if (!server) {
     return;
   }

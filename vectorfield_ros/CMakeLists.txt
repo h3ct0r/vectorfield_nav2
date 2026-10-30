@@ -196,6 +196,7 @@ if(BUILD_TESTING)
   vf_ros_add_gtest(test_field_visualizer)
   vf_ros_add_gtest(test_marker_builder)
   vf_ros_add_gtest(test_param_table)
+  vf_ros_add_gtest(test_single_goal_action_server)
   vf_ros_add_gtest(test_topics_legend)
 endif()
 

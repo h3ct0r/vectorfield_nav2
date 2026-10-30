@@ -55,8 +55,8 @@
 /// @def VF_HAS_ROS_COMMON
 /// @brief 1 when `nav2_ros_common/lifecycle_node.hpp` exists (Lyrical, Rolling), else 0.
 ///
-/// Implies `nav2::LifecycleNode` and `nav2::SimpleActionServer`; the nav2_util lifecycle node,
-/// node utilities and action server are gone on those distros.
+/// Implies `nav2::LifecycleNode`; the nav2_util lifecycle node and node utilities are gone on
+/// those distros.
 #if __has_include(<nav2_ros_common/lifecycle_node.hpp>)
 #define VF_HAS_ROS_COMMON 1
 #else
@@ -132,10 +132,8 @@
 
 #if VF_HAS_ROS_COMMON
 #include "nav2_ros_common/lifecycle_node.hpp"
-#include "nav2_ros_common/simple_action_server.hpp"
 #else
 #include "nav2_util/lifecycle_node.hpp"
-#include "nav2_util/simple_action_server.hpp"
 #endif
 
 #if VF_HAS_CONTROLLER_EXCEPTIONS
@@ -216,21 +214,15 @@ inline constexpr bool kStampedCmdVelDefault = false;
 #endif
 /// @}
 
-/// @name Nodes and action servers
+/// @name Nodes
 /// @{
 
 #if VF_HAS_ROS_COMMON
 /// @brief The Nav2 lifecycle node: `nav2::LifecycleNode` on Lyrical and later,
 /// `nav2_util::LifecycleNode` before.
 using LifecycleNode = nav2::LifecycleNode;
-/// @brief Nav2's simple action server (no GoalReceivedCallback is ever passed; see
-/// makeActionServer()).
-template <typename ActionT>
-using SimpleActionServer = nav2::SimpleActionServer<ActionT>;
 #else
 using LifecycleNode = nav2_util::LifecycleNode;
-template <typename ActionT>
-using SimpleActionServer = nav2_util::SimpleActionServer<ActionT>;
 #endif
 
 /// @brief The parent-node type of `Controller::configure()` and `GoalChecker::initialize()`.
@@ -244,55 +236,6 @@ using NodeWeakPtr = LifecycleNode::WeakPtr;
 /// @brief The shared-pointer form of the parent node (same caveat as NodeWeakPtr: on Humble to
 /// Kilted it points to the rclcpp_lifecycle base and does not expose `createBond()`).
 using NodeSharedPtr = LifecycleNode::SharedPtr;
-
-/// @brief Creates Nav2's simple action server with the same arguments on every distro.
-///
-/// Forwards to `(node, name, execute, completion, timeout, spin_thread)` on Humble and Jazzy and
-/// to `(node, name, execute, /*goal_received*/ nullptr, completion, timeout, spin_thread)` on
-/// Lyrical and later. **No GoalReceivedCallback is ever passed:** the follower never rejects a
-/// goal; it validates in execute and terminates. Humble and Jazzy accept every goal
-/// while the server is active.
-/// @tparam ActionT Action type, e.g. `vectorfield_msgs::action::FollowCurve`.
-/// @tparam NodeT Pointer-like node (shared_ptr or raw pointer to an rclcpp_lifecycle node).
-/// @param node Node that owns the server.
-/// @param action_name Action name (relative names resolve in the node's namespace).
-/// @param execute_callback Runs each accepted goal in the server's worker thread.
-/// @param completion_callback Called when the server terminates a goal on its own; may be null.
-/// @param server_timeout Timeout to react to stop or preemption requests.
-/// @param spin_thread Spin the server's callbacks in a dedicated thread (Nav2's servers do).
-/// @return The server; call `activate()` / `deactivate()` with the node's lifecycle.
-template <typename ActionT, typename NodeT>
-std::shared_ptr<SimpleActionServer<ActionT>> makeActionServer(
-  const NodeT & node, const std::string & action_name,
-  typename SimpleActionServer<ActionT>::ExecuteCallback execute_callback,
-  typename SimpleActionServer<ActionT>::CompletionCallback completion_callback,
-  std::chrono::milliseconds server_timeout, bool spin_thread = true)
-{
-  /// The server, with a view of its executor.
-  class Server : public SimpleActionServer<ActionT>
-  {
-  public:
-    using SimpleActionServer<ActionT>::SimpleActionServer;
-    bool spinning() const { return this->executor_ == nullptr || this->executor_->is_spinning(); }
-  };
-#if VF_HAS_ROS_COMMON
-  auto server = std::make_shared<Server>(
-    node, action_name, std::move(execute_callback), nullptr, std::move(completion_callback),
-    server_timeout, spin_thread);
-#else
-  auto server = std::make_shared<Server>(
-    node, action_name, std::move(execute_callback), std::move(completion_callback), server_timeout,
-    spin_thread);
-#endif
-  // rclcpp's Executor::cancel() is lost when it comes before spin() starts, and Nav2's NodeThread
-  // then joins a thread that spins forever: a server destroyed right after its creation (a
-  // cleanup right after configure) would hang. Its thread spins before the server is returned.
-  const auto context = node->get_node_base_interface()->get_context();
-  while (!server->spinning() && rclcpp::ok(context)) {
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
-  }
-  return server;
-}
 
 /// @brief Subscribes through the `rclcpp_lifecycle::LifecycleNode` base on every distro.
 ///
