@@ -644,15 +644,16 @@ A compile-only test `static_assert`s that `VF_CMAKE_HAS_ROS_COMMON` equals the h
 | `tb3_simulation_launch.py` | yes (Gazebo Classic `gzserver`) | yes (gz sim with `nav2_minimal_tb3_sim`) | yes | yes | `humble:nav2_bringup/launch/tb3_simulation_launch.py#L162`, `jazzy:nav2_bringup/launch/tb3_simulation_launch.py` |
 | `tb4_simulation_launch.py` | no | yes | yes | yes | listing |
 | TB3 loopback wrapper | none | `tb3_loopback_simulation.launch.py` (dot) | `tb3_loopback_simulation_launch.py` (underscore) | underscore | listing |
-| `nav2_loopback_sim/launch/loopback_simulation.launch.py` | none | yes | yes | yes | `jazzy:nav2_loopback_sim/launch/loopback_simulation.launch.py`, `lyrical:…` |
+| `nav2_loopback_sim/loopback_simulation.launch.py` (installed at the package's share root) | none | yes | yes | yes | `jazzy:nav2_loopback_sim/launch/loopback_simulation.launch.py`, `lyrical:…` |
 | `nav2_collision_monitor/launch/collision_monitor_node.launch.py` | yes, with its own autostart `lifecycle_manager` | yes | yes | yes | `humble:nav2_collision_monitor/launch/collision_monitor_node.launch.py#L35-L79` |
 
 The TB3 loopback wrapper provides `robot_state_publisher` with the TB3 URDF, `map_server` with `lifecycle_manager_map_server`, the loopback simulator and `use_localization: False`. It takes `map`, `params_file` and `use_rviz` (default true) (`jazzy:nav2_bringup/launch/tb3_loopback_simulation.launch.py#L119-L196`, `lyrical:nav2_bringup/launch/tb3_loopback_simulation_launch.py#L38-L121`).
 
 **Rules.**
 
-- `loopback_demo` (Jazzy+) includes the wrapper, chosen by an existence check, with `use_rviz:=False`, and starts `rviz2 -d rviz/vectorfield.rviz` itself.
-- Never assemble `loopback_simulation.launch.py` plus `navigation_launch.py` by hand: nothing would publish base_footprint→base_link→base_scan.
+- `loopback_demo` (Jazzy+) does not include the wrapper. It starts the wrapper's simulator side itself, `robot_state_publisher` with the TB3 URDF and `loopback_simulation.launch.py`, and the Nav2 side through `nav2_demo_actions()`, as `kinematic_sim_demo` does. The wrapper's Nav2 container is started by nav2_bringup, so it cannot get the lifecycle manager's preload (a crash at every exit). The wrapper also starts the simulator together with map_server, and Jazzy's simulator keeps the empty map an inactive map_server returns; the demo starts it once `map` is latched, under `shutdown_last` (it stops after Nav2's nodes, which wait on simulated time and on its TF while they shut down).
+- Never run `loopback_simulation.launch.py` without the TB3 `robot_state_publisher`: nothing else publishes base_footprint→base_link→base_scan.
+- The Gazebo demos include `tb3_simulation_launch.py` / `tb4_simulation_launch.py`. Their Nav2 container is nav2_bringup's, so the lifecycle manager's preload reaches it through `LD_PRELOAD` set in a scoped group around the include (every process of that file loads the library). `gz` and `parameter_bridge` run under `shutdown_last`, through the scoped `launch-prefix` and `launch-prefix-filter` launch configurations. Run uncomposed instead, Nav2's separate servers do not shut down cleanly at a Ctrl+C during a goal (Jazzy: controller_server hangs in its local costmap's cleanup, velocity_smoother crashes).
 
 ### 8.2 Loopback simulator facts
 

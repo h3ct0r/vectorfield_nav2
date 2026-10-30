@@ -14,7 +14,8 @@
 
 # Scenario overlay of loopback_demo.launch.py, merged after the motion-model
 # overlay. Nav2's loopback simulator keeps the stock loopback_simulator parameters (base_footprint,
-# base_scan). Scenario overlays never set velocity_smoother limits; those belong to the
+# base_scan); Nav2 runs as in kinematic_sim_demo, Lyrical's lifecycle_manager_navigation without
+# bonds (vectorfield_bringup.demo.nav2_demo_actions). Scenario overlays never set velocity_smoother limits; those belong to the
 # motion-model overlays in config/controller.
 
 velocity_smoother:
@@ -28,11 +29,3 @@ velocity_smoother:
 bt_navigator:
   ros__parameters:
     default_server_timeout: 1000
-
-# Lyrical's nav2_bringup runs the servers under lifecycle_manager_nav2 (the name exists only
-# there). Without bonds, as the kinematic demos' lifecycle_manager_navigation: at a shutdown
-# signal the bonded manager resets the servers, and the cleanup of bt_navigator or a costmap
-# deadlocks with the context's shutdown, so launch kills Nav2's container.
-lifecycle_manager_nav2:
-  ros__parameters:
-    bond_timeout: 0.0

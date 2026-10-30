@@ -1,0 +1,32 @@
+# Copyright 2026 Héctor Azpúrua
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Scenario overlay of tb3_gazebo_demo.launch.py and tb4_gazebo_demo.launch.py, merged after the
+# motion-model overlay. nav2_bringup's Gazebo wrapper starts Nav2 there, in its own component
+# container. Scenario overlays never set velocity_smoother limits; those belong to the
+# motion-model overlays in config/controller.
+
+# Nav2's default_server_timeout (20 ms) is how long bt_navigator waits for a server to accept a
+# goal before the tree fails; Gazebo loads the machine more than the other demos, which use 1 s.
+bt_navigator:
+  ros__parameters:
+    default_server_timeout: 1000
+
+# Lyrical's nav2_bringup runs the servers under lifecycle_manager_nav2 (the name exists only
+# there). Without bonds, as the other demos' lifecycle_manager_navigation: at a shutdown signal
+# the bonded manager resets the servers, and the cleanup of bt_navigator or a costmap deadlocks
+# with the context's shutdown, so launch kills Nav2's container.
+lifecycle_manager_nav2:
+  ros__parameters:
+    bond_timeout: 0.0

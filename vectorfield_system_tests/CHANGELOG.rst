@@ -8,6 +8,8 @@ Forthcoming
   terminal's Ctrl+C), forwards it once the reader leaves or at once without one, forwards
   SIGTERM at once, takes its command along when it is killed, and returns the command's
   status.
+* The loopback launch tests run in the coverage build again: bringup's loopback demo no
+  longer starts Jazzy's loopback simulator before the map is served.
 
 0.5.1 (2026-10-29)
 ------------------

@@ -4,10 +4,12 @@
   `navigation_launch.py`, the static identity TFs base_footprint → base_link → base_scan,
   `initial_pose_publisher` and, on Humble, collision_monitor from `cmd_vel` to `cmd_vel_safe`
   under `lifecycle_manager_collision_monitor`.
-- `loopback_demo.launch.py` (Jazzy and later): nav2_bringup's TB3 loopback wrapper
-  (`tb3_loopback_simulation_launch.py`, or `tb3_loopback_simulation.launch.py` on Jazzy).
+- `loopback_demo.launch.py` (Jazzy and later): the TB3 Waffle's robot_state_publisher and Nav2's
+  loopback simulator, started once map_server serves the map (`wait_for_map`) and stopped after
+  Nav2 (`shutdown_last`); Nav2 as in `kinematic_sim_demo.launch.py`.
 - `tb3_gazebo_demo.launch.py`, `tb4_gazebo_demo.launch.py` (Jazzy and later): nav2_bringup's
-  Gazebo TurtleBot simulations with AMCL.
+  Gazebo TurtleBot simulations with AMCL; Gazebo and its bridge stop after Nav2
+  (`shutdown_last`), and the wrapper's Nav2 container preloads the lifecycle manager's library.
 - `curve_follower_demo.launch.py` (every distro): `kinematic_sim_demo.launch.py` with the
   `curve_follower` scenario overlay, plus the curve follower and
   `lifecycle_manager_curve_follower` (`node_names: [curve_follower]`, autostart), both in

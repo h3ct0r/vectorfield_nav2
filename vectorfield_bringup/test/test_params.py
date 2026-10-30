@@ -465,6 +465,47 @@ def test_containers_preload_the_lifecycle_manager(monkeypatch):
     assert (humble.node_package, humble.node_executable) == (demo.PACKAGE, 'isolated_container')
 
 
+def test_an_included_container_preloads_the_lifecycle_manager(monkeypatch):
+    """The group sets LD_PRELOAD in its own scope for a container another launch file starts."""
+    from launch.actions import SetEnvironmentVariable
+
+    monkeypatch.setenv('LD_PRELOAD', 'libother.so')
+    library = demo.lifecycle_manager_library()
+    group = demo.preload_lifecycle_manager([])
+    settings = [a for a in group.get_sub_entities() if isinstance(a, SetEnvironmentVariable)]
+    if library is None:
+        assert not settings
+        return
+    assert len(settings) == 1
+    assert ''.join(s.text for s in settings[0].name) == 'LD_PRELOAD'
+    assert ''.join(s.text for s in settings[0].value) == f'libother.so {library}'
+
+
+def test_shutdown_last_wraps_only_the_named_executables():
+    """The group runs the named executables, and only those, under shutdown_last."""
+    import re
+
+    from launch import LaunchContext
+    from launch.actions import SetLaunchConfiguration
+
+    try:
+        group = demo.shutdown_last([], demo.GAZEBO_CLOCK_EXECUTABLES)
+    except LookupError:
+        pytest.skip('vectorfield_sim is not installed')
+    context = LaunchContext()
+    settings = {}
+    for action in group.get_sub_entities():
+        if isinstance(action, SetLaunchConfiguration):
+            name = ''.join(context.perform_substitution(s) for s in action.name)
+            settings[name] = ''.join(context.perform_substitution(s) for s in action.value)
+    assert settings['launch-prefix'].endswith(os.path.join('vectorfield_sim', 'shutdown_last'))
+    pattern = settings['launch-prefix-filter']
+    for executable in ('gz', 'parameter_bridge'):
+        assert re.match(pattern, executable), executable
+    for executable in ('gzserver', 'image_bridge', 'robot_state_publisher', 'my_gz'):
+        assert not re.match(pattern, executable), executable
+
+
 def test_lifecycle_manager_bond_timeout():
     """A manager keeps Nav2's bond timeout unless one is given (0: no bonds)."""
 

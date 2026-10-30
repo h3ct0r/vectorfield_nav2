@@ -62,51 +62,6 @@ colcon test-result --verbose
 
 ## Known issues
 
-**Jazzy: Nav2's loopback simulator can crash at start-up** (`nav2_loopback_sim` 1.3.13, still
-the same on the `jazzy` and `kilted` branches; Lyrical's C++ loopback simulator logs `Map server
-returned empty/invalid map ..., will retry` and is not affected).
-In about one `test_open_loopback_<model>` run in fifteen, mostly under load, the launch log shows
-
-```text
-[map_server]: Received GetMap request but not in ACTIVE state, ignoring!
-[loopback_simulator]: Laser scan will be populated using map data
-[loopback_simulator]: Received initial pose!
-utils.py:71: RuntimeWarning: divide by zero encountered in scalar divide
-OverflowError: cannot convert float infinity to integer
-```
-
-and the test fails with `no /map or no true pose`. The robot pose is never infinite; the map is
-empty:
-
-1. nav2_bringup's `tb3_loopback_simulation.launch.py` starts map_server and the loopback simulator
-   together (lines 219-220).
-2. The simulator asks for the map once, in its constructor (`loopback_simulator.py:154`,
-   `getMap` at 306-324). `wait_for_service` (line 308) returns as soon as map_server is
-   configured, because map_server creates the service in `on_configure` (`map_server.cpp:111`).
-3. Until map_server is active, `getMapCallback` (`map_server.cpp:180-193`) logs the warning above
-   and returns an empty map, resolution 0, which the simulator keeps (line 313).
-4. The first `initialpose` (from `initial_pose_publisher`, as the simulator requires) starts the
-   scan timer (line 214); `getLaserScan` (line 358) calls `worldToMap`, which divides by the
-   resolution (`utils.py:71`), and the process exits.
-
-Nothing in this repository triggers it: the race is between two nodes of the stock wrapper. It
-reproduces every time with stock Jazzy packages alone, by holding map_server in the inactive
-state:
-
-```bash
-ros2 run tf2_ros static_transform_publisher --frame-id base_footprint --child-frame-id base_scan &
-ros2 run nav2_map_server map_server --ros-args \
-  -p yaml_filename:=/opt/ros/jazzy/share/nav2_bringup/maps/tb3_sandbox.yaml &
-ros2 lifecycle set /map_server configure   # configured, not activated
-ros2 run nav2_loopback_sim loopback_simulator &
-ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
-  '{header: {frame_id: map}, pose: {pose: {position: {x: 1.0}, orientation: {w: 1.0}}}}'
-```
-
-Possible upstream fixes: retry `getMap` until the map has a non-zero resolution, or fail the
-GetMap service while map_server is inactive. Until then the coverage build (CI Jazzy amd64), the
-most loaded one, does not register the loopback tests (see `CMakeLists.txt`).
-
 **Lyrical: Fast DDS 3 can deadlock the two participants of a launch test** (`fastdds` 3.6.2,
 still the same on `master`; worked around here). A launch test process holds two participants,
 launch_ros's node and the test client. Fast DDS 3 resolves remote types with its TypeLookup

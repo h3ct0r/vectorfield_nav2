@@ -373,10 +373,13 @@ ros2 launch vectorfield_bringup tb3_gazebo_demo.launch.py
 ros2 launch vectorfield_bringup tb4_gazebo_demo.launch.py
 ```
 
-**Overlay.** The differential overlay (or `motion_model:=skid_steer`), merged onto the stock
-parameters as in the kinematic demo. The launch files include nav2_bringup's
-`tb3_simulation_launch.py` and `tb4_simulation_launch.py` with their maps (`tb3_sandbox`,
-`depot`), and publish the initial pose at the spawn pose: (−2, −0.5) for the TB3; the TB4 spawns
+**Overlay.** The differential overlay (or `motion_model:=skid_steer`) and
+`config/scenario/gazebo.yaml`, merged onto the stock parameters as in the kinematic demo. The
+launch files include nav2_bringup's `tb3_simulation_launch.py` and `tb4_simulation_launch.py`
+with their maps (`tb3_sandbox`, `depot`), run Gazebo and its bridge under `shutdown_last`, so
+that they stop after Nav2 at a Ctrl+C, preload the lifecycle manager's library into the
+wrapper's Nav2 container (a crash at every exit otherwise), and publish the initial pose at the
+spawn pose: (−2, −0.5) for the TB3; the TB4 spawns
 at (−8, 0) in its world, which is the origin of the depot map, so its initial pose is (0, 0).
 Both have been run headless on Jazzy: a goal 1 m (TB3) and 2 m (TB4) ahead of the spawn pose
 succeeded.
@@ -402,8 +405,10 @@ ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: 
 ```
 
 **Overlay.** The motion-model overlay and `config/scenario/loopback.yaml`
-(`scale_velocities: true`). The demo publishes the initial pose itself, because the loopback
-simulator publishes no TF before it receives one.
+(`scale_velocities: true`). Nav2 runs as in the kinematic demo; the launch file starts the TB3
+model's `robot_state_publisher` and the loopback simulator, once map_server serves the map and
+under `shutdown_last`, so that it stops after Nav2 at a Ctrl+C. The demo publishes the initial
+pose itself, because the loopback simulator publishes no TF before it receives one.
 
 **In RViz.** The same phases as the kinematic demo. `map:=corridor_door` or
 `map:=corridor_corner` load the other maps. The unmapped obstacles of `demo_obstacles` exist

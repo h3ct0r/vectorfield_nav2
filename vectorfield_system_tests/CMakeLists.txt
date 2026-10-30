@@ -119,11 +119,8 @@ if(BUILD_TESTING)
 
   foreach(_vf_model differential skid_steer omnidirectional ackermann)
     vf_add_launch_test(test/test_open_kinematic.py ${_vf_model})
-    # Nav2's loopback simulator exists from Jazzy on. The coverage build (CI jazzy amd64) skips
-    # it: under load, Jazzy's loopback simulator can fetch an empty map from a not yet active
-    # map_server and crash at its first scan (README, Known issues); the kinematic runs cover the
-    # same controller paths.
-    if(NOT "$ENV{ROS_DISTRO}" STREQUAL "humble" AND NOT CMAKE_CXX_FLAGS MATCHES "--coverage")
+    # Nav2's loopback simulator exists from Jazzy on.
+    if(NOT "$ENV{ROS_DISTRO}" STREQUAL "humble")
       vf_add_launch_test(test/test_open_loopback.py ${_vf_model})
     endif()
   endforeach()

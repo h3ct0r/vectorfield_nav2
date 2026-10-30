@@ -179,16 +179,16 @@ def test_scenarios_never_set_smoother_limits(path):
             assert 0.0 < reverse <= limits['max_linear_vel'], model
 
 
-@pytest.mark.parametrize('scenario', ['kinematic_sim', 'loopback'])
+@pytest.mark.parametrize('scenario', ['kinematic_sim', 'loopback', 'gazebo'])
 def test_demos_wait_a_second_for_goal_acknowledgement(scenario):
     """bt_navigator waits 1 s, not Nav2's 20 ms, for a server to accept a goal."""
     navigator = _node(_merged('differential', (scenario,)), 'bt_navigator')
     assert navigator['default_server_timeout'] == 1000
 
 
-def test_loopback_runs_lyricals_manager_without_bonds():
+def test_gazebo_runs_lyricals_manager_without_bonds():
     """Lyrical's lifecycle_manager_nav2 gets bond_timeout 0.0, a double as Nav2 declares it."""
-    manager = _node(_merged('differential', ('loopback',)), 'lifecycle_manager_nav2')
+    manager = _node(_merged('differential', ('gazebo',)), 'lifecycle_manager_nav2')
     assert manager['bond_timeout'] == 0.0 and isinstance(manager['bond_timeout'], float)
 
 

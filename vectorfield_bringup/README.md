@@ -14,7 +14,7 @@ follower demo with its scripts are implemented.
 | `kinematic_sim_demo.launch.py` | all | `vectorfield_sim`, with map_server and Nav2's `navigation_launch.py` |
 | `curve_follower_demo.launch.py` | all | `kinematic_sim_demo` with the `curve_follower` scenario, plus the curve follower and `lifecycle_manager_curve_follower` |
 | `follower3d_demo.launch.py` | all | [experimental] `point_sim_3d` (a kinematic point robot in 3D), the 3D follower and its lifecycle manager; no Nav2 |
-| `loopback_demo.launch.py` | Jazzy and later | nav2_bringup's TB3 loopback wrapper |
+| `loopback_demo.launch.py` | Jazzy and later | Nav2's loopback simulator with the TB3 model, Nav2 as in `kinematic_sim_demo` |
 | `tb3_gazebo_demo.launch.py`, `tb4_gazebo_demo.launch.py` | Jazzy and later | nav2_bringup's Gazebo TurtleBot simulations, with AMCL |
 
 ```bash
@@ -32,11 +32,22 @@ Arguments:
 | `scenarios` | empty | extra overlays, comma separated: names in `config/scenario` (for example `demo_obstacles`) or YAML paths |
 | `use_rviz` | `true` | start RViz with `rviz/vectorfield.rviz` (the wrappers' own RViz is always disabled) |
 | `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw` | 0 | start pose in the map (Gazebo: `x_pose`, `y_pose`, `yaw`, the spawn pose in the world; the initial pose follows it) |
-| `use_composition` | `true` | kinematic and curve follower demos: run map_server, the Nav2 servers and their lifecycle managers in one component container |
+| `use_composition` | `true` | kinematic, loopback and curve follower demos: run map_server, the Nav2 servers and their lifecycle managers in one component container |
 | `headless` | `True` | Gazebo demos: run Gazebo without its GUI |
 
 Each demo launch file exits with an error that names the supported distros when it cannot run on
 the current one.
+
+On Ctrl+C the demos shut down within a few seconds. The simulators stop after Nav2's nodes,
+which wait on simulated time while they shut down: ours keep running while `/clock` has
+readers, and Nav2's loopback simulator and Gazebo run under `vectorfield_sim`'s
+`shutdown_last`, which holds the signal back from them. The demos' Nav2 containers preload the
+lifecycle manager's library, which a container would otherwise unload under the manager's own
+shutdown callback (a crash at every exit); in the Gazebo demos, whose container nav2_bringup
+starts, `LD_PRELOAD` is set for the included launch file. Nav2's own shutdown still has races:
+in Lyrical's Gazebo demos a server's cleanup can crash now and then, and a recovery behaviour
+(Wait, Spin, BackUp) under way at Ctrl+C runs to its end, past the 4 s the simulator waits, so
+launch kills the container.
 
 Both Gazebo demos have been run headless on Jazzy (Gazebo Harmonic, software rendering) with the
 differential overlay: one NavigateToPose goal 1 m (TB3) and 2 m (TB4) ahead of the spawn pose

@@ -23,6 +23,7 @@ vectorfield_mujoco share them.
 
 import copy
 import os
+import re
 
 from vectorfield_bringup import params
 
@@ -228,6 +229,29 @@ def lifecycle_manager_library():
     return library if os.path.isfile(library) else None
 
 
+def lifecycle_manager_preload():
+    """Return ``LD_PRELOAD`` with :func:`lifecycle_manager_library` added, or None without it."""
+    library = lifecycle_manager_library()
+    if library is None:
+        return None
+    return ' '.join(p for p in (os.environ.get('LD_PRELOAD'), library) if p)
+
+
+def preload_lifecycle_manager(actions):
+    """Return a group of ``actions`` whose processes preload Nav2's lifecycle manager library.
+
+    For a container that another launch file starts, such as nav2_bringup's Gazebo wrappers:
+    ``LD_PRELOAD`` is set in the group's own environment, so every process of the included file
+    loads the library, and only the container uses it (:func:`lifecycle_manager_library`).
+    """
+    from launch.actions import GroupAction, SetEnvironmentVariable
+
+    preload = lifecycle_manager_preload()
+    if preload is None:
+        return GroupAction(list(actions))
+    return GroupAction([SetEnvironmentVariable('LD_PRELOAD', preload), *actions], scoped=True)
+
+
 def component_container(name, parameters, distro):
     """Return a component container started as nav2_bringup starts its own on ``distro``.
 
@@ -250,11 +274,40 @@ def component_container(name, parameters, distro):
             'executable': 'component_container',
             'arguments': ['--isolated', '--executor-type', 'single-threaded'],
         }
-    library = lifecycle_manager_library()
-    if library:
-        preload = ' '.join(p for p in (os.environ.get('LD_PRELOAD'), library) if p)
+    preload = lifecycle_manager_preload()
+    if preload:
         container['additional_env'] = {'LD_PRELOAD': preload}
     return Node(package=package, name=name, parameters=parameters, output='screen', **container)
+
+
+def shutdown_last(actions, executables):
+    """Return a group of ``actions`` whose processes named ``executables`` stop after Nav2.
+
+    A simulator that is not ours stops at the shutdown signal, and Nav2's nodes then wait on
+    simulated time, and on transforms that no longer come, while they shut down, until launch
+    kills them. vectorfield_sim's ``shutdown_last`` holds the signal back from those processes
+    until no node reads /clock (at most 4 s), as our own simulators do. It is applied through the
+    scoped ``launch-prefix`` and ``launch-prefix-filter`` launch configurations, so it reaches
+    the processes of an included launch file that the group starts.
+
+    Args:
+        actions: The launch actions, e.g. the include of a simulator's launch file.
+        executables: The basenames of the executables to run under ``shutdown_last``.
+
+    """
+    from ament_index_python.packages import get_package_prefix
+    from launch.actions import GroupAction, SetLaunchConfiguration
+
+    wrapper = os.path.join(get_package_prefix(SIM), 'lib', SIM, 'shutdown_last')
+    pattern = '^({})$'.format('|'.join(re.escape(name) for name in executables))
+    return GroupAction(
+        [
+            SetLaunchConfiguration('launch-prefix', wrapper),
+            SetLaunchConfiguration('launch-prefix-filter', pattern),
+            *actions,
+        ],
+        scoped=True,
+    )
 
 
 def rviz_node(use_rviz, config='vectorfield.rviz'):
@@ -539,12 +592,22 @@ def follower3d_actions(parameters, use_rviz):
     return [follower, manager, rviz_node(use_rviz, 'follower_3d.rviz')]
 
 
+#: The scenario overlay the Gazebo demos always apply, before their ``scenarios`` argument.
+GAZEBO_SCENARIO = 'gazebo'
+
+#: The Gazebo server and the bridge that publishes its /clock (and the robot's odometry and TF).
+GAZEBO_CLOCK_EXECUTABLES = ('gz', 'parameter_bridge')
+
+
 def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):
     """Return the launch description of the ``<robot>_gazebo_demo`` launch file (Jazzy and later).
 
     It includes nav2_bringup's ``<robot>_simulation_launch.py`` (Gazebo, AMCL and Nav2) with the
-    merged parameters and its own RViz disabled, initial_pose_publisher at the spawn pose in the
-    map frame, which AMCL needs, and RViz with vectorfield.rviz.
+    merged parameters (``gazebo`` scenario overlay first) and its own RViz disabled,
+    initial_pose_publisher at the spawn pose in the map frame, which AMCL needs, and RViz with
+    vectorfield.rviz. Gazebo and its ros_gz_bridge stop after Nav2 (:func:`shutdown_last`), and
+    the wrapper's Nav2 container preloads the lifecycle manager's library, as the demos' own
+    containers do (:func:`preload_lifecycle_manager`).
 
     Args:
         robot: ``tb3`` or ``tb4``.
@@ -569,7 +632,8 @@ def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):
         from ament_index_python.packages import get_package_share_directory
 
         motion_model = LaunchConfiguration('motion_model').perform(context)
-        scenarios = split_list(LaunchConfiguration('scenarios').perform(context))
+        extra = split_list(LaunchConfiguration('scenarios').perform(context))
+        scenarios = [GAZEBO_SCENARIO] + extra
         arguments = {
             'params_file': merged_params_file(motion_model, scenarios),
             'use_rviz': 'False',
@@ -588,10 +652,11 @@ def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):
         simulation = os.path.join(nav2_bringup, 'launch', f'{robot}_simulation_launch.py')
         spawn = [float(arguments[name]) for name in ('x_pose', 'y_pose', 'yaw')]
         pose = (spawn[0] + map_offset[0], spawn[1] + map_offset[1], spawn[2])
+        simulation = IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(simulation), launch_arguments=arguments.items()
+        )
         return [
-            IncludeLaunchDescription(
-                PythonLaunchDescriptionSource(simulation), launch_arguments=arguments.items()
-            ),
+            preload_lifecycle_manager([shutdown_last([simulation], GAZEBO_CLOCK_EXECUTABLES)]),
             initial_pose_node(*pose),
             rviz_node(LaunchConfiguration('use_rviz')),
         ]
@@ -613,8 +678,8 @@ def gazebo_demo(robot, world_map, x, y, yaw, map_offset=(0.0, 0.0)):
             DeclareLaunchArgument(
                 'scenarios',
                 default_value='',
-                description='Extra overlays, comma separated: names in config/scenario or YAML '
-                'paths.',
+                description='Extra overlays, comma separated, merged after gazebo: names in '
+                'config/scenario or YAML paths.',
             ),
             DeclareLaunchArgument(
                 'use_rviz', default_value='true', description='Start RViz with vectorfield.rviz.'
