@@ -30,6 +30,7 @@ import unittest
 import launch_testing.markers
 import pytest
 from vectorfield_system_tests.harness import NavHarness
+from vectorfield_system_tests.shutdown import TestCleanShutdown  # noqa: F401
 
 from vectorfield_bringup import demo, params
 from vectorfield_system_tests import launch

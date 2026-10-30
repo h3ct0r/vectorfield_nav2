@@ -25,9 +25,11 @@ Per pull request, on every gating distro (`colcon test`; launch tests keep the d
 
 The final command (`cmd_vel` on Jazzy and later, `cmd_vel_safe` on Humble) may be published only by
 collision_monitor and the allow-listed docking_server (Jazzy and later) and following_server
-(Lyrical and later). The launch tests share the helpers of the `vectorfield_system_tests` Python
-package (`launch`, `harness`, `geometry`, `checks`, `follower` for the curve follower and
-`follower_3d` for the 3D follower),
+(Lyrical and later). After every launch test, every process the demo started must have exited 0
+at the shutdown signal: a crash at exit or a process launch had to kill fails the test
+(`shutdown.TestCleanShutdown`). The launch tests share the helpers of the
+`vectorfield_system_tests` Python package (`launch`, `harness`, `geometry`, `checks`, `shutdown`,
+`follower` for the curve follower and `follower_3d` for the 3D follower),
 imported from the source tree, and the test overlay `test/config/global_obstacle_layer_off.yaml`.
 
 Nightly and non-gating, registered only with `-DVF_NIGHTLY_TESTS=ON`: Gazebo TB3 (label

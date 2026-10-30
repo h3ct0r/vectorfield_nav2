@@ -28,6 +28,7 @@ import launch_testing.markers
 import pytest
 from action_msgs.msg import GoalStatus
 from vectorfield_system_tests.harness import NavHarness
+from vectorfield_system_tests.shutdown import TestCleanShutdown  # noqa: F401
 
 from vectorfield_system_tests import checks, launch
 

@@ -18,13 +18,16 @@ The example launch ``VF_MUJOCO_EXAMPLE`` (set per CTest test) starts with ``scen
 (its world, without the runner) and ``use_rviz:=false``; the test then runs ``run_scenario`` on
 ``VF_MUJOCO_SCENARIO`` (a scenario name or path; default the example's own), which exits with 0
 only when every NavigateToPose goal (or the FollowCurve or FollowCurve3 goal) SUCCEEDED.
-``VF_MUJOCO_TIMEOUT`` (s) bounds the scenario.
+``VF_MUJOCO_TIMEOUT`` (s) bounds the scenario. After the shutdown signal every process must
+have exited 0.
 """
 
 import os
 import subprocess
 import unittest
 
+import launch_testing
+import launch_testing.asserts
 import launch_testing.markers
 import pytest
 
@@ -77,3 +80,12 @@ class TestExample(unittest.TestCase):
         )
         output = done.stdout[-4000:] + done.stderr[-4000:]
         self.assertEqual(done.returncode, 0, output)
+
+
+@launch_testing.post_shutdown_test()
+class TestCleanShutdown(unittest.TestCase):
+    """Every process of the example exited 0 at the shutdown signal (no crash, nothing killed)."""
+
+    def test_every_process_exits_cleanly(self, proc_info):
+        """Exit code 0 for every process, the ones that ended early included."""
+        launch_testing.asserts.assertExitCodes(proc_info)

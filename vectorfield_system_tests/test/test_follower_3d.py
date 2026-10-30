@@ -28,6 +28,7 @@ import unittest
 import launch_testing.markers
 import pytest
 from action_msgs.msg import GoalStatus
+from vectorfield_system_tests.shutdown import TestCleanShutdown  # noqa: F401
 
 from vectorfield_bringup import curves3d
 from vectorfield_msgs.action import FollowCurve3

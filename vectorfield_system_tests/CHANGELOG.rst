@@ -10,6 +10,8 @@ Forthcoming
   status.
 * The loopback launch tests run in the coverage build again: bringup's loopback demo no
   longer starts Jazzy's loopback simulator before the map is served.
+* Every launch test checks after the shutdown that each process of the demo exited 0
+  (shutdown.TestCleanShutdown): a crash at exit, or a process launch had to kill, fails it.
 
 0.5.1 (2026-10-29)
 ------------------

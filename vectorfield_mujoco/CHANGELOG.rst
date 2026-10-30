@@ -6,6 +6,8 @@ Forthcoming
 -----------
 * mujoco_sim counts its /clock readers as kinematic_sim does: another clock source is no
   reader (clock_readers()).
+* test_example_launch checks that every process of the example exits 0 at the shutdown
+  signal.
 
 0.5.1 (2026-10-29)
 ------------------

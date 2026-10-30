@@ -38,6 +38,7 @@ import pytest
 from action_msgs.msg import GoalStatus, GoalStatusArray
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from vectorfield_system_tests.follower import FollowerHarness
+from vectorfield_system_tests.shutdown import TestCleanShutdown  # noqa: F401
 
 from vectorfield_msgs.action import FollowCurve
 from vectorfield_system_tests import launch
