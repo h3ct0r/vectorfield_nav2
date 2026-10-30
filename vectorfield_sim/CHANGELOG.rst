@@ -2,6 +2,14 @@
 Changelog for package vectorfield_sim
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* shutdown_last <command> (executable, a launch prefix): runs a simulator that is not ours
+  so that it stops after the nodes that read its /clock, as kinematic_sim does. The command
+  runs in its own process group (a terminal's Ctrl+C reaches only shutdown_last), gets
+  SIGINT once no node reads /clock (at most 4 s) and SIGTERM at once, and ends with
+  shutdown_last.
+
 0.5.1 (2026-10-29)
 ------------------
 * kinematic_sim keeps publishing /clock after SIGINT or SIGTERM while another node reads it

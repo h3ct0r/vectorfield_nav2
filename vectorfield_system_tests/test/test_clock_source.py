@@ -16,7 +16,8 @@
 
 launch signals every process at once; a node shutting down can wait on simulated time, so
 after SIGINT a simulator keeps publishing /clock while another node subscribes to it, and
-exits once none does (vectorfield_ros/clock_source.hpp).
+exits once none does (vectorfield_ros/clock_source.hpp). A simulator that is not ours runs
+under vectorfield_sim's shutdown_last, which holds the signal back from it until then.
 """
 
 import os
@@ -107,3 +108,128 @@ def test_no_clock_no_grace(reader):
         assert time.monotonic() - signalled < 2.0, 'point_sim_3d waited for the /clock reader'
     finally:
         _stop(process)
+
+
+# A simulator that is not ours: it publishes /clock at 10 Hz from 1000 s and dies of SIGINT, as
+# Jazzy's Python loopback simulator does. It prints its pid first.
+FAKE_SIMULATOR = """
+import os, time
+import rclpy
+from rosgraph_msgs.msg import Clock
+rclpy.init()
+node = rclpy.create_node('fake_simulator')
+publisher = node.create_publisher(Clock, '/clock', 10)
+print(os.getpid(), flush=True)
+stamp = 10_000
+while True:
+    msg = Clock()
+    msg.clock.sec, msg.clock.nanosec = divmod(stamp * 100_000_000, 1_000_000_000)
+    publisher.publish(msg)
+    stamp += 1
+    time.sleep(0.1)
+"""
+
+
+def _start_last(*command):
+    """Start shutdown_last in its own session: killpg() on it then acts as a terminal's Ctrl+C."""
+    return subprocess.Popen(
+        [
+            os.path.join(
+                get_package_prefix('vectorfield_sim'), 'lib', 'vectorfield_sim', 'shutdown_last'
+            ),
+            *command,
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+
+
+def _start_fake(reader):
+    """Start the fake simulator under shutdown_last; return the wrapper and the simulator's pid."""
+    process = _start_last('python3', '-c', FAKE_SIMULATOR)
+    pid = int(process.stdout.readline())
+    _spin_for(reader, 30.0, lambda: reader.count_publishers('/clock') >= 1)
+    assert reader.count_publishers('/clock') >= 1, 'the fake simulator published no /clock'
+    return process, pid
+
+
+def _alive(pid):
+    """Whether process ``pid`` runs (a zombie does not)."""
+    try:
+        with open(f'/proc/{pid}/stat', encoding='utf-8') as stat:
+            return stat.read().rsplit(')', 1)[1].split()[0] != 'Z'
+    except FileNotFoundError:
+        return False
+
+
+def test_shutdown_last_stops_its_command_after_the_readers(reader):
+    """A terminal's Ctrl+C reaches only shutdown_last; the clock runs until its reader leaves."""
+    stamps = []
+    subscription = reader.create_subscription(Clock, '/clock', stamps.append, QOS)
+    process, pid = _start_fake(reader)
+    try:
+        _spin_for(reader, 30.0, lambda: stamps)
+        os.killpg(process.pid, signal.SIGINT)
+        signalled = len(stamps)
+        _spin_for(reader, 1.0)
+        assert process.poll() is None and _alive(pid), 'the simulator stopped while it was read'
+        assert len(stamps) > signalled + 5, 'the clock stopped while it was read'
+        reader.destroy_subscription(subscription)
+        left = time.monotonic()
+        # The simulator died of the forwarded SIGINT: a clean stop.
+        assert process.wait(timeout=10.0) == 0
+        assert time.monotonic() - left < 2.0, 'shutdown_last waited for its grace period'
+        assert not _alive(pid)
+    finally:
+        _stop(process)
+
+
+def test_shutdown_last_without_readers_stops_at_once(reader):
+    """Nobody reads /clock: the signal goes on at once."""
+    process, pid = _start_fake(reader)
+    try:
+        os.killpg(process.pid, signal.SIGINT)
+        signalled = time.monotonic()
+        assert process.wait(timeout=10.0) == 0
+        assert time.monotonic() - signalled < 1.5
+        assert not _alive(pid)
+    finally:
+        _stop(process)
+
+
+def test_shutdown_last_forwards_sigterm_at_once(reader):
+    """SIGTERM is not held back, even while the clock has a reader; it is no clean stop."""
+    reader.create_subscription(Clock, '/clock', lambda _: None, QOS)
+    process, pid = _start_fake(reader)
+    try:
+        process.send_signal(signal.SIGTERM)
+        signalled = time.monotonic()
+        # rclpy's handler shuts the simulator's context down, and its next publish fails.
+        assert process.wait(timeout=10.0) != 0
+        assert time.monotonic() - signalled < 1.0
+        assert not _alive(pid)
+    finally:
+        _stop(process)
+
+
+def test_shutdown_last_takes_its_command_along(reader):
+    """Killed shutdown_last: its command gets SIGTERM and ends too."""
+    process, pid = _start_fake(reader)
+    try:
+        process.kill()
+        process.wait(timeout=10.0)
+        end = time.monotonic() + 2.0
+        while _alive(pid) and time.monotonic() < end:
+            time.sleep(0.05)
+        assert not _alive(pid), 'the simulator outlived shutdown_last'
+    finally:
+        _stop(process)
+        if _alive(pid):
+            os.kill(pid, signal.SIGKILL)
+
+
+def test_shutdown_last_returns_the_command_status():
+    """The command's own exit status, and 127 for a command that does not exist."""
+    assert _start_last('sh', '-c', 'exit 3').wait(timeout=10.0) == 3
+    assert _start_last('/nonexistent/simulator').wait(timeout=10.0) == 127

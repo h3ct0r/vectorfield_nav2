@@ -2,6 +2,11 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* mujoco_sim counts its /clock readers as kinematic_sim does: another clock source is no
+  reader (clock_readers()).
+
 0.5.1 (2026-10-29)
 ------------------
 * The Ackermann example plans once and replans only when the path becomes invalid

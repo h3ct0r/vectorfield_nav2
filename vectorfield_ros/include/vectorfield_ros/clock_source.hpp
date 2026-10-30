@@ -22,16 +22,21 @@
 /// the wait never ends, and launch has to kill the process. After SIGINT or SIGTERM a simulator
 /// that publishes `/clock` therefore keeps running while another node subscribes to it, for at
 /// most kClockSourceGrace, below launch's 5 s before it escalates to SIGTERM (vectorfield_mujoco's
-/// mujoco_sim does the same with its CLOCK_GRACE).
+/// mujoco_sim does the same with its CLOCK_GRACE). vectorfield_sim's shutdown_last does it for a
+/// simulator that is not ours: it holds the shutdown signal back from it.
 
 #ifndef VECTORFIELD_ROS__CLOCK_SOURCE_HPP_
 #define VECTORFIELD_ROS__CLOCK_SOURCE_HPP_
 
 #include <chrono>
 #include <csignal>
+#include <cstddef>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <set>
+#include <string>
+#include <utility>
 
 #include "rclcpp/rclcpp.hpp"
 
@@ -57,11 +62,29 @@ inline bool publishesClock(rclcpp::Node & node)
   }
   return false;
 }
+
+/// The `/clock` subscriptions of nodes that publish no `/clock`: the clock's readers. A clock
+/// source on simulated time subscribes too; counting it would let two sources keep each other
+/// running for the whole grace.
+inline std::size_t clockReaders(rclcpp::Node & node)
+{
+  std::set<std::pair<std::string, std::string>> sources;
+  for (const auto & info : node.get_publishers_info_by_topic("/clock")) {
+    sources.emplace(info.node_name(), info.node_namespace());
+  }
+  std::size_t readers = 0;
+  for (const auto & info : node.get_subscriptions_info_by_topic("/clock")) {
+    if (sources.count({info.node_name(), info.node_namespace()}) == 0U) {
+      ++readers;
+    }
+  }
+  return readers;
+}
 }  // namespace detail
 
 /// @brief Run the node `make()` returns until SIGINT or SIGTERM, then, if it publishes `/clock`,
-/// until no other node subscribes to `/clock` or kClockSourceGrace has passed; return main()'s
-/// exit status.
+/// until no node reads `/clock` (detail::clockReaders()) or kClockSourceGrace has passed; return
+/// main()'s exit status.
 ///
 /// rclcpp is initialised without its signal handlers, so the node keeps publishing after the
 /// signal. An exception from `make()` or a callback is logged as FATAL under `name` (status 1).
@@ -74,8 +97,6 @@ int runClockSource(int argc, char ** argv, const char * name, MakeNode make)
   int status = 0;
   try {
     const std::shared_ptr<rclcpp::Node> node = make();
-    // The node's own subscription, when it runs on simulated time itself.
-    const std::size_t own = node->get_parameter("use_sim_time").as_bool() ? 1U : 0U;
     rclcpp::executors::SingleThreadedExecutor executor;
     executor.add_node(node);
     // A timer on the same executor watches the flag: spin() serves every callback that is ready
@@ -89,7 +110,7 @@ int runClockSource(int argc, char ** argv, const char * name, MakeNode make)
       if (!deadline) {
         deadline = detail::publishesClock(*node) ? now + kClockSourceGrace : now;
       }
-      if (now >= *deadline || node->count_subscribers("/clock") <= own) {
+      if (now >= *deadline || detail::clockReaders(*node) == 0U) {
         executor.cancel();
       }
     });

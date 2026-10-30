@@ -1180,15 +1180,31 @@ class MujocoSim(Node):
         self._viewer_threads = []
 
 
+def clock_readers(node):
+    """Return the number of /clock subscriptions of nodes that publish no /clock.
+
+    A clock source on simulated time subscribes too; counting it would let two sources keep each
+    other running for the whole grace.
+    """
+    sources = {
+        (info.node_name, info.node_namespace)
+        for info in node.get_publishers_info_by_topic('/clock')
+    }
+    return sum(
+        1
+        for info in node.get_subscriptions_info_by_topic('/clock')
+        if (info.node_name, info.node_namespace) not in sources
+    )
+
+
 def spin_clock_source(node, signalled, grace=CLOCK_GRACE, on_signal=None):
-    """Spin ``node`` until ``signalled()`` is true, then until no other node subscribes to /clock.
+    """Spin ``node`` until ``signalled()`` is true, then while some node reads /clock.
 
     ``on_signal`` runs once, when the signal is seen. At most ``grace`` wall-clock seconds pass
-    after the signal (:data:`CLOCK_GRACE`).
+    after the signal (:data:`CLOCK_GRACE`). Readers are counted by :func:`clock_readers`.
     """
     from rclpy.executors import SingleThreadedExecutor
 
-    own = 1 if node.get_parameter('use_sim_time').value else 0
     executor = SingleThreadedExecutor(context=node.context)
     executor.add_node(node)
     try:
@@ -1199,7 +1215,7 @@ def spin_clock_source(node, signalled, grace=CLOCK_GRACE, on_signal=None):
         deadline = time.monotonic() + grace
         while (
             rclpy.ok(context=node.context)
-            and node.count_subscribers('/clock') > own
+            and clock_readers(node) > 0
             and time.monotonic() < deadline
         ):
             executor.spin_once(timeout_sec=0.02)

@@ -426,3 +426,28 @@ def test_the_clock_outlives_its_readers():
         assert time.monotonic() - start < 2.0  # nobody reads it any more
     finally:
         rclpy.shutdown(context=context)
+
+
+def test_other_clock_sources_are_no_readers():
+    """A node that publishes /clock and reads it (another simulator) keeps no source running."""
+    import time
+
+    from rclpy.context import Context
+
+    context = Context()
+    rclpy.init(context=context)
+    try:
+        source = rclpy.create_node('clock_source', context=context)
+        other = rclpy.create_node('other_clock_source', context=context)
+        other.create_publisher(Clock, '/clock', 1)
+        other.create_subscription(Clock, '/clock', lambda _: None, 1)
+        end = time.monotonic() + 5.0
+        while source.count_subscribers('/clock') < 1 and time.monotonic() < end:
+            time.sleep(0.01)
+        assert source.count_subscribers('/clock') == 1
+        assert sim_node.clock_readers(source) == 0
+        start = time.monotonic()
+        sim_node.spin_clock_source(source, lambda: True, grace=5.0)
+        assert time.monotonic() - start < 2.0
+    finally:
+        rclpy.shutdown(context=context)

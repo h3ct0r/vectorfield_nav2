@@ -11,6 +11,9 @@ Forthcoming
   executes it. The methods and their semantics are Nav2's, except is_cancel_requested(),
   which is the running goal's flag (Nav2 reports the pending goal's).
 * compat::SimpleActionServer and compat::makeActionServer() are removed.
+* clock_source.hpp: a clock source waits after the signal for the /clock subscribers that
+  publish no /clock themselves (detail::clockReaders()), so two clock sources no longer keep
+  each other running for the whole grace.
 
 0.5.1 (2026-10-29)
 ------------------

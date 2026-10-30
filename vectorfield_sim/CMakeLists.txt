@@ -79,6 +79,13 @@ target_link_libraries(kinematic_sim PRIVATE ${PROJECT_NAME}_node)
 set_target_properties(kinematic_sim PROPERTIES CXX_EXTENSIONS OFF)
 vf_set_warnings(kinematic_sim)
 
+# shutdown_last runs a simulator that is not ours so that it stops after its /clock readers.
+add_executable(shutdown_last src/shutdown_last.cpp)
+target_link_libraries(shutdown_last PRIVATE vectorfield_ros::vectorfield_ros)
+vf_link_ament_deps(shutdown_last PRIVATE rclcpp)
+set_target_properties(shutdown_last PROPERTIES CXX_EXTENSIONS OFF)
+vf_set_warnings(shutdown_last)
+
 install(
   DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}
@@ -91,7 +98,7 @@ install(
   RUNTIME DESTINATION bin
 )
 install(
-  TARGETS kinematic_sim
+  TARGETS kinematic_sim shutdown_last
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

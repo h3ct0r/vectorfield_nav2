@@ -22,6 +22,8 @@ named `vectorfield_sim`. Launch it through `kinematic_sim_demo.launch.py` in
   `cmd_vel_timeout` (0.5 s of simulated time; 0 disables it) is replaced by zero.
 - **Time:** the node is the time source. Each step publishes `/clock`, and every stamp is
   simulated time. Steps run at `real_time_factor` (1.0) times real time; 0 stops the timer.
+  After SIGINT or SIGTERM the simulation runs on while another node reads `/clock` (at most
+  4 s), so nodes that wait on simulated time while they shut down (Nav2's) can finish.
 - **Outputs:** `odom` (with the executed body twist), the TF `odom → base_footprint`, a static
   `map → odom` (from `initial_pose_x`, `initial_pose_y`, `initial_pose_yaw`) and
   `~/ground_truth` (the true pose in the map frame). `odom`, its TF and `~/ground_truth` are
@@ -45,6 +47,17 @@ named `vectorfield_sim`. Launch it through `kinematic_sim_demo.launch.py` in
 
 Every parameter except the two obstacle lists is read-only. The pure parts (`KinematicPlant`,
 `RayCaster`, the obstacle parsers) are in the ROS-free library `vectorfield_sim`.
+
+## shutdown_last
+
+`shutdown_last <command> [args...]` (executable, usually a launch prefix) does the same for a
+simulator that is not ours and stops at the shutdown signal (Nav2's loopback simulator, Gazebo
+and its ros_gz_bridge); the loopback and Gazebo demos of `vectorfield_bringup` run them under
+it. It starts the command in its own process group, so a terminal's Ctrl+C reaches only
+`shutdown_last`, and forwards SIGINT to that group once no node reads `/clock` (subscribers that
+do not publish `/clock` themselves), at most 4 s later. SIGTERM is forwarded at once, and the
+command gets SIGTERM if `shutdown_last` dies. Its exit status is the command's (0 when the command
+died of the forwarded SIGINT, 128 + the signal for any other).
 
 ## Limitations
 
