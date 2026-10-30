@@ -20,8 +20,9 @@ this order (:func:`merged_params`):
 1. the bringup motion-model overlay of the robot (``config/controller/<model>.yaml``);
 2. for the curve follower, bringup's ``config/scenario/curve_follower.yaml``;
 3. ``config/mujoco_sim.yaml``: the simulator's defaults and the velocity smoother's scaling;
-4. ``config/robots/<robot>.yaml``: footprint, limits within the actuators, slip compensation;
-5. the scenario's ``params`` (Nav2 behaviour only, never a limit).
+4. ``config/nav2.yaml``: Nav2 settings of the ground examples;
+5. ``config/robots/<robot>.yaml``: footprint, limits within the actuators, slip compensation;
+6. the scenario's ``params`` (Nav2 behaviour only, never a limit).
 
 An aerial robot (:data:`AERIAL_ROBOTS`) has no Nav2 and no motion-model overlay: its parameters
 are ``config/mujoco_sim.yaml``, ``config/robots/<robot>.yaml`` (the 3D follower's limits, body
@@ -248,9 +249,9 @@ def driver_of(scenario):
 
 
 def overlay_paths(robot, driver, share_dir=None, bringup_share_dir=None):
-    """Return the overlay files of :func:`merged_params`, in merge order (steps 1 to 4).
+    """Return the overlay files of :func:`merged_params`, in merge order (steps 1 to 5).
 
-    The 3D follower's (``follower_3d``) are only steps 3 and 4: an aerial robot has no Nav2.
+    The 3D follower's (``follower_3d``) are only steps 3 and 5: an aerial robot has no Nav2.
     """
     from vectorfield_bringup import demo
 
@@ -264,6 +265,7 @@ def overlay_paths(robot, driver, share_dir=None, bringup_share_dir=None):
     scenarios = ['curve_follower'] if driver == 'curve_follower' else []
     return demo.overlay_paths(ROBOT_MODELS.get(robot, robot), scenarios, bringup_share_dir) + [
         share('config', 'mujoco_sim.yaml', share_dir=share_dir),
+        share('config', 'nav2.yaml', share_dir=share_dir),
         robot_config(robot, share_dir),
     ]
 

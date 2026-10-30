@@ -180,8 +180,9 @@ NoValidControl and Nav2 aborted the goal. While the filter changes the field the
 turns as in a contour episode: the speed factor is $\max(\cos e, \tfrac12)$ and the heading error
 does not set kHeadingInfeasible, so the car keeps moving and turns at $R_{\min}$ toward
 $F^\star$. The collision cap and the hold still stop it where that turn would collide (pointed at
-the box from close up it only creeps under the cap). Once the filter no longer binds, a heading
-more than 90° from the path's field is kHeadingInfeasible again. The hold rule is unchanged: where the filter stops a car, kBlocked follows, the
+the box from close up it only creeps under the cap). Without collision detection there is no cap,
+so the filter grants no turn and such a heading stays kHeadingInfeasible. Once the filter no
+longer binds, a heading more than 90° from the path's field is kHeadingInfeasible again. The hold rule is unchanged: where the filter stops a car, kBlocked follows, the
 plugin raises NoValidControl and Nav2 replans. Head-on, the car stops where $\tilde h = 0$:
 $R_{\min} + \delta_{\mathrm{safe}}$ from the face at the axle. There it can still turn away at
 full lock, which leaves a Hybrid-A* replan room. A gap narrower than $2\delta_{\mathrm{safe}}$
@@ -216,7 +217,8 @@ beside the reverse leg of a cusp plan: passed backwards with $\min h \ge -3$ mm.
 $\mu = R_{\min}(1 - \sin\beta)$, 0 when parallel, receding or not a car. (g) A lagging heading:
 the car 0.85 or 1.25 m before a box beside the path, heading 0.6 to 1.2 rad toward its side:
 never kHeadingInfeasible, no collision, settled (six of its nine starts stopped with
-kHeadingInfeasible before the turn rule). Layer 2: a box 0.12 m
+kHeadingInfeasible before the turn rule). (h) The same box, 0.85 m ahead at 0.9 and 1.2 rad,
+with `use_collision_detection: false`: kHeadingInfeasible, no collision. Layer 2: a box 0.12 m
 beside an Ackermann plan passes with clearance $\ge m - \mathrm{res}$. System test (Ackermann,
 kinematic): an unmapped box 0.1 m beside the path succeeds with clearance $\ge m - \mathrm{res}$
 and no infeasible command at the simulator.

@@ -123,8 +123,8 @@ struct LawInput
   double vertex_spacing{0.0};
   /// The field is time-varying: \f$\partial_t\psi_d\f$ is probed (math_spec §7.4).
   bool time_varying{false};
-  /// A contour episode is active, or the CBF filter changes the field (math_spec §6.6, §6.7
-  /// [Design]). Ackermann only: the speed factor \f$\cos e\f$ is floored at
+  /// A contour episode is active, or the CBF filter changes the field with collision detection on
+  /// (math_spec §6.6, §6.7 [Design]). Ackermann only: the speed factor \f$\cos e\f$ is floored at
   /// kObstacleTurnSpeedFactor and \f$\lvert e\rvert > \pi/2\f$ does not set kHeadingInfeasible,
   /// so the car keeps turning at \f$R_{\min}\f$ toward the field.
   bool obstacle_turn{false};

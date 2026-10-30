@@ -369,6 +369,13 @@ def _follower3d_defaults():
     return {k: v['default_value'] for k, v in group.items() if isinstance(v, dict)}
 
 
+@pytest.mark.parametrize('driver', ['nav2', 'curve_follower'])
+def test_ground_examples_wait_a_second_for_an_answer(driver):
+    """bt_navigator waits 1 s, not Nav2's 20 ms, for a server to answer (config/nav2.yaml)."""
+    merged = _merged('scout_mini', driver)
+    assert _node(merged, 'bt_navigator')['default_server_timeout'] == 1000
+
+
 def test_drone_config_has_no_nav2():
     """The drone merges config/mujoco_sim.yaml and its robot config only: no Nav2 server."""
     paths = examples.overlay_paths(DRONE, 'follower_3d', share_dir=SHARE)

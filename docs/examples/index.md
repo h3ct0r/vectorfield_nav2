@@ -208,9 +208,11 @@ The parameters are merged in this order, later files winning:
 1. vectorfield_bringup's motion-model overlay (`config/controller/<model>.yaml`), as in the
    kinematic demos;
 2. `vectorfield_mujoco/config/mujoco_sim.yaml`, shared by every example;
-3. `config/robots/<robot>.yaml`: the robot's footprint, the controller and smoother limits
+3. `vectorfield_mujoco/config/nav2.yaml`, Nav2 settings of the ground examples (bt_navigator
+   waits 1 s, not 20 ms, for a server to answer);
+4. `config/robots/<robot>.yaml`: the robot's footprint, the controller and smoother limits
    within its actuators, the lidar;
-4. the `params` of `config/scenarios/<example>.yaml`.
+5. the `params` of `config/scenarios/<example>.yaml`.
 
 The scenario file also holds the start pose, the unmapped obstacles, the route (Nav2 waypoints,
 or a curve and its laps) and how the gallery clip is filmed. `run_scenario` drives it once the

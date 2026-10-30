@@ -6,16 +6,19 @@ Changelog for package vectorfield_bringup
 ------------------
 * The kinematic-sim and loopback demos give bt_navigator a 1 s default_server_timeout instead
   of Nav2's 20 ms, so a loaded machine no longer aborts a goal before the planner accepts it.
-* The demos' component containers preload Nav2's lifecycle manager library (Jazzy and later).
-  The manager leaves a pre-shutdown callback in the global context, which the context
-  destroyed at exit after the container had unloaded the library: the curve follower's
-  container ended every run with a segmentation fault.
+* The demos' component containers preload Nav2's lifecycle manager library. The manager leaves
+  a pre-shutdown callback in the global context, which the context destroyed at exit after the
+  container had unloaded the library: the curve follower's container ended every run with a
+  segmentation fault (Jazzy and later; on Humble the container hung before it got there).
 * On Humble the demos' containers are this package's isolated_container: Humble's
   component_container_isolated waits forever after a shutdown signal for its executors to spin
-  again (rclcpp_components 16.0), and launch had to kill every container after 15 s.
+  again (rclcpp_components 16.0), and launch had to kill every container after 15 s. It is
+  built where rclcpp_components is older than 17, not by ROS_DISTRO, which a package build does
+  not always set.
 * Lyrical: the demos' lifecycle_manager_navigation runs without bonds. At a shutdown signal the
   manager reset the servers whose bonds had just broken, and the cleanup of bt_navigator or a
-  costmap deadlocked with the context's shutdown, so launch killed Nav2's container.
+  costmap deadlocked with the context's shutdown, so launch killed Nav2's container. The
+  loopback overlay does the same for nav2_bringup's lifecycle_manager_nav2 (Lyrical's name).
 
 0.5.0 (2026-10-25)
 ------------------

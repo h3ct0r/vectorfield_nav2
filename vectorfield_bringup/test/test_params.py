@@ -444,9 +444,9 @@ def test_refuse_unsupported():
 
 
 def test_containers_preload_the_lifecycle_manager(monkeypatch):
-    """From Jazzy on, a container keeps Nav2's lifecycle manager loaded until it exits."""
+    """A container keeps Nav2's lifecycle manager loaded until it exits, on every distro."""
     monkeypatch.setenv('LD_PRELOAD', 'libother.so')
-    library = demo.lifecycle_manager_library('jazzy')
+    library = demo.lifecycle_manager_library()
     if library is None:
         pytest.skip('nav2_lifecycle_manager is not installed')
     assert library.endswith('libnav2_lifecycle_manager_core.so') and os.path.isfile(library)
@@ -458,11 +458,10 @@ def test_containers_preload_the_lifecycle_manager(monkeypatch):
             for name, value in container.additional_env or []
         }
 
-    container = demo.component_container('c', [], 'jazzy')
-    assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}
-    assert demo.lifecycle_manager_library('humble') is None
+    for distro in ('humble', 'jazzy', 'lyrical'):
+        container = demo.component_container('c', [], distro)
+        assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}, distro
     humble = demo.component_container('c', [], 'humble')
-    assert environment(humble) == {}
     assert (humble.node_package, humble.node_executable) == (demo.PACKAGE, 'isolated_container')
 
 
@@ -477,4 +476,5 @@ def test_lifecycle_manager_bond_timeout():
     assert 'bond_timeout' not in default
     assert default['use_sim_time'] is False
     unbonded = parameters(demo.lifecycle_manager('m', ['a'], composed=True, bond_timeout=0))
-    assert unbonded['bond_timeout'] == 0.0
+    # Nav2 declares a double: an integer override aborts the manager.
+    assert unbonded['bond_timeout'] == 0.0 and isinstance(unbonded['bond_timeout'], float)

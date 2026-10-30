@@ -400,7 +400,6 @@ def test_aerial_commands_follow_their_frame(aerial):
 
 def test_the_clock_outlives_its_readers():
     """After the signal, spin_clock_source returns once no other node subscribes to /clock."""
-    import threading
     import time
 
     from rclpy.context import Context
@@ -414,14 +413,16 @@ def test_the_clock_outlives_its_readers():
         end = time.monotonic() + 5.0
         while source.count_subscribers('/clock') < 1 and time.monotonic() < end:
             time.sleep(0.01)
-        signalled = threading.Event()
-        signalled.set()
+        signals = []
         start = time.monotonic()
-        sim_node.spin_clock_source(source, signalled, grace=0.5)
+        sim_node.spin_clock_source(
+            source, lambda: True, grace=0.5, on_signal=lambda: signals.append(True)
+        )
         assert time.monotonic() - start >= 0.5  # read until the grace ran out
+        assert signals == [True]  # on_signal ran once
         reader.destroy_subscription(subscription)
         start = time.monotonic()
-        sim_node.spin_clock_source(source, signalled, grace=5.0)
+        sim_node.spin_clock_source(source, lambda: True, grace=5.0)
         assert time.monotonic() - start < 2.0  # nobody reads it any more
     finally:
         rclpy.shutdown(context=context)

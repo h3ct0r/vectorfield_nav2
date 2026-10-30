@@ -221,7 +221,10 @@ protected:
   {
     // nav2_util's SimpleActionServer parks a goal that arrives while the previous goal's worker
     // thread is exiting in its pending slot, and nothing runs it: let that thread finish.
-    std::this_thread::sleep_for(100ms);
+    if (goal_sent_) {
+      std::this_thread::sleep_for(100ms);
+    }
+    goal_sent_ = true;
     auto goal_future = client_->async_send_goal(goal);
     if (goal_future.wait_for(10s) != std::future_status::ready) {
       ADD_FAILURE() << "goal not answered";
@@ -259,6 +262,7 @@ protected:
   std::thread spinner_;
   std::thread simulator_;
   std::atomic<bool> stop_{false};
+  bool goal_sent_{false};
 };
 
 TEST_F(FollowerSmoke, ClosedCurveGoalSucceedsWithOneLapThenSilence)

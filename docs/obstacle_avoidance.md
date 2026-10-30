@@ -194,7 +194,8 @@ contour of an Ackermann base differs in four ways ({ref}`sec-contour-ackermann`,
   window, as the shipped `ackermann.yaml` does.
 - **Turning while the field turns.** During an episode the car keeps at least half the field
   speed and turns at $R_{\min}$ toward the field, even when the field points more than 90° away
-  from its heading. The CBF mode does the same while its filter changes the field. Otherwise that
+  from its heading. The CBF mode does the same while its filter changes the field, with
+  `use_collision_detection` on (the collision cap keeps that turn off the obstacle). Otherwise that
   case is `STATUS_HEADING_INFEASIBLE`. Commands always
   satisfy $\lvert\omega\rvert \le \lvert v\rvert / R_{\min}$ (`STATUS_CURVATURE_SATURATED`
   while the turn is at the limit).

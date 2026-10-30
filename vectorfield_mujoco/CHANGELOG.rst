@@ -10,7 +10,10 @@ Changelog for package vectorfield_mujoco
   where the car stopped.
 * mujoco_sim keeps publishing /clock after SIGINT or SIGTERM while another node reads it (at
   most 4 s): Ctrl+C no longer leaves Nav2's container waiting on simulated time until launch
-  kills it.
+  kills it. The signal finishes the recording at once, and while the node is being built (a
+  first-run Menagerie download) SIGINT and SIGTERM still interrupt it.
+* config/nav2.yaml, merged by the ground examples: bt_navigator waits 1 s, not Nav2's 20 ms, for
+  a server to answer, as in vectorfield_bringup's kinematic demos.
 
 0.5.0 (2026-10-25)
 ------------------

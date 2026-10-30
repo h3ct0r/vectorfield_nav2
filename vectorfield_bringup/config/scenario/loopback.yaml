@@ -28,3 +28,11 @@ velocity_smoother:
 bt_navigator:
   ros__parameters:
     default_server_timeout: 1000
+
+# Lyrical's nav2_bringup runs the servers under lifecycle_manager_nav2 (the name exists only
+# there). Without bonds, as the kinematic demos' lifecycle_manager_navigation: at a shutdown
+# signal the bonded manager resets the servers, and the cleanup of bt_navigator or a costmap
+# deadlocks with the context's shutdown, so launch kills Nav2's container.
+lifecycle_manager_nav2:
+  ros__parameters:
+    bond_timeout: 0.0

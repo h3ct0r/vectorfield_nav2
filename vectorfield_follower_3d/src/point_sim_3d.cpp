@@ -22,15 +22,15 @@
 /// `global_frame → base_frame` and, with `publish_clock`, `/clock` at `real_time_factor`. A
 /// command older than `cmd_timeout` counts as zero (an autopilot's failsafe). Optional extras: a
 /// frame moving with a constant body twist (`moving_frame`: TF and Odometry), and a PointCloud2
-/// of the surfaces of `obstacle_spheres` (dynamic) on `cloud_topic`. After a shutdown signal
-/// it keeps running while other nodes read `/clock` (vectorfield_ros/clock_source.hpp).
+/// of the surfaces of `obstacle_spheres` (dynamic) on `cloud_topic`. After a shutdown signal,
+/// with `publish_clock`, it keeps running while other nodes read `/clock`
+/// (vectorfield_ros/clock_source.hpp).
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include <exception>
 #include <memory>
 #include <mutex>
 #include <stdexcept>

@@ -46,10 +46,11 @@ install(
 )
 
 # Humble's component_container_isolated never exits after a shutdown signal (rclcpp_components
-# 16.0); the demos start this replacement there (src/isolated_container.cpp).
-if("$ENV{ROS_DISTRO}" STREQUAL "humble")
+# 16); the demos start this replacement there (src/isolated_container.cpp). Probed by version:
+# a package build does not always set ROS_DISTRO.
+find_package(rclcpp_components QUIET)
+if(rclcpp_components_FOUND AND rclcpp_components_VERSION VERSION_LESS 17)
   find_package(rclcpp REQUIRED)
-  find_package(rclcpp_components REQUIRED)
   add_executable(isolated_container src/isolated_container.cpp)
   target_link_libraries(isolated_container PRIVATE
     rclcpp::rclcpp rclcpp_components::component_manager)

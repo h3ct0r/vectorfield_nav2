@@ -121,7 +121,7 @@ VIEWER_RATE = 30.0
 #: Wall-clock seconds the node keeps running after SIGINT or SIGTERM while another node
 #: subscribes to /clock: a node shutting down can wait on simulated time (Nav2's collision
 #: monitor looks up transforms with a timeout), and would wait forever with the clock gone.
-#: Below launch's 5 s before SIGTERM.
+#: Below launch's 5 s before SIGTERM; vectorfield_ros::kClockSourceGrace is the C++ simulators'.
 CLOCK_GRACE = 4.0
 
 
@@ -1150,10 +1150,8 @@ class MujocoSim(Node):
             self.overlays.draw(self._viewer.user_scn)
         self._viewer.sync()
 
-    def close(self):
-        """Finish the recording and close the views."""
-        if self._timer is not None:
-            self._timer.cancel()
+    def finish_recording(self):
+        """Close the recording, if one is running; later ticks capture nothing."""
         if self._recorder is not None:
             recorder, self._recorder = self._recorder, None
             try:
@@ -1162,6 +1160,12 @@ class MujocoSim(Node):
                 self.get_logger().error(f'recording to {recorder.path} failed: {e}')
             else:
                 self.get_logger().info(f'recorded {recorder.frames} frames to {recorder.path}')
+
+    def close(self):
+        """Finish the recording and close the views."""
+        if self._timer is not None:
+            self._timer.cancel()
+        self.finish_recording()
         if self._camera is not None:
             self._camera[0].close()
             self._camera = None
@@ -1176,26 +1180,29 @@ class MujocoSim(Node):
         self._viewer_threads = []
 
 
-def spin_clock_source(node, signalled, grace=CLOCK_GRACE):
-    """Spin ``node`` until ``signalled`` is set, then until no other node subscribes to /clock.
+def spin_clock_source(node, signalled, grace=CLOCK_GRACE, on_signal=None):
+    """Spin ``node`` until ``signalled()`` is true, then until no other node subscribes to /clock.
 
-    At most ``grace`` wall-clock seconds pass after the signal (:data:`CLOCK_GRACE`).
+    ``on_signal`` runs once, when the signal is seen. At most ``grace`` wall-clock seconds pass
+    after the signal (:data:`CLOCK_GRACE`).
     """
     from rclpy.executors import SingleThreadedExecutor
 
     own = 1 if node.get_parameter('use_sim_time').value else 0
     executor = SingleThreadedExecutor(context=node.context)
     executor.add_node(node)
-    deadline = None
     try:
-        while rclpy.ok(context=node.context):
+        while rclpy.ok(context=node.context) and not signalled():
             executor.spin_once(timeout_sec=0.02)
-            if not signalled.is_set():
-                continue
-            now = time.monotonic()
-            deadline = deadline or now + grace
-            if node.count_subscribers('/clock') <= own or now >= deadline:
-                return
+        if on_signal is not None:
+            on_signal()
+        deadline = time.monotonic() + grace
+        while (
+            rclpy.ok(context=node.context)
+            and node.count_subscribers('/clock') > own
+            and time.monotonic() < deadline
+        ):
+            executor.spin_once(timeout_sec=0.02)
     finally:
         executor.remove_node(node)
         executor.shutdown()
@@ -1204,31 +1211,26 @@ def spin_clock_source(node, signalled, grace=CLOCK_GRACE):
 def main(args=None):
     """Run the node until it is shut down; the recording is finished either way.
 
-    rclpy is initialised without its signal handlers: after SIGINT or SIGTERM the simulation
-    keeps publishing /clock while other nodes read it (:func:`spin_clock_source`).
+    rclpy is initialised without its signal handlers. While the node is built, SIGINT and SIGTERM
+    raise KeyboardInterrupt (a first-run Menagerie download stops and cleans up). Once it runs,
+    they finish the recording and the simulation keeps publishing /clock while other nodes read it
+    (:func:`spin_clock_source`).
     """
     from rclpy.signals import SignalHandlerOptions
 
     gl.configure()  # Before anything imports mujoco: MuJoCo reads MUJOCO_GL once.
     rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
-    signalled = threading.Event()
-    for signum in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(signum, lambda *_: signalled.set())
-    try:
-        from rclpy.executors import ExternalShutdownException
-    except ImportError:  # pragma: no cover - very old rclpy
-        ExternalShutdownException = KeyboardInterrupt  # noqa: N806
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
+    # The running node's handler only appends: no lock, so a nested signal cannot block it.
+    signals = []
     node = None
     try:
         node = MujocoSim()
-        spin_clock_source(node, signalled)
-    except (KeyboardInterrupt, ExternalShutdownException):
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(signum, lambda *_: signals.append(True))
+        spin_clock_source(node, lambda: bool(signals), on_signal=node.finish_recording)
+    except KeyboardInterrupt:
         pass
-    except RuntimeError:
-        # A SIGINT can shut rclpy down while its executor takes a message, and take_message
-        # then raises ("Unable to convert call argument"); only an error while running is one.
-        if node is None or rclpy.ok():
-            raise
     finally:
         viewer_used = False
         if node is not None:

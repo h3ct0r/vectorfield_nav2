@@ -85,9 +85,7 @@ private:
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
     dedicated.executor->cancel();
-    if (dedicated.thread.joinable()) {
-      dedicated.thread.join();
-    }
+    dedicated.thread.join();
   }
 
   std::unordered_map<uint64_t, Dedicated> executors_;

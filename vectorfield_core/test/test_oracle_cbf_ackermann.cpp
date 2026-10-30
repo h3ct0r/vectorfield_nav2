@@ -342,6 +342,26 @@ TEST(OracleCbfAckermann, O59g_LaggingHeadingTurnsBesideABox)
   }
 }
 
+// O59 (h) Without collision detection nothing but the collision cap's absence is left to keep that
+// turn off the box, so the CBF filter grants no turn: the two O59g geometries that only creep
+// under the cap (0.85 m before the box at 0.9 and 1.2 rad) stop with kHeadingInfeasible, as
+// before the turn rule, instead of turning into the box.
+TEST(OracleCbfAckermann, O59h_NoCbfTurnWithoutCollisionDetection)
+{
+  const Car & car = kCars[0];
+  for (const double yaw0 : {0.9, 1.2}) {
+    SCOPED_TRACE("yaw0 " + std::to_string(yaw0));
+    ObstacleWorld world(Vec2(-1.525, -2.525), 10.0, 5.0);
+    world.addBox(Vec2(2.85, 0.15), Vec2(3.15, 0.45));
+    world.commit();
+    vf::CoreConfig config = carConfig(car);
+    config.safety.use_collision_detection = false;
+    const CarRun m = runCar(config, world, Pose2{Vec2(2.0, 0.0), yaw0}, 7.0, 20.0);
+    EXPECT_EQ(m.collisions, 0) << describe(m);
+    EXPECT_GT(m.infeasible, 0) << describe(m);
+  }
+}
+
 // O59 (f) The turning margin itself: one step of the car (R_min = 1) at the origin, heading 0.5
 // rad, toward a wall whose face is across +x at x = 2. The first site is the face's nearest point
 // with n = −x (math_spec §6.1), so c = cos 0.5 and the margin is R_min (1 − sin 0.5); h_j stays

@@ -1188,7 +1188,8 @@ blocking set, the side probe, the latch and the watchdog are not used. The desig
   always feasible. While the filter changes the field, heading tracking turns as in a contour
   episode ({ref}`sec-laws-ack`): a heading error above $\pi/2$ (a car whose heading lags $F^\star$)
   is not kHeadingInfeasible; the car keeps at least half the field speed and turns at $R_{\min}$
-  toward $F^\star$, and the collision cap and the hold stop it if that turn would collide. $\mu_j$ uses the base heading
+  toward $F^\star$, and the collision cap and the hold stop it if that turn would collide. Without
+  collision detection (no cap) the filter grants no such turn. $\mu_j$ uses the base heading
   (probes too); $h_j$, the hold and the markers keep $D_j - \delta_{\mathrm{safe}}$. The band
   $v_{\mathrm{ack}}$ and the hold are unchanged: below the band speed the car closes in at
   $v_{\mathrm{ack}}$ until the hold sets kBlocked, and stops within $v_{\mathrm{ack}}^2/(2a_{\mathrm{dec}})$.
@@ -1323,9 +1324,10 @@ symmetric in the sign of $v$.
 - **Curvature.** $\lvert\omega\rvert \le \lvert v \rvert/R_{\min}$ after scaling and limiting
   (kCurvatureSaturated).
 - **Contour episode or active CBF filter** [Design]: speed factor $\max(\cos e, \tfrac12)$, and no
-  kHeadingInfeasible from $\lvert e\rvert > \pi/2$ ({ref}`sec-contour-ackermann`, §6.7).
+  kHeadingInfeasible from $\lvert e\rvert > \pi/2$ ({ref}`sec-contour-ackermann`, §6.7); the CBF
+  filter only with collision detection on.
 - **kHeadingInfeasible** when $\lvert e \rvert > \pi/2$ at $p_r$ outside a contour episode and with the
-  CBF filter inactive; or $\sigma_{\mathrm{base}} < 0$ while XY
+  CBF filter inactive (or collision detection off); or $\sigma_{\mathrm{base}} < 0$ while XY
   is not reached; or, at settled and only if $\mathrm{yaw\_tol} > 10^{-6}$,
   $\lvert \operatorname{wrap}(\psi_{\mathrm{goal}} - \psi) \rvert > \mathrm{yaw\_tol}$. It leads to
   STOPPED; Nav2 replans or aborts.
@@ -2043,7 +2045,8 @@ $n^\top(\dot x - v_c)$ computed from the command mapped back through $M^{-1}$ (F
   to it, receding, or for another model. (g) A lagging heading: the car on the path 0.85 or 1.25 m
   before a 0.3 m box whose near face is 0.15 or 0.30 m from it, heading 0.6 to 1.2 rad toward the
   box's side ($F^\star$ up to about 115° from the heading): never kHeadingInfeasible, no collision,
-  $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$, settled at the goal.
+  $\lvert\omega\rvert \le \lvert v\rvert/R_{\min}$, settled at the goal. (h) The same box 0.85 m ahead
+  at 0.9 and 1.2 rad with `use_collision_detection: false`: kHeadingInfeasible, no collision.
 
 ### 12.6 Laws
 

@@ -186,6 +186,12 @@ def test_demos_wait_a_second_for_goal_acknowledgement(scenario):
     assert navigator['default_server_timeout'] == 1000
 
 
+def test_loopback_runs_lyricals_manager_without_bonds():
+    """Lyrical's lifecycle_manager_nav2 gets bond_timeout 0.0, a double as Nav2 declares it."""
+    manager = _node(_merged('differential', ('loopback',)), 'lifecycle_manager_nav2')
+    assert manager['bond_timeout'] == 0.0 and isinstance(manager['bond_timeout'], float)
+
+
 @pytest.mark.parametrize(
     'path',
     sorted(CONTROLLER.glob('*.yaml'))

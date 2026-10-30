@@ -1129,8 +1129,11 @@ Twist2 translationTarget(
   law_input.vertex_spacing = env.vertex_spacing;
   law_input.time_varying = env.time_varying;
   // A car turns around an obstacle (contour episode or CBF filter) instead of stopping when its
-  // heading lags the field by more than 90 degrees (math_spec §6.6, §6.7).
-  law_input.obstacle_turn = st->contour.active || (sample.cbf.on && sample.cbf.active);
+  // heading lags the field by more than 90 degrees (math_spec §6.6, §6.7). Under the CBF filter
+  // only the collision cap keeps that turn off the obstacle: without collision detection the car
+  // stops (kHeadingInfeasible) as before.
+  law_input.obstacle_turn =
+    st->contour.active || (sample.cbf.active && model.config.safety.use_collision_detection);
 
   const double cbf_delta = sample.cbf.on ? sample.cbf.delta : kNaN;
   const ProbeContext probe{&env, st, pose, t, point.x_ref, result->shaping, cbf_delta};

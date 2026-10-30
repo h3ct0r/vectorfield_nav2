@@ -6,14 +6,17 @@ Changelog for package vectorfield_nav2
 ------------------
 * Ackermann: while a contour episode or the CBF filter bends the field more than 90 degrees from
   the car's heading, the car keeps turning toward it at its minimum radius (half speed) instead
-  of stopping with kHeadingInfeasible.
+  of stopping with kHeadingInfeasible (the CBF filter only with collision detection on).
 * MuJoCo Ackermann example: Nav2 plans once and replans only when the path becomes invalid; the
   1 Hz replans sometimes bent the path toward the unmapped box and stopped the car beside it.
-* Demos: bt_navigator waits 1 s, not 20 ms, for a server to accept a goal.
-* Clean shutdowns: the simulators keep /clock running until its readers have shut down; the
-  demos' containers keep Nav2's lifecycle manager library loaded (no segmentation fault at exit),
-  Humble's use a container without component_container_isolated's shutdown hang, and Lyrical's
-  navigation manager runs without bonds (no shutdown deadlock).
+* Demos and MuJoCo examples: bt_navigator waits 1 s, not 20 ms, for a server to accept a goal.
+* Shutdowns: the simulators keep /clock running until its readers have shut down; the
+  containers the demos start keep Nav2's lifecycle manager library loaded (no segmentation fault
+  at exit), Humble's use a container without component_container_isolated's shutdown hang, and
+  Lyrical's navigation managers run without bonds (no shutdown deadlock). The loopback and
+  Gazebo demos run nav2_bringup's own container and simulator: they keep the container's exit
+  crash (Jazzy and later), and the container can still wait at shutdown once their simulator has
+  stopped /clock.
 
 0.5.0 (2026-10-25)
 ------------------
