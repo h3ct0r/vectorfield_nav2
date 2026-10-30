@@ -105,7 +105,8 @@ protected:
     client_node_ = std::make_shared<rclcpp::Node>("vf_goal_client", options_);
     rclcpp::ExecutorOptions executor_options;
     executor_options.context = context_;
-    client_executor_ = std::make_unique<rclcpp::executors::SingleThreadedExecutor>(executor_options);
+    client_executor_ =
+      std::make_unique<rclcpp::executors::SingleThreadedExecutor>(executor_options);
     client_executor_->add_node(client_node_);
     client_thread_ = std::thread([this]() { client_executor_->spin(); });
     client_ = rclcpp_action::create_client<FollowCurve>(client_node_, "vf_goal_action");
@@ -457,7 +458,9 @@ TEST_F(SingleGoalActionServerTest, ACreatedAndDestroyedServerNeverHangs)
 {
   for (int i = 0; i < 20; ++i) {
     const auto start = std::chrono::steady_clock::now();
-    { Server server(server_node_, "vf_goal_action_" + std::to_string(i), []() {}, 100ms); }
+    {
+      Server server(server_node_, "vf_goal_action_" + std::to_string(i), []() {}, 100ms);
+    }
     EXPECT_LT(std::chrono::steady_clock::now() - start, 1s) << "iteration " << i;
   }
 }
@@ -465,7 +468,8 @@ TEST_F(SingleGoalActionServerTest, ACreatedAndDestroyedServerNeverHangs)
 TEST_F(SingleGoalActionServerTest, ServesOnALifecycleNode)
 {
   execute_ = [this]() { server_->succeeded_current(); };
-  const auto node = std::make_shared<rclcpp_lifecycle::LifecycleNode>("vf_goal_lifecycle", options_);
+  const auto node =
+    std::make_shared<rclcpp_lifecycle::LifecycleNode>("vf_goal_lifecycle", options_);
   makeServer(node);
   ASSERT_NE(send(1), nullptr);
   EXPECT_EQ(resultOf(1), ResultCode::SUCCEEDED);

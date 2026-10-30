@@ -329,8 +329,7 @@ private:
   {
     try {
       while (rclcpp::ok(context_) &&
-             stop_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-      {
+             stop_future_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
         executor_->spin_until_future_complete(stop_future_, std::chrono::milliseconds(100));
       }
     } catch (const rclcpp::exceptions::RCLError & error) {

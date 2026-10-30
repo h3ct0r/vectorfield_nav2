@@ -635,8 +635,7 @@ struct CurveFollower::Impl
     std::string active;
     const auto settle_deadline = std::chrono::steady_clock::now() + kInterlockSettle;
     while (nav2Active(&active) && !deactivating &&
-           std::chrono::steady_clock::now() < settle_deadline)
-    {
+           std::chrono::steady_clock::now() < settle_deadline) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     if (nav2Active(&active)) {
