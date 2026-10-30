@@ -7,9 +7,8 @@ Changelog for package vectorfield_bringup
 * loopback_demo starts the simulator side of nav2_bringup's TB3 loopback wrapper itself
   (robot_state_publisher with the TB3 URDF, Nav2's loopback simulator) and Nav2 through
   nav2_demo_actions(), as kinematic_sim_demo does: its container preloads the lifecycle
-  manager (no crash at exit), Lyrical's lifecycle_manager_navigation runs without bonds,
-  and it takes the use_composition argument. loopback.yaml no longer sets
-  lifecycle_manager_nav2.
+  manager (no crash at exit), its lifecycle managers run without bonds, and it takes the
+  use_composition argument. loopback.yaml no longer sets lifecycle_manager_nav2.
 * loopback_demo starts the loopback simulator once map_server serves the map
   (wait_for_map): Jazzy's simulator fetches the map once, and crashed at its first scan on
   the empty map of a map_server that was not active yet.
@@ -18,8 +17,9 @@ Changelog for package vectorfield_bringup
   preload the lifecycle manager into nav2_bringup's container (LD_PRELOAD for the included
   launch file) and apply the new gazebo scenario overlay (1 s default_server_timeout,
   Lyrical's lifecycle_manager_nav2 without bonds).
-
-0.5.1 (2026-10-29)
+* Every lifecycle manager the demos start runs without bonds (demo.MANAGER_PARAMETERS), not
+  only Lyrical's lifecycle_manager_navigation: on Lyrical, lifecycle_manager_map_server reset
+  map_server in the middle of its shutdown cleanup and Nav2's container crashed at exit.
 ------------------
 * The kinematic-sim and loopback demos give bt_navigator a 1 s default_server_timeout instead
   of Nav2's 20 ms, so a loaded machine no longer aborts a goal before the planner accepts it.

@@ -346,10 +346,17 @@ NAV2_CONTAINER = 'nav2_container'
 #: With use_composition, the curve follower and its lifecycle manager share this container.
 FOLLOWER_CONTAINER = 'curve_follower_container'
 
-#: The lifecycle managers the demos start keep wall time: on simulated time a bond timeout that
-#: starts before /clock has been discovered starts at time 0, and the first /clock message then
-#: expires it at once.
-MANAGER_CLOCK = {'use_sim_time': False}
+#: The parameters of every lifecycle manager the demos start, besides autostart and node_names.
+#:
+#: - No bonds: at a shutdown signal the managed nodes break their bonds in their pre-shutdown
+#:   callbacks, and a bonded manager then resets them from its own thread while the shutdown
+#:   cleans them up. On Lyrical that deadlocks the container (cleaning up bt_navigator or a
+#:   costmap removes a pre-shutdown callback, which waits for the context while the context's
+#:   shutdown waits for the manager's thread) or crashes it (map_server reset in the middle of
+#:   its own cleanup). A demo then gives up restarting a crashed node.
+#: - Wall time: on simulated time a timeout that starts before /clock has been discovered
+#:   starts at time 0, and the first /clock message then expires it at once.
+MANAGER_PARAMETERS = {'bond_timeout': 0.0, 'use_sim_time': False}
 
 
 def sim_cmd_vel_topic(distro):
@@ -373,14 +380,9 @@ def lifecycle_node(package, plugin, executable, name, parameters, composed):
     )
 
 
-def lifecycle_manager(name, node_names, composed, bond_timeout=None):
-    """Return a lifecycle manager with autostart for ``node_names``, on wall time.
-
-    ``bond_timeout`` (s, 0 for no bonds) replaces the manager's default when given.
-    """
-    parameters = [{'autostart': True, 'node_names': list(node_names), **MANAGER_CLOCK}]
-    if bond_timeout is not None:
-        parameters[0]['bond_timeout'] = float(bond_timeout)
+def lifecycle_manager(name, node_names, composed):
+    """Return a lifecycle manager with autostart for ``node_names``: :data:`MANAGER_PARAMETERS`."""
+    parameters = [{'autostart': True, 'node_names': list(node_names), **MANAGER_PARAMETERS}]
     return lifecycle_node(
         'nav2_lifecycle_manager',
         'nav2_lifecycle_manager::LifecycleManager',
@@ -434,15 +436,8 @@ def nav2_demo_actions(
     # Lyrical's navigation_launch.py no longer starts a lifecycle manager (bringup_launch.py does).
     navigation_nodes = navigation_lifecycle_nodes(context)
     if navigation_nodes:
-        # Without bonds: at a shutdown signal the servers break their bonds in their pre-shutdown
-        # callbacks, and Lyrical's manager then resets them from its own thread. Cleaning up
-        # bt_navigator (its tree's nodes) or a server's costmap removes a pre-shutdown callback,
-        # which waits for the context while the context's shutdown waits for that manager thread:
-        # the container never exits.
         managed.append(
-            lifecycle_manager(
-                'lifecycle_manager_navigation', navigation_nodes, composed, bond_timeout=0.0
-            )
+            lifecycle_manager('lifecycle_manager_navigation', navigation_nodes, composed)
         )
     if distro == 'humble':
         # Humble's navigation_launch.py has no collision_monitor; this one turns cmd_vel into
@@ -514,9 +509,7 @@ def curve_follower_actions(merged, distro, composed=True):
         {FOLLOWER: {'ros__parameters': follower_parameters(merged)}}
     )
     follower_params = [follower_file, {'use_sim_time': True}]
-    # Wall time, as the Nav2 managers: a bond timeout started on simulated time before /clock
-    # is discovered would expire on the first /clock message.
-    manager_parameters = [{'autostart': True, 'node_names': [FOLLOWER], **MANAGER_CLOCK}]
+    manager_parameters = [{'autostart': True, 'node_names': [FOLLOWER], **MANAGER_PARAMETERS}]
     if composed:
         # One process: a manager in another process can lose a change_state response to
         # discovery under load, and the manager then waits for it forever.
@@ -580,14 +573,12 @@ def follower3d_actions(parameters, use_rviz):
         output='screen',
         parameters=list(parameters),
     )
-    # Wall time, as the other demos' managers: a bond timeout started on simulated time before
-    # /clock is discovered would expire on the first /clock message.
     manager = Node(
         package='nav2_lifecycle_manager',
         executable='lifecycle_manager',
         name='lifecycle_manager_follower_3d',
         output='screen',
-        parameters=[{'autostart': True, 'node_names': [FOLLOWER_3D], **MANAGER_CLOCK}],
+        parameters=[{'autostart': True, 'node_names': [FOLLOWER_3D], **MANAGER_PARAMETERS}],
     )
     return [follower, manager, rviz_node(use_rviz, 'follower_3d.rviz')]
 

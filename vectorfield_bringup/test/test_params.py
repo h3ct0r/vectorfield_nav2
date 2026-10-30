@@ -506,16 +506,12 @@ def test_shutdown_last_wraps_only_the_named_executables():
         assert not re.match(pattern, executable), executable
 
 
-def test_lifecycle_manager_bond_timeout():
-    """A manager keeps Nav2's bond timeout unless one is given (0: no bonds)."""
-
-    def parameters(manager):
-        (values,) = manager.parameters
-        return {''.join(s.text for s in name): value for name, value in values.items()}
-
-    default = parameters(demo.lifecycle_manager('m', ['a'], composed=True))
-    assert 'bond_timeout' not in default
-    assert default['use_sim_time'] is False
-    unbonded = parameters(demo.lifecycle_manager('m', ['a'], composed=True, bond_timeout=0))
-    # Nav2 declares a double: an integer override aborts the manager.
-    assert unbonded['bond_timeout'] == 0.0 and isinstance(unbonded['bond_timeout'], float)
+def test_lifecycle_managers_run_without_bonds_on_wall_time():
+    """The demos' managers have no bonds (a double, as Nav2 declares it) and keep wall time."""
+    assert demo.MANAGER_PARAMETERS == {'bond_timeout': 0.0, 'use_sim_time': False}
+    # An integer override aborts Nav2's manager.
+    assert isinstance(demo.MANAGER_PARAMETERS['bond_timeout'], float)
+    (values,) = demo.lifecycle_manager('m', ['a'], composed=True).parameters
+    found = {''.join(s.text for s in name): value for name, value in values.items()}
+    assert found['bond_timeout'] == 0.0 and isinstance(found['bond_timeout'], float)
+    assert found['use_sim_time'] is False
