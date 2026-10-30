@@ -2,8 +2,8 @@
 Changelog for package vectorfield_curve_follower
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-10-30)
+------------------
 * Goals run on vectorfield_ros::SingleGoalActionServer: a goal sent right after the previous
   goal's result always runs (Nav2's SimpleActionServer could accept it and never execute
   it). Cancelling a pending goal no longer ends the running one.

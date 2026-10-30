@@ -2,8 +2,8 @@
 Changelog for package vectorfield_ros
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-10-30)
+------------------
 * SingleGoalActionServer (single_goal_action_server.hpp): the followers' action server, on
   rclcpp_action, with one worker thread for the server's lifetime. Nav2's
   SimpleActionServer, which it replaces, can accept a goal and never run it: a goal that

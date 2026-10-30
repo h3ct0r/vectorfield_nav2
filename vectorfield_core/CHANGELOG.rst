@@ -2,6 +2,9 @@
 Changelog for package vectorfield_core
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.0 (2026-10-30)
+------------------
+
 0.5.1 (2026-10-29)
 ------------------
 * CBF for Ackermann: while the filter changes the field, a heading more than 90 degrees from it

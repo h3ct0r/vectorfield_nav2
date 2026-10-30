@@ -2,8 +2,8 @@
 Changelog for package vectorfield_system_tests
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-10-30)
+------------------
 * test_clock_source: shutdown_last holds SIGINT back while /clock has a reader (also at a
   terminal's Ctrl+C), forwards it once the reader leaves or at once without one, forwards
   SIGTERM at once, takes its command along when it is killed, and returns the command's

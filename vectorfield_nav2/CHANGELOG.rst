@@ -2,6 +2,20 @@
 Changelog for package vectorfield_nav2
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.6.0 (2026-10-30)
+------------------
+* Followers: goals run on a race-free action server (vectorfield_ros::SingleGoalActionServer).
+  Nav2's SimpleActionServer could accept a goal sent right after the previous goal's result and
+  never run it. Cancelling a pending goal no longer ends the running one;
+  compat::SimpleActionServer and compat::makeActionServer() are removed.
+* Shutdowns: the loopback demo runs Nav2 as the kinematic demo does (a preloaded container,
+  Lyrical's managers without bonds) and starts the loopback simulator once the map is served (no
+  start-up crash on Jazzy). The loopback and Gazebo demos stop their simulator after Nav2
+  (vectorfield_sim's shutdown_last), and the Gazebo demos preload the lifecycle manager into
+  nav2_bringup's container. Lyrical's Gazebo demos can still meet Nav2's own shutdown races (see
+  vectorfield_bringup's README).
+* Tests: every demo launch test checks that each process exits 0 at the shutdown signal.
+
 0.5.1 (2026-10-29)
 ------------------
 * Ackermann: while a contour episode or the CBF filter bends the field more than 90 degrees from

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_msgs</name>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <description>Interface definitions for vectorfield_nav2: the Curve and FieldState messages and the FollowCurve action used by the vector-field controller plugin and the curve follower.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

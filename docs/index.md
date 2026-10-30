@@ -63,7 +63,7 @@ ROS-free core shared by every front end.
 :::{admonition} Release status
 :class: note
 
-0.5.1 is released. The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build
+0.6.0 is released. The binary packages (`ros-<distro>-vectorfield-nav2`) wait on the ROS build
 farm; until they are out, build from source ({doc}`quickstart`). The
 [releases](https://github.com/h3ct0r/vectorfield_nav2/releases) list what each one changed.
 :::

@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_nav2_controller</name>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <description>Nav2 controller plugin (nav2_core::Controller) that tracks the global plan with the artificial vector field of Rezende, Gonçalves and Pimenta (IEEE T-RO 2022), with costmap obstacle contouring, collision prediction and differential, skid-steer, omnidirectional and Ackermann motion models.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

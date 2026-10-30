@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_follower_3d</name>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <description>Experimental 3D curve follower for drones and other robots that take a 3D velocity setpoint: a lifecycle component with a FollowCurve3 action server around the vectorfield_core 3D tracker (moving frames, CBF obstacle avoidance against primitives and a voxelised point cloud), and a kinematic point simulator for tests and demos.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

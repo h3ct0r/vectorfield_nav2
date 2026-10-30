@@ -2,8 +2,8 @@
 Changelog for package vectorfield_bringup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-10-30)
+------------------
 * loopback_demo starts the simulator side of nav2_bringup's TB3 loopback wrapper itself
   (robot_state_publisher with the TB3 URDF, Nav2's loopback simulator) and Nav2 through
   nav2_demo_actions(), as kinematic_sim_demo does: its container preloads the lifecycle

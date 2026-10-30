@@ -2,7 +2,7 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>vectorfield_system_tests</name>
-  <version>0.5.1</version>
+  <version>0.6.0</version>
   <description>Cross-package integration and launch tests for vectorfield_nav2: navigation per distro and motion model in simulation, obstacle scenarios, shipped-configuration validation and controller comparison. Not released.</description>
   <maintainer email="hector@dcc.ufmg.br">Héctor Azpúrua</maintainer>
   <license>Apache-2.0</license>

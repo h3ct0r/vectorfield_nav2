@@ -60,7 +60,7 @@ upstream defects that motivated this decision is in the design documents
 - **Examples:** one MuJoCo launch per mode, on robot models from the MuJoCo Menagerie and
   others: differential, skid-steer, omnidirectional, Ackermann and a drone ({doc}`examples/index`).
 
-0.5.1 is released; the binary packages wait on the ROS build farm. The
+0.6.0 is released; the binary packages wait on the ROS build farm. The
 [releases](https://github.com/h3ct0r/vectorfield_nav2/releases) list what each one changed, and
 {doc}`quickstart` runs the demos.
 

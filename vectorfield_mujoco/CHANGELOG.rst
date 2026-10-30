@@ -2,8 +2,8 @@
 Changelog for package vectorfield_mujoco
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.6.0 (2026-10-30)
+------------------
 * mujoco_sim counts its /clock readers as kinematic_sim does: another clock source is no
   reader (clock_readers()).
 * test_example_launch checks that every process of the example exits 0 at the shutdown
