@@ -68,6 +68,12 @@ def _spin_for(node, seconds, until=lambda: False):
         rclpy.spin_once(node, timeout_sec=0.02)
 
 
+def _wait_for_node(reader, name):
+    """Wait until node ``name`` is in the graph, so its process takes signals."""
+    _spin_for(reader, 30.0, lambda: name in reader.get_node_names())
+    assert name in reader.get_node_names(), f'{name} did not start'
+
+
 @pytest.mark.parametrize('package, executable', SIMULATORS, ids=[s[1] for s in SIMULATORS])
 def test_the_clock_outlives_its_readers(reader, package, executable):
     """After SIGINT the clock runs while it has a reader, and stops soon after the last one."""
@@ -180,6 +186,24 @@ def test_shutdown_last_stops_its_command_after_the_readers(reader):
         # The simulator died of the forwarded SIGINT: a clean stop.
         assert process.wait(timeout=10.0) == 0
         assert time.monotonic() - left < 2.0, 'shutdown_last waited for its grace period'
+        assert not _alive(pid)
+    finally:
+        _stop(process)
+
+
+def test_shutdown_last_holds_an_early_signal_back(reader):
+    """A Ctrl+C right after start-up, before shutdown_last may have discovered the reader."""
+    subscription = reader.create_subscription(Clock, '/clock', lambda _: None, QOS)
+    process = _start_last('python3', '-c', FAKE_SIMULATOR)
+    try:
+        _wait_for_node(reader, f'shutdown_last_{process.pid}')
+        os.killpg(process.pid, signal.SIGINT)
+        _spin_for(reader, 1.5)
+        assert process.poll() is None, 'the simulator stopped while it was read'
+        pid = int(process.stdout.readline())
+        assert _alive(pid)
+        reader.destroy_subscription(subscription)
+        assert process.wait(timeout=10.0) == 0
         assert not _alive(pid)
     finally:
         _stop(process)

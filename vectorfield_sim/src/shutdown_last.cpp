@@ -23,8 +23,8 @@
 /// on transforms that no longer come, while they shut down, until launch kills them. This
 /// process runs the command in its own process group, so that a terminal's Ctrl+C (which signals
 /// the whole foreground group) reaches only this process, and forwards SIGINT to that group once
-/// no node reads `/clock` (vectorfield_ros::detail::clockReaders()) or after
-/// vectorfield_ros::kClockSourceGrace. SIGTERM is forwarded at once, and the command gets
+/// no node reads `/clock` (vectorfield_ros::detail::clockReaders(), believed after kDiscoveryTime)
+/// or after vectorfield_ros::kClockSourceGrace. SIGTERM is forwarded at once, and the command gets
 /// SIGTERM if this process dies (PR_SET_PDEATHSIG).
 ///
 /// Exit status: the command's; 0 when it died of the SIGINT forwarded to it (Python's default
@@ -65,6 +65,11 @@ void onSignal(int number)
 /// How often the command and the readers are checked.
 constexpr std::chrono::milliseconds kPoll{20};
 
+/// How long this process's node is in the graph before it believes that no node reads `/clock`.
+/// It starts with the command, and a reader it has not discovered yet would otherwise lose its
+/// clock to an early Ctrl+C. Discovery has no end to wait for; on one host it takes far less.
+constexpr std::chrono::seconds kDiscoveryTime{1};
+
 }  // namespace
 
 int main(int argc, char ** argv)
@@ -104,6 +109,7 @@ int main(int argc, char ** argv)
   rclcpp::init(1, argv, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
   const auto node =
     std::make_shared<rclcpp::Node>("shutdown_last_" + std::to_string(static_cast<long>(getpid())));
+  const auto created = std::chrono::steady_clock::now();
 
   std::optional<std::chrono::steady_clock::time_point> deadline;
   int forwarded = 0;
@@ -126,7 +132,9 @@ int main(int argc, char ** argv)
       if (!deadline) {
         deadline = now + vectorfield_ros::kClockSourceGrace;
       }
-      if (now >= *deadline || vectorfield_ros::detail::clockReaders(*node) == 0U) {
+      if (
+        now >= *deadline ||
+        (now - created >= kDiscoveryTime && vectorfield_ros::detail::clockReaders(*node) == 0U)) {
         kill(-child, SIGINT);
         forwarded = SIGINT;
       }

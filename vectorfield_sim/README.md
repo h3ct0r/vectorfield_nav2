@@ -55,7 +55,8 @@ simulator that is not ours and stops at the shutdown signal (Nav2's loopback sim
 and its ros_gz_bridge); the loopback and Gazebo demos of `vectorfield_bringup` run them under
 it. It starts the command in its own process group, so a terminal's Ctrl+C reaches only
 `shutdown_last`, and forwards SIGINT to that group once no node reads `/clock` (subscribers that
-do not publish `/clock` themselves), at most 4 s later. SIGTERM is forwarded at once, and the
+do not publish `/clock` themselves; it believes it sees none only after its own node has been in
+the graph for 1 s, to discover them), at most 4 s later. SIGTERM is forwarded at once, and the
 command gets SIGTERM if `shutdown_last` dies. Its exit status is the command's (0 when the command
 died of the forwarded SIGINT, 128 + the signal for any other).
 
