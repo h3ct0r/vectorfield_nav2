@@ -15,7 +15,7 @@ before each commit.
 
 ## Building this documentation
 
-The documentation needs Python 3.12 or later, Doxygen and Graphviz, but no ROS installation.
+The documentation needs Python 3.13 or later, Doxygen and Graphviz, but no ROS installation.
 From the repository root:
 
 ```bash
