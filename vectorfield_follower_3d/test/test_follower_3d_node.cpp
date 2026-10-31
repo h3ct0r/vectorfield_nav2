@@ -152,14 +152,28 @@ TEST_F(Follower3DTest, CancelDeceleratesThenOneZeroThenSilence)
 TEST_F(Follower3DTest, HoldBetweenGoalsStreamsZeroSetpoints)
 {
   start(RobotSetup{at(0.7, -0.1, 0.1), {rclcpp::Parameter("hold_between_goals", true)}});
-  // Before the first goal: a zero setpoint every control period (20 Hz). On simulated time a
-  // timer can skip periods when /clock updates arrive together (a loaded machine), so this only
-  // asks for a steady stream, well above PX4's 2 Hz offboard minimum.
-  const std::size_t idle_start = robot_->commands();
-  tickFor(1.0);
-  const std::size_t idle = robot_->commands() - idle_start;
-  EXPECT_GE(idle, 5U);
-  EXPECT_LE(idle, 21U);
+  // Runs `ticks` ticks, waiting after each for the zero the hold timer owes it, and returns how
+  // many got one. tick() cannot wait for a timer: without this wait, on a loaded machine the
+  // follower's executor can be starved while /clock moves on, and its timer then fires once for
+  // many steps, or not at all.
+  const auto hold_for = [this](int ticks) {
+    const std::size_t start = robot_->commands();
+    int held = 0;
+    for (int i = 0; i < ticks && !HasFatalFailure(); ++i) {
+      const std::size_t before = robot_->commands();
+      tick();
+      if (waitFor([&]() { return robot_->commands() > before; }, std::chrono::seconds(1))) {
+        ++held;
+      }
+    }
+    // One zero per control period. Up to two more can belong to earlier ticks, which returned
+    // once the robot had every command counted so far: a hold callback still running then, and
+    // the one the timer owed the last of them.
+    EXPECT_LE(robot_->commands() - start, static_cast<std::size_t>(ticks) + 2);
+    return held;
+  };
+  // Before the first goal: a zero setpoint every control period (20 Hz).
+  EXPECT_EQ(hold_for(20), 20);
   for (const d3::Twist3 & command : robot_->log()) {
     EXPECT_TRUE(isZero(command));
   }
@@ -180,10 +194,9 @@ TEST_F(Follower3DTest, HoldBetweenGoalsStreamsZeroSetpoints)
   for (std::size_t k = first; k <= last; ++k) {
     EXPECT_FALSE(isZero(log[k])) << "a zero among the goal's commands at " << k;
   }
-  // Afterwards the zeros resume.
-  const std::size_t after = robot_->commands();
-  tickFor(1.0);
-  EXPECT_GE(robot_->commands() - after, 5U);
+  // Afterwards the zeros resume; the first tick can still come before the goal's execute has
+  // returned.
+  EXPECT_GE(hold_for(20), 19);
   EXPECT_TRUE(isZero(robot_->log().back()));
 }
 
