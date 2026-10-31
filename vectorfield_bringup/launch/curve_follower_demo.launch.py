@@ -38,7 +38,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-from vectorfield_bringup import demo, params
+from vectorfield_bringup import demo
 
 SCENARIO = 'curve_follower'
 
@@ -67,7 +67,7 @@ def _launch_setup(context):
     # As kinematic_sim_demo: skid_steer compensates the simulator's slip.
     merged = demo.kinematic_sim_params(motion_model, ['kinematic_sim'] + scenarios)
     composed = IfCondition(LaunchConfiguration('use_composition')).evaluate(context)
-    return [simulation] + demo.curve_follower_actions(merged, params.ros_distro(), composed)
+    return [simulation] + demo.curve_follower_actions(merged, composed)
 
 
 def generate_launch_description():

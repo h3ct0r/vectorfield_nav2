@@ -252,32 +252,30 @@ def preload_lifecycle_manager(actions):
     return GroupAction([SetEnvironmentVariable('LD_PRELOAD', preload), *actions], scoped=True)
 
 
-def component_container(name, parameters, distro):
-    """Return a component container started as nav2_bringup starts its own on ``distro``.
+def component_container(name, parameters):
+    """Return this package's ``isolated_container``, the demos' component container.
 
-    component_container_isolated up to Kilted; Lyrical deprecates it for ``component_container
-    --isolated``. Either way every component gets its own single-threaded executor. On Humble,
-    whose component_container_isolated never exits after a shutdown signal, this package's
-    ``isolated_container`` does the same. The demos' containers hold a Nav2 lifecycle manager,
-    whose library is preloaded (:func:`lifecycle_manager_library`).
+    Every component gets its own single-threaded executor, as in nav2_bringup's container. At a
+    shutdown signal it has the Nav2 lifecycle managers among its components shut their nodes
+    down before the context shuts down (Nav2's own shutdown path cleans a node up while its
+    callbacks run, a crash at exit now and then), and on Humble it exits where
+    component_container_isolated waits forever. The demos' containers hold a Nav2 lifecycle
+    manager, whose library is preloaded (:func:`lifecycle_manager_library`).
     """
     from launch_ros.actions import Node
 
-    package = 'rclcpp_components'
-    if distro == 'humble':
-        package = PACKAGE
-        container = {'executable': 'isolated_container', 'arguments': []}
-    elif distro in ('jazzy', 'kilted'):
-        container = {'executable': 'component_container_isolated', 'arguments': []}
-    else:
-        container = {
-            'executable': 'component_container',
-            'arguments': ['--isolated', '--executor-type', 'single-threaded'],
-        }
+    container = {}
     preload = lifecycle_manager_preload()
     if preload:
         container['additional_env'] = {'LD_PRELOAD': preload}
-    return Node(package=package, name=name, parameters=parameters, output='screen', **container)
+    return Node(
+        package=PACKAGE,
+        executable='isolated_container',
+        name=name,
+        parameters=parameters,
+        output='screen',
+        **container,
+    )
 
 
 def shutdown_last(actions, executables):
@@ -393,6 +391,21 @@ def lifecycle_manager(name, node_names, composed):
     )
 
 
+def without_bonds(actions):
+    """Return ``actions`` in a scope where every node gets ``bond_timeout`` 0.0, as a global.
+
+    For a lifecycle manager another launch file starts with parameters of its own and no
+    parameter file (Humble's and Jazzy's navigation_launch.py): its ``bond_timeout`` is then the
+    one in :data:`MANAGER_PARAMETERS`. Nodes that declare no such parameter ignore it.
+    """
+    from launch.actions import GroupAction
+    from launch_ros.actions import SetParameter
+
+    return GroupAction(
+        [SetParameter('bond_timeout', MANAGER_PARAMETERS['bond_timeout']), *actions], scoped=True
+    )
+
+
 def nav2_demo_actions(
     context, distro, params_file, map_yaml, sim_actions, initial_pose, use_rviz, composed=True
 ):
@@ -403,7 +416,8 @@ def nav2_demo_actions(
     (``cmd_vel`` to ``cmd_vel_safe``, :func:`sim_cmd_vel_topic`) under
     lifecycle_manager_collision_monitor; with ``composed`` all of them in one component container
     (:data:`NAV2_CONTAINER`) that also loads the Nav2 servers; then ``sim_actions``, nav2_bringup's
-    navigation_launch.py with ``params_file``, initial_pose_publisher and RViz.
+    navigation_launch.py with ``params_file`` (up to Jazzy its own manager, :func:`without_bonds`),
+    initial_pose_publisher and RViz.
 
     Args:
         context: The launch context (navigation_launch.py's node list on Lyrical needs it).
@@ -468,7 +482,6 @@ def nav2_demo_actions(
                     ParameterFile(params_file, allow_substs=True),
                     {'autostart': True, 'use_sim_time': True},
                 ],
-                distro,
             ),
             LoadComposableNodes(
                 target_container=NAV2_CONTAINER, composable_node_descriptions=managed
@@ -489,6 +502,9 @@ def nav2_demo_actions(
             'container_name': NAV2_CONTAINER,
         }.items(),
     )
+    if not navigation_nodes:
+        # navigation_launch.py starts lifecycle_manager_navigation itself.
+        navigation = without_bonds([navigation])
     return (
         managed
         + list(sim_actions)
@@ -496,7 +512,7 @@ def nav2_demo_actions(
     )
 
 
-def curve_follower_actions(merged, distro, composed=True):
+def curve_follower_actions(merged, composed=True):
     """Return the curve follower and lifecycle_manager_curve_follower for merged parameters.
 
     The follower's parameters are :func:`follower_parameters` of ``merged``. With ``composed``
@@ -528,7 +544,7 @@ def curve_follower_actions(merged, distro, composed=True):
             ),
         ]
         return [
-            component_container(FOLLOWER_CONTAINER, [], distro),
+            component_container(FOLLOWER_CONTAINER, []),
             LoadComposableNodes(
                 target_container=FOLLOWER_CONTAINER, composable_node_descriptions=nodes
             ),

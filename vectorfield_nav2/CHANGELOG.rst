@@ -11,10 +11,11 @@ Changelog for package vectorfield_nav2
 * Shutdowns: the loopback demo runs Nav2 as the kinematic demo does (a preloaded container) and
   starts the loopback simulator once the map is served (no start-up crash on Jazzy). The loopback
   and Gazebo demos stop their simulator after Nav2 (vectorfield_sim's shutdown_last), and the
-  Gazebo demos preload the lifecycle manager into nav2_bringup's container. Every lifecycle manager
-  the demos start runs without bonds (on Lyrical, map_server's manager reset it during its shutdown
-  cleanup and the container crashed). Lyrical's Gazebo demos can still meet Nav2's own shutdown
-  races (see vectorfield_bringup's README).
+  Gazebo demos preload the lifecycle manager into nav2_bringup's container. At a shutdown signal
+  the demos' own container has Nav2's lifecycle managers shut their nodes down before the context
+  shuts down (no crash in a cleanup at exit), and every lifecycle manager in the demos runs
+  without bonds. Lyrical's Gazebo demos, in nav2_bringup's container, can still meet Nav2's own
+  shutdown races (see vectorfield_bringup's README).
 * Tests: every demo launch test checks that each process exits 0 at the shutdown signal.
 
 0.5.1 (2026-10-29)

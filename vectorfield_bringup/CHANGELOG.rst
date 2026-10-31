@@ -17,9 +17,22 @@ Changelog for package vectorfield_bringup
   preload the lifecycle manager into nav2_bringup's container (LD_PRELOAD for the included
   launch file) and apply the new gazebo scenario overlay (1 s default_server_timeout,
   Lyrical's lifecycle_manager_nav2 without bonds).
-* Every lifecycle manager the demos start runs without bonds (demo.MANAGER_PARAMETERS), not
-  only Lyrical's lifecycle_manager_navigation: on Lyrical, lifecycle_manager_map_server reset
-  map_server in the middle of its shutdown cleanup and Nav2's container crashed at exit.
+* Every lifecycle manager in the demos runs without bonds: those the demos start
+  (demo.MANAGER_PARAMETERS), not only Lyrical's lifecycle_manager_navigation, and the
+  lifecycle_manager_navigation of Humble's and Jazzy's navigation_launch.py (a global
+  bond_timeout, demo.without_bonds()). At a shutdown signal a bonded manager resets the nodes
+  whose bonds break, in the middle of their own cleanup (seen with Lyrical's
+  lifecycle_manager_map_server), and can wait for them forever (Humble).
+* The demos' container is isolated_container on every distro, not only on Humble. It takes
+  SIGINT and SIGTERM itself: at the first signal it asks the Nav2 lifecycle managers among its
+  components, the last loaded first, to shut their nodes down, and only then shuts the context
+  down (4 s at most; a SIGTERM cuts it short). Each node then deactivates and cleans up on its
+  own executor, between its callbacks. Before, Nav2's nodes cleaned up in a pre-shutdown callback
+  while their executors still ran, and a cleanup freed what a running callback used (Lyrical:
+  planner_server's costmap, docking_server), so the container crashed at exit now and then.
+  component_container() and curve_follower_actions() no longer take a distro.
+
+0.5.1 (2026-10-29)
 ------------------
 * The kinematic-sim and loopback demos give bt_navigator a 1 s default_server_timeout instead
   of Nav2's 20 ms, so a loaded machine no longer aborts a goal before the planner accepts it.

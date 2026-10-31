@@ -50,18 +50,17 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Humble's component_container_isolated never exits after a shutdown signal (rclcpp_components
-# 16); the demos start this replacement there (src/isolated_container.cpp). Probed by version:
-# a package build does not always set ROS_DISTRO.
-find_package(rclcpp_components QUIET)
-if(rclcpp_components_FOUND AND rclcpp_components_VERSION VERSION_LESS 17)
-  find_package(rclcpp REQUIRED)
-  add_executable(isolated_container src/isolated_container.cpp)
-  target_link_libraries(isolated_container PRIVATE
-    rclcpp::rclcpp rclcpp_components::component_manager)
-  target_compile_features(isolated_container PRIVATE cxx_std_17)
-  install(TARGETS isolated_container DESTINATION lib/${PROJECT_NAME})
-endif()
+# The demos' component container: at a shutdown signal it has Nav2's lifecycle managers shut
+# their nodes down first, and it exits after the signal on Humble too (src/isolated_container.cpp).
+find_package(nav2_msgs REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(std_srvs REQUIRED)
+add_executable(isolated_container src/isolated_container.cpp)
+target_link_libraries(isolated_container PRIVATE
+  ${nav2_msgs_TARGETS} ${std_srvs_TARGETS} rclcpp::rclcpp rclcpp_components::component_manager)
+target_compile_features(isolated_container PRIVATE cxx_std_17)
+install(TARGETS isolated_container DESTINATION lib/${PROJECT_NAME})
 
 # Install the resource directories that exist; their README.md files are not installed.
 foreach(_vf_dir IN ITEMS launch config behavior_trees maps rviz foxglove plotjuggler)

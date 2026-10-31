@@ -39,15 +39,18 @@ Each demo launch file exits with an error that names the supported distros when 
 the current one.
 
 On Ctrl+C the demos shut down within a few seconds. The simulators stop after Nav2's nodes,
-which wait on simulated time while they shut down: ours keep running while `/clock` has
-readers, and Nav2's loopback simulator and Gazebo run under `vectorfield_sim`'s
-`shutdown_last`, which holds the signal back from them. The demos' Nav2 containers preload the
-lifecycle manager's library, which a container would otherwise unload under the manager's own
-shutdown callback (a crash at every exit); in the Gazebo demos, whose container nav2_bringup
-starts, `LD_PRELOAD` is set for the included launch file. Nav2's own shutdown still has races:
-in Lyrical's Gazebo demos a server's cleanup can crash now and then, and a recovery behaviour
-(Wait, Spin, BackUp) under way at Ctrl+C runs to its end, past the 4 s the simulator waits, so
-launch kills the container.
+which wait on simulated time while they shut down: ours keep running while `/clock` has readers,
+and Nav2's loopback simulator and Gazebo run under `vectorfield_sim`'s `shutdown_last`, which
+holds the signal back from them. The demos' containers are this package's `isolated_container`:
+at the signal it has Nav2's lifecycle managers shut their nodes down before the context shuts
+down, so each node cleans up on its own executor (Nav2's own shutdown path cleans a node up
+while its callbacks run, a crash at exit now and then). They also preload the lifecycle
+manager's library, which a container would otherwise unload under the manager's own shutdown
+callback (a crash at every exit); in the Gazebo demos, whose container nav2_bringup starts,
+`LD_PRELOAD` is set for the included launch file. That container keeps Nav2's own shutdown
+races: in Lyrical's Gazebo demos a server's cleanup can crash now and then, and a recovery
+behaviour (Wait, Spin, BackUp) under way at Ctrl+C runs to its end, past the 4 s the simulator
+waits, so launch kills the container.
 
 Both Gazebo demos have been run headless on Jazzy (Gazebo Harmonic, software rendering) with the
 differential overlay: one NavigateToPose goal 1 m (TB3) and 2 m (TB4) ahead of the spawn pose

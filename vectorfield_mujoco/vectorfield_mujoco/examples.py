@@ -400,7 +400,7 @@ def _launch_setup(context, driver, example):
             context, distro, params_file, map_yaml, [sim], pose, arg('use_rviz'), composed
         )
     if driver == 'curve_follower':
-        actions += demo.curve_follower_actions(merged, distro, composed)
+        actions += demo.curve_follower_actions(merged, composed)
     if run and driver_of(scenario) is not None:
         # No name: a __node remapping would rename both of the runner's nodes.
         runner = Node(

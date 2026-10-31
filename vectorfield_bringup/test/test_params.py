@@ -458,11 +458,12 @@ def test_containers_preload_the_lifecycle_manager(monkeypatch):
             for name, value in container.additional_env or []
         }
 
-    for distro in ('humble', 'jazzy', 'lyrical'):
-        container = demo.component_container('c', [], distro)
-        assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}, distro
-    humble = demo.component_container('c', [], 'humble')
-    assert (humble.node_package, humble.node_executable) == (demo.PACKAGE, 'isolated_container')
+    container = demo.component_container('c', [])
+    assert environment(container) == {'LD_PRELOAD': f'libother.so {library}'}
+    assert (container.node_package, container.node_executable) == (
+        demo.PACKAGE,
+        'isolated_container',
+    )
 
 
 def test_an_included_container_preloads_the_lifecycle_manager(monkeypatch):
@@ -515,3 +516,16 @@ def test_lifecycle_managers_run_without_bonds_on_wall_time():
     found = {''.join(s.text for s in name): value for name, value in values.items()}
     assert found['bond_timeout'] == 0.0 and isinstance(found['bond_timeout'], float)
     assert found['use_sim_time'] is False
+
+
+def test_without_bonds_sets_a_global_bond_timeout():
+    """Nodes in the group get bond_timeout 0.0 (a double) as a global parameter."""
+    from launch import LaunchContext
+    from launch_ros.actions import SetParameter
+
+    group = demo.without_bonds([])
+    (setting,) = [a for a in group.get_sub_entities() if isinstance(a, SetParameter)]
+    context = LaunchContext()
+    setting.execute(context)
+    (parameter,) = context.launch_configurations['global_params']
+    assert parameter == ('bond_timeout', 0.0) and isinstance(parameter[1], float)

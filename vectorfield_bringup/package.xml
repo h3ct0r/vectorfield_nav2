@@ -14,8 +14,10 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>ament_cmake_python</buildtool_depend>
 
-  <depend condition="$ROS_DISTRO == humble">rclcpp</depend>
-  <depend condition="$ROS_DISTRO == humble">rclcpp_components</depend>
+  <depend>nav2_msgs</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>std_srvs</depend>
 
   <exec_depend>action_msgs</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
@@ -29,7 +31,6 @@
   <exec_depend>nav2_map_server</exec_depend>
   <exec_depend condition="$ROS_DISTRO != humble">nav2_minimal_tb3_sim</exec_depend>
   <exec_depend condition="$ROS_DISTRO != humble">nav2_minimal_tb4_sim</exec_depend>
-  <exec_depend>nav2_msgs</exec_depend>
   <exec_depend>nav2_simple_commander</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>navigation2</exec_depend>
