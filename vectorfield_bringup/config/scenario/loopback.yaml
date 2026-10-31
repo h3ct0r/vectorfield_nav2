@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Scenario overlay of loopback_demo.launch.py, merged after the motion-model
-# overlay. Nav2's loopback simulator keeps the stock loopback_simulator parameters (base_footprint,
-# base_scan); Nav2 runs as in kinematic_sim_demo, Lyrical's lifecycle_manager_navigation without
-# bonds (vectorfield_bringup.demo.nav2_demo_actions). Scenario overlays never set velocity_smoother limits; those belong to the
-# motion-model overlays in config/controller.
+# Scenario overlay of loopback_demo.launch.py, merged after the motion-model overlay. Nav2's
+# loopback simulator keeps the stock loopback_simulator parameters (base_footprint, base_scan);
+# Nav2 runs as in kinematic_sim_demo, Lyrical's lifecycle_manager_navigation without bonds
+# (vectorfield_bringup.demo.nav2_demo_actions). Scenario overlays never set velocity_smoother
+# limits; those belong to the motion-model overlays in config/controller.
 
 velocity_smoother:
   ros__parameters:
