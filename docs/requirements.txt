@@ -16,10 +16,10 @@
 # installation.
 # System tools: doxygen and graphviz (dot).
 sphinx==9.2.0
-myst-parser==5.1.0
+myst-parser==5.2.0
 breathe==5.1.0
 furo==2025.12.19
-sphinx-design==0.7.0
+sphinx-design==0.8.0
 sphinx-copybutton==0.5.2
 sphinxcontrib-bibtex==2.7.0
 
